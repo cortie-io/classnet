@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>네트워크관리사 2급 AI 튜터 — 관리자</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --border: #2a2f3a; --text: #e6e8ee;
+    --muted: #8b93a5; --accent: #5b8def; --verified: #3ecf8e; --flagged: #e6a23c; --cached: #8b93a5;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; background: var(--bg); color: var(--text); }
+  header { padding: 14px 24px; border-bottom: 1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  header h1 { font-size: 15px; margin:0; font-weight:600; }
+  nav { display:flex; gap:8px; }
+  nav button { background:none; border:1px solid var(--border); color: var(--muted); padding:6px 14px; border-radius:6px; cursor:pointer; font-size:13px; }
+  nav button.active { color: var(--text); border-color: var(--accent); background: #1a2540; }
+  main { max-width: 1100px; margin: 0 auto; padding: 20px 24px 80px; }
+  section { display:none; }
+  section.active { display:block; }
+  .card { background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:14px; }
+  textarea, input, select { width:100%; background:#0d0f13; border:1px solid var(--border); color:var(--text); border-radius:6px; padding:9px 10px; font-size:14px; font-family:inherit; }
+  label { font-size:12px; color:var(--muted); display:block; margin:10px 0 4px; }
+  button.primary { background: var(--accent); color:#fff; border:none; padding:9px 16px; border-radius:6px; cursor:pointer; font-size:14px; font-weight:600; }
+  button.ghost { background:none; border:1px solid var(--border); color:var(--text); padding:8px 14px; border-radius:6px; cursor:pointer; font-size:13px; }
+  .row { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
+  .row > * { flex:1; min-width:120px; }
+  table { width:100%; border-collapse: collapse; font-size:13px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); }
+  th { color: var(--muted); font-weight:500; }
+  tr:hover { background: #1a1d25; cursor:pointer; }
+  .badge { display:inline-block; font-size:11px; padding:2px 8px; border-radius:20px; margin-right:6px; font-weight:600; }
+  .badge.verified { background:#123a2a; color:var(--verified); }
+  .badge.flagged { background:#3a2c12; color:var(--flagged); }
+  .badge.cached { background:#22242c; color:var(--cached); }
+  .badge.rule_only { background:#12233a; color:#5b8def; }
+  .badge.admin { background:#3a1236; color:#e662d9; }
+  .error { color:#e56262; font-size:13px; margin-top:8px; }
+  .success { color:var(--verified); font-size:13px; margin-top:8px; }
+  .meta { font-size:12px; color:var(--muted); }
+  .empty { color: var(--muted); text-align:center; padding:24px; }
+  pre.detail { white-space:pre-wrap; background:#0d0f13; padding:12px; border-radius:6px; font-size:12px; max-height:400px; overflow:auto; }
+  #loginScreen { max-width:360px; margin:80px auto; }
+  #loginScreen h2 { text-align:center; margin-bottom: 20px; }
+  .hidden { display:none !important; }
+  .filters { display:flex; gap:8px; margin-bottom:12px; }
+  .filters select { width:auto; }
+  .subtitle { font-size:13px; color:var(--muted); margin: -6px 0 14px; }
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <h2>🛠️ 관리자 로그인</h2>
+  <div class="card">
+    <label>관리자 이메일</label>
+    <input type="email" id="loginEmail" />
+    <label>비밀번호</label>
+    <input type="password" id="loginPassword" />
+    <div class="row"><button class="primary" id="loginBtn" style="width:100%;">로그인</button></div>
+    <div class="error" id="loginError"></div>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+<header>
+  <h1>🛠️ 네트워크관리사 2급 AI 튜터 — 관리자 콘솔</h1>
+  <div style="display:flex; align-items:center; gap:12px;">
+    <span class="meta" id="whoami"></span>
+    <nav>
+      <button data-tab="users" class="active">학생 계정</button>
+      <button data-tab="audit">전체 활동 로그</button>
+    </nav>
+    <button class="ghost" id="logoutBtn">로그아웃</button>
+  </div>
+</header>
+<main>
+  <section id="users" class="active">
+    <div class="card">
+      <h3 style="margin-top:0;">계정 추가</h3>
+      <div class="row">
+        <div><label>학번</label><input id="newStudentId" /></div>
+        <div><label>이름</label><input id="newName" /></div>
+        <div><label>생년월일</label><input id="newBirthdate" type="date" /></div>
+      </div>
+      <div class="row">
+        <div><label>학교 이메일</label><input id="newEmail" type="email" /></div>
+        <div><label>초기 비밀번호(8자 이상)</label><input id="newPassword" type="text" /></div>
+        <div><label>권한</label><select id="newRole"><option value="student">학생</option><option value="admin">관리자</option></select></div>
+      </div>
+      <div class="row"><button class="primary" id="createUserBtn">계정 생성</button></div>
+      <div class="error" id="createUserError"></div>
+      <div class="success hidden" id="createUserSuccess">계정이 생성되었습니다.</div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0;">CSV 일괄 등록</h3>
+      <p class="subtitle">컬럼: 학번,이름,생년월일,메일,비밀번호 (헤더 필수, 영문 컬럼명도 지원: studentId,name,birthdate,email,password)</p>
+      <input type="file" id="csvFile" accept=".csv,text/csv" />
+      <div class="row"><button class="primary" id="uploadCsvBtn">업로드 및 일괄 생성</button></div>
+      <div id="csvResult"></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0;">전체 학생</h3>
+      <table id="userTable">
+        <thead><tr><th>학번</th><th>이름</th><th>이메일</th><th>수준</th><th>토큰 예산</th><th>토큰 사용</th><th>토큰 잔액</th><th>질문수</th><th>검증률</th><th>최근 활동</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="card hidden" id="userDetailCard">
+      <h3 id="userDetailTitle" style="margin-top:0;"></h3>
+      <div id="userDetailStats" class="meta"></div>
+      <div class="row" style="margin-top:12px;">
+        <input type="password" id="resetPwInput" placeholder="새 비밀번호(8자 이상)" />
+        <button class="primary" id="resetPwBtn">비밀번호 초기화</button>
+      </div>
+      <div class="success hidden" id="resetPwSuccess"></div>
+      <h4>채팅/질문 기록</h4>
+      <div id="userHistory"></div>
+    </div>
+  </section>
+
+  <section id="audit">
+    <div class="card">
+      <div class="filters">
+        <select id="statusFilter">
+          <option value="">전체 상태</option>
+          <option value="verified">verified</option>
+          <option value="flagged">flagged</option>
+          <option value="cached">cached</option>
+          <option value="rule_only">rule_only</option>
+        </select>
+        <select id="reviewedFilter">
+          <option value="">검수 전체</option>
+          <option value="false">미검수만</option>
+          <option value="true">검수 완료만</option>
+        </select>
+        <button class="primary" id="refreshAuditBtn">새로고침</button>
+      </div>
+      <div id="stats" class="meta"></div>
+    </div>
+    <div class="card">
+      <table id="auditTable">
+        <thead><tr><th>ID</th><th>학생</th><th>질문</th><th>의도</th><th>상태</th><th>신뢰도</th><th>검수</th><th>시각</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div id="auditEmpty" class="empty" style="display:none;">기록이 없습니다.</div>
+    </div>
+    <div class="card" id="detailCard" style="display:none;">
+      <h3 id="detailTitle" style="margin-top:0;"></h3>
+      <pre class="detail" id="detailBody"></pre>
+      <button class="primary" id="reviewBtn">검수 완료로 표시</button>
+    </div>
+  </section>
+</main>
+</div>
+
+<script>
+let ME = null;
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, {
+    credentials: "same-origin",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+    ...opts,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+}
+function escapeHtml(s) { return String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c])); }
+
+async function boot() {
+  try {
+    ME = await api("/api/auth/me");
+    if (ME.role !== "admin") {
+      await api("/api/auth/logout", { method: "POST" });
+      document.getElementById("loginError").textContent = "관리자 계정이 아닙니다.";
+      throw new Error("not admin");
+    }
+    document.getElementById("loginScreen").classList.add("hidden");
+    document.getElementById("app").classList.remove("hidden");
+    document.getElementById("whoami").textContent = `${ME.name} (${ME.email})`;
+    loadUsers();
+  } catch {
+    document.getElementById("loginScreen").classList.remove("hidden");
+    document.getElementById("app").classList.add("hidden");
+  }
+}
+
+document.getElementById("loginBtn").addEventListener("click", async () => {
+  const email = document.getElementById("loginEmail").value.trim();
+  const password = document.getElementById("loginPassword").value;
+  const errEl = document.getElementById("loginError");
+  errEl.textContent = "";
+  try {
+    await api("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
+    await boot();
+  } catch (err) {
+    errEl.textContent = err.message;
+  }
+});
+document.getElementById("logoutBtn").addEventListener("click", async () => {
+  await api("/api/auth/logout", { method: "POST" });
+  location.reload();
+});
+
+const tabs = document.querySelectorAll("nav button");
+tabs.forEach(btn => btn.addEventListener("click", () => {
+  tabs.forEach(b => b.classList.remove("active"));
+  document.querySelectorAll("main > section").forEach(s => s.classList.remove("active"));
+  btn.classList.add("active");
+  document.getElementById(btn.dataset.tab).classList.add("active");
+  if (btn.dataset.tab === "audit") loadAudit();
+}));
+
+setInterval(() => {
+  if (document.getElementById("app").classList.contains("hidden")) return;
+  loadUsers();
+  if (document.getElementById("audit").classList.contains("active")) {
+    loadAudit();
+  }
+}, 5000);
+
+window.addEventListener("focus", () => {
+  if (!document.getElementById("app").classList.contains("hidden")) {
+    loadUsers();
+    if (document.getElementById("audit").classList.contains("active")) {
+      loadAudit();
+    }
+  }
+});
+    password: document.getElementById("newPassword").value,
+    role: document.getElementById("newRole").value,
+  };
+  const errEl = document.getElementById("createUserError");
+  errEl.textContent = "";
+  try {
+    await api("/api/admin/users", { method: "POST", body: JSON.stringify(body) });
+    ["newStudentId","newName","newBirthdate","newEmail","newPassword"].forEach(id => document.getElementById(id).value = "");
+    const s = document.getElementById("createUserSuccess");
+    s.classList.remove("hidden"); setTimeout(() => s.classList.add("hidden"), 2000);
+    loadUsers();
+  } catch (err) {
+    errEl.textContent = err.message;
+  }
+});
+
+document.getElementById("uploadCsvBtn").addEventListener("click", async () => {
+  const file = document.getElementById("csvFile").files[0];
+  const resultEl = document.getElementById("csvResult");
+  if (!file) { resultEl.innerHTML = `<div class="error">CSV 파일을 선택하세요.</div>`; return; }
+  const csvText = await file.text();
+  try {
+    const data = await api("/api/admin/users/bulk-csv", { method: "POST", body: JSON.stringify({ csvText }) });
+    let html = `<div class="success">생성 ${data.createdCount}건, 실패 ${data.failedCount}건</div>`;
+    if (data.failed.length > 0) {
+      html += `<pre class="detail">` + data.failed.map(f => `행 ${f.rowNumber}: ${escapeHtml(f.message)}`).join("\n") + `</pre>`;
+    }
+    resultEl.innerHTML = html;
+    loadUsers();
+  } catch (err) {
+    resultEl.innerHTML = `<div class="error">${err.message}</div>`;
+  }
+});
+
+async function loadUsers() {
+  const users = await api("/api/admin/users");
+  const tbody = document.querySelector("#userTable tbody");
+  tbody.innerHTML = "";
+  for (const u of users) {
+    const tr = document.createElement("tr");
+    const rate = u.question_count > 0 ? Math.round((u.verified_count / u.question_count) * 100) + "%" : "-";
+    const roleBadge = u.role === "admin" ? ` <span class="badge admin">admin</span>` : "";
+    const tokenQuota = Number(u.token_quota ?? 0);
+    const tokenUsed = Number(u.token_used ?? 0);
+    const tokenRemaining = Number(u.token_remaining ?? Math.max(0, tokenQuota - tokenUsed));
+    tr.innerHTML = `<td>${escapeHtml(u.student_id) || "-"}</td><td>${escapeHtml(u.name)}${roleBadge}</td><td>${escapeHtml(u.email)}</td>
+      <td>${u.level}</td><td>${tokenQuota.toLocaleString()}</td><td>${tokenUsed.toLocaleString()}</td><td>${tokenRemaining.toLocaleString()}</td>
+      <td>${u.question_count}</td><td>${rate}</td><td>${u.last_active_at ? new Date(u.last_active_at).toLocaleString("ko-KR") : "-"}</td>`;
+    tr.addEventListener("click", () => showUserDetail(u.id));
+    tbody.appendChild(tr);
+  }
+}
+
+async function showUserDetail(id) {
+  const { user, categoryStats } = await api("/api/admin/users/" + id);
+  const history = await api(`/api/admin/users/${id}/history?limit=50`);
+  const card = document.getElementById("userDetailCard");
+  card.classList.remove("hidden");
+  document.getElementById("userDetailTitle").textContent = `${user.name} (${user.email})`;
+  const tokenQuota = Number(user.token_quota ?? 0);
+  const tokenUsed = Number(user.token_used ?? 0);
+  const tokenRemaining = Number(user.token_remaining ?? Math.max(0, tokenQuota - tokenUsed));
+  document.getElementById("userDetailStats").innerHTML =
+    `학번: ${escapeHtml(user.student_id) || "-"} · 생년월일: ${user.birthdate ? new Date(user.birthdate).toLocaleDateString("ko-KR") : "-"} · 수준: ${user.level}<br>` +
+    `토큰 예산: ${tokenQuota.toLocaleString()} · 사용: ${tokenUsed.toLocaleString()} · 잔액: ${tokenRemaining.toLocaleString()} · 마지막 반영: ${user.last_token_burn_at ? new Date(user.last_token_burn_at).toLocaleString("ko-KR") : "-"}<br>` +
+    `과목별 질문 분포: ` + (categoryStats.length ? categoryStats.map(c => `${escapeHtml(c.subject)}(${c.count})`).join(", ") : "없음");
+
+  document.getElementById("resetPwBtn").onclick = async () => {
+    const newPassword = document.getElementById("resetPwInput").value;
+    if (newPassword.length < 8) return;
+    await api(`/api/admin/users/${id}/reset-password`, { method: "POST", body: JSON.stringify({ newPassword }) });
+    const s = document.getElementById("resetPwSuccess");
+    s.textContent = "비밀번호가 초기화되었습니다."; s.classList.remove("hidden");
+    setTimeout(() => s.classList.add("hidden"), 2000);
+    document.getElementById("resetPwInput").value = "";
+  };
+
+  const historyEl = document.getElementById("userHistory");
+  historyEl.innerHTML = "";
+  if (history.length === 0) historyEl.innerHTML = `<div class="empty">기록이 없습니다.</div>`;
+  for (const h of history) {
+    const div = document.createElement("div");
+    div.className = "card";
+    div.innerHTML = `<div class="meta"><span class="badge ${h.verification_status}">${h.verification_status}</span> ${h.intent} · ${new Date(h.created_at).toLocaleString("ko-KR")}</div>
+      <div style="margin-top:6px;"><b>Q.</b> ${escapeHtml(h.question)}</div>
+      <div style="margin-top:4px; white-space:pre-wrap; font-size:13px; color:var(--muted);">${escapeHtml(h.final_answer).slice(0,400)}</div>`;
+    historyEl.appendChild(div);
+  }
+}
+
+// ---- audit ----
+const tbody = document.querySelector("#auditTable tbody");
+const auditEmpty = document.getElementById("auditEmpty");
+document.getElementById("refreshAuditBtn").addEventListener("click", loadAudit);
+document.getElementById("statusFilter").addEventListener("change", loadAudit);
+document.getElementById("reviewedFilter").addEventListener("change", loadAudit);
+
+async function loadAudit() {
+  const status = document.getElementById("statusFilter").value;
+  const reviewed = document.getElementById("reviewedFilter").value;
+  const params = new URLSearchParams();
+  if (status) params.set("status", status);
+  if (reviewed) params.set("reviewed", reviewed);
+  const [listRes, statsRes] = await Promise.all([
+    api("/api/audit?" + params.toString()),
+    api("/api/audit-summary/stats"),
+  ]);
+  document.getElementById("stats").textContent =
+    "상태별: " + statsRes.byStatus.map(s => `${s.verification_status}=${s.count}`).join(", ") +
+    ` · 검수 대기(flagged & 미검수): ${statsRes.pendingReview}`;
+
+  tbody.innerHTML = "";
+  auditEmpty.style.display = listRes.items.length === 0 ? "block" : "none";
+  for (const row of listRes.items) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${row.id}</td><td>${escapeHtml(row.user_name) || "-"}</td><td>${escapeHtml(row.question).slice(0,35)}</td><td>${row.intent}</td>
+      <td><span class="badge ${row.verification_status}">${row.verification_status}</span></td>
+      <td>${row.confidence !== null ? Number(row.confidence*100).toFixed(0)+"%" : "-"}</td>
+      <td>${row.reviewed ? "✓" : ""}</td><td>${new Date(row.created_at).toLocaleString("ko-KR")}</td>`;
+    tr.addEventListener("click", () => showAuditDetail(row.id));
+    tbody.appendChild(tr);
+  }
+}
+
+async function showAuditDetail(id) {
+  const row = await api("/api/audit/" + id);
+  document.getElementById("detailCard").style.display = "block";
+  document.getElementById("detailTitle").textContent = `#${row.id} — ${row.question}`;
+  document.getElementById("detailBody").textContent = JSON.stringify(row, null, 2);
+  document.getElementById("reviewBtn").onclick = async () => {
+    await api(`/api/audit/${id}/review`, { method: "POST" });
+    loadAudit();
+  };
+}
+
+boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>네트워크관리사 2급 AI 튜터</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --border: #2a2f3a; --text: #e6e8ee;
+    --muted: #8b93a5; --accent: #5b8def; --verified: #3ecf8e; --flagged: #e6a23c; --cached: #8b93a5;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; background: var(--bg); color: var(--text); }
+  header { padding: 14px 24px; border-bottom: 1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  header h1 { font-size: 15px; margin:0; font-weight:600; }
+  header .who { font-size:12px; color:var(--muted); }
+  nav { display:flex; gap:8px; }
+  nav button { background:none; border:1px solid var(--border); color: var(--muted); padding:6px 14px; border-radius:6px; cursor:pointer; font-size:13px; }
+  nav button.active { color: var(--text); border-color: var(--accent); background: #1a2540; }
+  main { max-width: 880px; margin: 0 auto; padding: 20px 24px 80px; }
+  section { display:none; }
+  section.active { display:block; }
+  .card { background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:14px; }
+  textarea, input, select { width:100%; background:#0d0f13; border:1px solid var(--border); color:var(--text); border-radius:6px; padding:9px 10px; font-size:14px; font-family:inherit; }
+  label { font-size:12px; color:var(--muted); display:block; margin:10px 0 4px; }
+  button.primary { background: var(--accent); color:#fff; border:none; padding:9px 16px; border-radius:6px; cursor:pointer; font-size:14px; font-weight:600; }
+  button.primary:disabled { opacity:.5; cursor:default; }
+  button.ghost { background:none; border:1px solid var(--border); color:var(--text); padding:8px 14px; border-radius:6px; cursor:pointer; font-size:13px; }
+  .row { display:flex; gap:8px; margin-top:8px; }
+  .msg { margin-bottom:16px; }
+  .msg .q { color: var(--muted); font-size:13px; margin-bottom:6px; }
+  .msg .a { white-space:pre-wrap; line-height:1.6; font-size:14px; }
+  .badge { display:inline-block; font-size:11px; padding:2px 8px; border-radius:20px; margin-right:6px; font-weight:600; }
+  .badge.verified { background:#123a2a; color:var(--verified); }
+  .badge.flagged { background:#3a2c12; color:var(--flagged); }
+  .badge.cached { background:#22242c; color:var(--cached); }
+  .badge.rule_only { background:#12233a; color:#5b8def; }
+  .meta { font-size:12px; color:var(--muted); margin-top:8px; }
+  .example-chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .chip { font-size:12px; color:var(--muted); border:1px solid var(--border); border-radius:14px; padding:4px 10px; cursor:pointer; }
+  .chip:hover { color:var(--text); border-color:var(--accent); }
+  .error { color:#e56262; font-size:13px; margin-top:8px; }
+  .success { color:var(--verified); font-size:13px; margin-top:8px; }
+  #loginScreen { max-width:360px; margin:80px auto; }
+  #loginScreen h2 { text-align:center; margin-bottom: 20px; }
+  .choice-row { display:flex; gap:6px; margin-top:6px; }
+  .choice-row span { font-size:13px; color:var(--muted); width:20px; padding-top:9px; }
+  img.preview { max-width:200px; border-radius:6px; margin-top:8px; display:block; }
+  .hidden { display:none !important; }
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <h2>🌐 네트워크관리사 2급 AI 튜터</h2>
+  <div class="card">
+    <label>학교 이메일</label>
+    <input type="email" id="loginEmail" placeholder="you@school.ac.kr" />
+    <label>비밀번호</label>
+    <input type="password" id="loginPassword" />
+    <div class="row"><button class="primary" id="loginBtn" style="width:100%;">로그인</button></div>
+    <div class="error" id="loginError"></div>
+    <p class="meta">계정이 없으신가요? 회원가입은 지원하지 않으며, 학교 관리자가 발급한 계정으로만 로그인할 수 있습니다.</p>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+<header>
+  <h1>🌐 네트워크관리사 2급 AI 튜터</h1>
+  <div style="display:flex; align-items:center; gap:12px;">
+    <span class="who" id="whoami"></span>
+    <nav>
+      <button data-tab="chat" class="active">질문하기</button>
+      <button data-tab="problem">문제 풀이 요청</button>
+      <button data-tab="settings">내 설정</button>
+    </nav>
+    <button class="ghost" id="logoutBtn">로그아웃</button>
+  </div>
+</header>
+<main>
+  <section id="chat" class="active">
+    <div class="card">
+      <textarea id="q" rows="3" placeholder="질문을 입력하세요. 예: 192.168.1.10/26 서브넷의 네트워크 주소는?"></textarea>
+      <label>사진 첨부(선택, 문제 사진 등)</label>
+      <input type="file" id="imgInput" accept="image/*" />
+      <img class="preview hidden" id="imgPreview" />
+      <div class="row">
+        <button class="primary" id="askBtn">질문하기</button>
+        <button class="ghost hidden" id="clearImgBtn">사진 제거</button>
+      </div>
+      <div class="example-chips">
+        <span class="chip">192.168.1.10/26 네트워크 주소와 브로드캐스트 주소는?</span>
+        <span class="chip">173을 2진수로 변환해줘</span>
+        <span class="chip">포트 443은 무슨 서비스야?</span>
+        <span class="chip">슬라이딩 윈도우가 뭐야?</span>
+        <span class="chip">TCP와 UDP의 차이가 뭐야?</span>
+      </div>
+    </div>
+    <div id="messages"></div>
+  </section>
+
+  <section id="problem">
+    <div class="card">
+      <label>문제 지문</label>
+      <textarea id="pStem" rows="3" placeholder="문제를 그대로 입력하세요."></textarea>
+      <label>보기(선택 — 채워진 항목만 사용됩니다)</label>
+      <div class="choice-row"><span>①</span><input class="pChoice" /></div>
+      <div class="choice-row"><span>②</span><input class="pChoice" /></div>
+      <div class="choice-row"><span>③</span><input class="pChoice" /></div>
+      <div class="choice-row"><span>④</span><input class="pChoice" /></div>
+      <label>요청 사항(선택, 비우면 "정답과 해설" 요청)</label>
+      <input id="pExtra" placeholder="예: 오답인 이유도 각각 설명해줘" />
+      <label>사진 첨부(선택)</label>
+      <input type="file" id="pImgInput" accept="image/*" />
+      <img class="preview hidden" id="pImgPreview" />
+      <div class="row"><button class="primary" id="pSubmitBtn">해설 요청</button></div>
+    </div>
+    <div id="pResult"></div>
+  </section>
+
+  <section id="settings">
+    <div class="card">
+      <h3 style="margin-top:0;">학습 수준</h3>
+      <p class="meta">설명 난이도를 내 수준에 맞게 조절합니다.</p>
+      <select id="levelSelect">
+        <option value="beginner">입문 — 처음 배워요</option>
+        <option value="intermediate">중급 — 기본기는 있어요</option>
+        <option value="advanced">고급 — 심화 내용 위주로</option>
+      </select>
+      <div class="row"><button class="primary" id="saveLevelBtn">저장</button></div>
+      <div class="success hidden" id="levelSaved">저장되었습니다.</div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0;">내 OpenAI API 키</h3>
+      <p class="meta">기본으로는 학교가 제공하는 자체 호스팅 AI(Gemma)를 사용합니다. 원하면 본인의 OpenAI API 키를 등록해 ChatGPT로 답변받을 수 있습니다. 키는 서버에 암호화되어 저장됩니다.</p>
+      <div id="keyStatus" class="meta"></div>
+      <input type="password" id="openaiKeyInput" placeholder="sk-..." />
+      <div class="row">
+        <button class="primary" id="saveKeyBtn">저장</button>
+        <button class="ghost" id="clearKeyBtn">삭제</button>
+      </div>
+      <label style="margin-top:14px;"><input type="checkbox" id="useOwnKeyToggle" style="width:auto;" /> 질문할 때 내 키 사용(등록되어 있을 때만 적용)</label>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0;">비밀번호 변경</h3>
+      <label>현재 비밀번호</label>
+      <input type="password" id="curPw" />
+      <label>새 비밀번호(8자 이상)</label>
+      <input type="password" id="newPw" />
+      <div class="row"><button class="primary" id="changePwBtn">변경</button></div>
+      <div class="error" id="pwError"></div>
+      <div class="success hidden" id="pwSaved">변경되었습니다.</div>
+    </div>
+  </section>
+</main>
+</div>
+
+<script>
+let ME = null;
+let pendingImage = null;
+let pendingProblemImage = null;
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, { credentials: "same-origin", headers: { "Content-Type": "application/json" }, ...opts });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function boot() {
+  try {
+    ME = await api("/api/auth/me");
+    document.getElementById("loginScreen").classList.add("hidden");
+    document.getElementById("app").classList.remove("hidden");
+    document.getElementById("whoami").textContent = `${ME.name} (${ME.email})`;
+    document.getElementById("levelSelect").value = ME.level;
+    refreshKeyStatus();
+  } catch {
+    document.getElementById("loginScreen").classList.remove("hidden");
+    document.getElementById("app").classList.add("hidden");
+  }
+}
+
+document.getElementById("loginBtn").addEventListener("click", async () => {
+  const email = document.getElementById("loginEmail").value.trim();
+  const password = document.getElementById("loginPassword").value;
+  const errEl = document.getElementById("loginError");
+  errEl.textContent = "";
+  try {
+    await api("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
+    await boot();
+  } catch (err) {
+    errEl.textContent = err.message;
+  }
+});
+
+document.getElementById("logoutBtn").addEventListener("click", async () => {
+  await api("/api/auth/logout", { method: "POST" });
+  location.reload();
+});
+
+const tabs = document.querySelectorAll("nav button");
+tabs.forEach(btn => btn.addEventListener("click", () => {
+  tabs.forEach(b => b.classList.remove("active"));
+  document.querySelectorAll("main > section").forEach(s => s.classList.remove("active"));
+  btn.classList.add("active");
+  document.getElementById(btn.dataset.tab).classList.add("active");
+}));
+
+// ---- chat ----
+const qEl = document.getElementById("q");
+const askBtn = document.getElementById("askBtn");
+const messagesEl = document.getElementById("messages");
+const imgInput = document.getElementById("imgInput");
+const imgPreview = document.getElementById("imgPreview");
+const clearImgBtn = document.getElementById("clearImgBtn");
+
+document.querySelectorAll(".chip").forEach(chip => {
+  chip.addEventListener("click", () => { qEl.value = chip.textContent; ask(); });
+});
+
+imgInput.addEventListener("change", async () => {
+  if (!imgInput.files[0]) return;
+  pendingImage = await fileToBase64(imgInput.files[0]);
+  imgPreview.src = "data:image/jpeg;base64," + pendingImage;
+  imgPreview.classList.remove("hidden");
+  clearImgBtn.classList.remove("hidden");
+});
+clearImgBtn.addEventListener("click", () => {
+  pendingImage = null; imgInput.value = ""; imgPreview.classList.add("hidden"); clearImgBtn.classList.add("hidden");
+});
+
+askBtn.addEventListener("click", ask);
+
+async function ask() {
+  const question = qEl.value.trim();
+  if (!question) return;
+  askBtn.disabled = true;
+  askBtn.textContent = "생각 중...";
+  const msgDiv = document.createElement("div");
+  msgDiv.className = "msg";
+  msgDiv.innerHTML = `<div class="q">Q. ${escapeHtml(question)}${pendingImage ? " 📷" : ""}</div><div class="a">답변 생성 중…</div>`;
+  messagesEl.prepend(msgDiv);
+  try {
+    const useOwnKey = document.getElementById("useOwnKeyToggle").checked;
+    const data = await api("/api/ask", {
+      method: "POST",
+      body: JSON.stringify({ question, imageBase64: pendingImage || undefined, useOwnKey }),
+    });
+    renderAnswer(msgDiv, data);
+  } catch (err) {
+    msgDiv.querySelector(".a").textContent = "오류: " + err.message;
+  } finally {
+    askBtn.disabled = false;
+    askBtn.textContent = "질문하기";
+    clearImgBtn.click();
+  }
+}
+
+function renderAnswer(msgDiv, data) {
+  const badge = `<span class="badge ${data.verificationStatus}">${data.verificationStatus}</span>`;
+  const cachedTag = data.cached ? `<span class="badge cached">cached</span>` : "";
+  const providerTag = data.providerUsed ? `<span class="badge" style="background:#1a1d25;color:#8b93a5;">${data.providerUsed}</span>` : "";
+  const conf = data.confidence !== null && data.confidence !== undefined ? `신뢰도 ${(data.confidence*100).toFixed(0)}%` : "";
+  msgDiv.querySelector(".a").innerHTML = escapeHtml(data.answer).replace(/\n/g, "<br>");
+  const meta = document.createElement("div");
+  meta.className = "meta";
+  meta.innerHTML = `${badge}${cachedTag}${providerTag} 의도: ${data.intent} · ${conf}`;
+  msgDiv.appendChild(meta);
+}
+
+// ---- problem form ----
+const pImgInput = document.getElementById("pImgInput");
+const pImgPreview = document.getElementById("pImgPreview");
+pImgInput.addEventListener("change", async () => {
+  if (!pImgInput.files[0]) return;
+  pendingProblemImage = await fileToBase64(pImgInput.files[0]);
+  pImgPreview.src = "data:image/jpeg;base64," + pendingProblemImage;
+  pImgPreview.classList.remove("hidden");
+});
+
+document.getElementById("pSubmitBtn").addEventListener("click", async () => {
+  const stem = document.getElementById("pStem").value.trim();
+  if (!stem) return;
+  const choices = Array.from(document.querySelectorAll(".pChoice")).map(el => el.value.trim()).filter(Boolean);
+  const extraQuestion = document.getElementById("pExtra").value.trim();
+  const btn = document.getElementById("pSubmitBtn");
+  btn.disabled = true; btn.textContent = "생각 중...";
+  const resultEl = document.getElementById("pResult");
+  resultEl.innerHTML = `<div class="card"><div class="a">해설 생성 중…</div></div>`;
+  try {
+    const useOwnKey = document.getElementById("useOwnKeyToggle").checked;
+    const data = await api("/api/problem/explain", {
+      method: "POST",
+      body: JSON.stringify({ stem, choices, extraQuestion, imageBase64: pendingProblemImage || undefined, useOwnKey }),
+    });
+    const card = document.createElement("div");
+    card.className = "card msg";
+    card.innerHTML = `<div class="a"></div>`;
+    resultEl.innerHTML = "";
+    resultEl.appendChild(card);
+    renderAnswer(card, data);
+  } catch (err) {
+    resultEl.innerHTML = `<div class="card error">오류: ${err.message}</div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = "해설 요청";
+  }
+});
+
+// ---- settings ----
+document.getElementById("saveLevelBtn").addEventListener("click", async () => {
+  const level = document.getElementById("levelSelect").value;
+  await api("/api/me/profile", { method: "PATCH", body: JSON.stringify({ level }) });
+  ME.level = level;
+  const el = document.getElementById("levelSaved");
+  el.classList.remove("hidden"); setTimeout(() => el.classList.add("hidden"), 2000);
+});
+
+async function refreshKeyStatus() {
+  document.getElementById("keyStatus").textContent = ME.hasOpenaiKey ? "✓ OpenAI 키가 등록되어 있습니다." : "등록된 키가 없습니다.";
+  document.getElementById("useOwnKeyToggle").checked = !!ME.hasOpenaiKey;
+}
+
+document.getElementById("saveKeyBtn").addEventListener("click", async () => {
+  const apiKey = document.getElementById("openaiKeyInput").value.trim();
+  if (!apiKey) return;
+  await api("/api/me/openai-key", { method: "PUT", body: JSON.stringify({ apiKey }) });
+  ME.hasOpenaiKey = true;
+  document.getElementById("openaiKeyInput").value = "";
+  refreshKeyStatus();
+});
+document.getElementById("clearKeyBtn").addEventListener("click", async () => {
+  await api("/api/me/openai-key", { method: "DELETE" });
+  ME.hasOpenaiKey = false;
+  refreshKeyStatus();
+});
+
+document.getElementById("changePwBtn").addEventListener("click", async () => {
+  const currentPassword = document.getElementById("curPw").value;
+  const newPassword = document.getElementById("newPw").value;
+  const errEl = document.getElementById("pwError");
+  errEl.textContent = "";
+  try {
+    await api("/api/auth/change-password", { method: "POST", body: JSON.stringify({ currentPassword, newPassword }) });
+    document.getElementById("curPw").value = ""; document.getElementById("newPw").value = "";
+    const el = document.getElementById("pwSaved");
+    el.classList.remove("hidden"); setTimeout(() => el.classList.add("hidden"), 2000);
+  } catch (err) {
+    errEl.textContent = err.message;
+  }
+});
+
+boot();
+</script>
+</body>
+</html>

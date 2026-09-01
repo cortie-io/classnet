@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2048" height="2048" viewBox="0 0 2048 2048" fill="none">
+  <defs>
+    <linearGradient id="capGrad" x1="1024" y1="180" x2="1024" y2="760" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1458C9"/>
+      <stop offset="1" stop-color="#082F79"/>
+    </linearGradient>
+    <linearGradient id="rimGrad" x1="440" y1="820" x2="1608" y2="1560" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F62FF"/>
+      <stop offset="0.52" stop-color="#2E7CFF"/>
+      <stop offset="1" stop-color="#0D55E8"/>
+    </linearGradient>
+    <linearGradient id="faceGrad" x1="1024" y1="860" x2="1024" y2="1570" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#123F93"/>
+      <stop offset="0.5" stop-color="#082D6B"/>
+      <stop offset="1" stop-color="#061F4E"/>
+    </linearGradient>
+    <linearGradient id="earGrad" x1="0" y1="1030" x2="0" y2="1420" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2E82FF"/>
+      <stop offset="1" stop-color="#0F5CF4"/>
+    </linearGradient>
+    <linearGradient id="eyeGrad" x1="0" y1="1081" x2="0" y2="1286" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#67E9FF"/>
+      <stop offset="1" stop-color="#35C7F4"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#0A2C74" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+
+  <!-- Graduation cap -->
+  <g>
+    <path d="M272 464L1024 165L1776 464L1024 763L272 464Z" fill="url(#capGrad)" stroke="#061D4F" stroke-width="10" stroke-linejoin="round"/>
+    <path d="M596 565V760C742 682 873 650 1024 650C1175 650 1306 682 1452 760V565L1024 735L596 565Z" fill="url(#capGrad)" stroke="#061D4F" stroke-width="10" stroke-linejoin="round"/>
+
+    <!-- Tassel -->
+    <path d="M1653 490V646" stroke="#0A347E" stroke-width="28" stroke-linecap="round"/>
+    <circle cx="1653" cy="684" r="40" fill="#104CA8" stroke="#061D4F" stroke-width="8"/>
+    <path d="M1624 720C1607 762 1599 811 1599 872C1599 887 1611 899 1626 899H1680C1695 899 1707 887 1707 872C1707 811 1699 762 1682 720C1674 700 1632 700 1624 720Z" fill="#104CA8" stroke="#061D4F" stroke-width="8"/>
+  </g>
+
+  <!-- Dark band under cap -->
+  <path d="M472 909C541 706 740 647 1024 647C1308 647 1507 706 1576 909C1434 828 1231 794 1024 794C817 794 614 828 472 909Z" fill="#082B67" stroke="#061D4F" stroke-width="10"/>
+
+  <!-- Headset outer frame -->
+  <g>
+    <rect x="390" y="763" width="1268" height="900" rx="360" fill="url(#rimGrad)" stroke="#0743B8" stroke-width="12"/>
+    <rect x="443" y="816" width="1162" height="794" rx="318" fill="#D9E8FF"/>
+    <rect x="484" y="857" width="1080" height="712" rx="279" fill="url(#rimGrad)"/>
+
+    <!-- Earpads -->
+    <rect x="286" y="1030" width="230" height="390" rx="102" fill="url(#earGrad)" stroke="#0A54DF" stroke-width="10"/>
+    <rect x="1532" y="1030" width="230" height="390" rx="102" fill="url(#earGrad)" stroke="#0A54DF" stroke-width="10"/>
+
+    <!-- Face screen -->
+    <rect x="540" y="915" width="968" height="596" rx="224" fill="url(#faceGrad)" stroke="#041A43" stroke-width="10"/>
+
+    <!-- Eyes -->
+    <rect x="723" y="1081" width="113" height="205" rx="56.5" fill="url(#eyeGrad)" stroke="#052A62" stroke-width="9"/>
+    <rect x="1212" y="1081" width="113" height="205" rx="56.5" fill="url(#eyeGrad)" stroke="#052A62" stroke-width="9"/>
+
+    <!-- Smile -->
+    <path d="M922 1348C951 1393 991 1415 1024 1415C1057 1415 1097 1393 1126 1348" stroke="#FFFFFF" stroke-width="30" stroke-linecap="round"/>
+  </g>
+</svg>
