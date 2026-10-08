@@ -1,3 +1,4 @@
 
 # local reference data, not for the repo (may include sensitive/copyrighted exam material)
 /docs/
+.pnpm-store/

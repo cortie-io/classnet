@@ -1,0 +1,19 @@
+# 운영 위치: beta (172.26.4.90). 소스와 빌드는 alpha에서, 배포는 alpha에서 `deploy classnet-tutor`.
+# 포트는 127.0.0.1과 beta 사설 IP에만 연다 — 외부 요청은 gate만 들어온다.
+name: classnet
+services:
+  network-tutor-server:
+    build: ./network-tutor-server
+    image: cortie/network-tutor-server:latest
+    env_file: ./network-tutor-server/.env.docker
+    ports:
+      - "127.0.0.1:3300:3300"
+    restart: unless-stopped
+  network-tutor-web:
+    build: ./network-tutor-web
+    image: cortie/network-tutor-web:latest
+    env_file: ./network-tutor-web/.env.docker
+    ports:
+      - "127.0.0.1:3400:3400"
+      - "172.26.4.90:3400:3400"
+    restart: unless-stopped
