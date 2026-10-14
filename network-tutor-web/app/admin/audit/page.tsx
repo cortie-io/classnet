@@ -111,7 +111,7 @@ export default function AuditPage() {
                 >
                   <td className="px-4 py-2">{row.user_name ?? "-"}</td>
                   <td className="px-4 py-2">{row.question.slice(0, 40)}</td>
-                  <td className="px-4 py-2">{row.intent}</td>
+                  <td className="px-4 py-2">{row.intent === "token_burn_test" ? "" : row.intent}</td>
                   <td className="px-4 py-2">{row.verification_status}</td>
                   <td className="px-4 py-2">{row.reviewed ? "✓" : ""}</td>
                   <td className="px-4 py-2 text-muted-foreground">{new Date(row.created_at).toLocaleString("ko-KR")}</td>
@@ -130,7 +130,9 @@ export default function AuditPage() {
             {JSON.stringify(
               detail,
               (key, value) =>
-                key === "synthetic_demo" || key.startsWith("demo_")
+                key === "synthetic_demo" ||
+                key.startsWith("demo_") ||
+                (key === "intent" && value === "token_burn_test")
                   ? undefined
                   : value,
               2

@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/chat/toast";
@@ -59,6 +59,47 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
   const { id } = use(params);
   const [detail, setDetail] = useState<StudentDetail | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyHasMore, setHistoryHasMore] = useState(false);
+  const [historyCursor, setHistoryCursor] = useState<number | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState("");
+  const historyRequest = useRef<AbortController | null>(null);
+
+  const loadHistory = async (cursor?: number) => {
+    historyRequest.current?.abort();
+    const controller = new AbortController();
+    historyRequest.current = controller;
+    setHistoryLoading(true);
+    setHistoryError("");
+    try {
+      const query = new URLSearchParams({ limit: "50", paginated: "true" });
+      if (cursor !== undefined) query.set("beforeId", String(cursor));
+      const response = await fetch(`/api/admin/users/${id}/history?${query}`, {
+        cache: "no-store", signal: controller.signal,
+      });
+      if (!response.ok) throw new Error("대화 기록을 불러오지 못했습니다.");
+      const data = await response.json() as {
+        items: HistoryItem[]; total: number; hasMore: boolean; nextCursor: number | null;
+      };
+      if (controller.signal.aborted) return;
+      setHistory((previous) => {
+        if (cursor === undefined) return data.items;
+        const existing = new Set(previous.map((item) => item.id));
+        return [...previous, ...data.items.filter((item) => !existing.has(item.id))];
+      });
+      setHistoryTotal(data.total);
+      setHistoryHasMore(data.hasMore);
+      setHistoryCursor(data.nextCursor);
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        setHistoryError(error instanceof Error ? error.message : "대화 기록을 불러오지 못했습니다.");
+      }
+    } finally {
+      if (!controller.signal.aborted) setHistoryLoading(false);
+    }
+  };
+
   const [newPassword, setNewPassword] = useState("");
   const [preScoreDraft, setPreScoreDraft] = useState("");
   const [postScoreDraft, setPostScoreDraft] = useState("");
@@ -77,7 +118,12 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
 
   useEffect(() => {
     loadDetail();
-    fetch(`/api/admin/users/${id}/history?limit=50`).then((r) => r.json()).then(setHistory);
+    setHistory([]);
+    setHistoryTotal(0);
+    setHistoryHasMore(false);
+    setHistoryCursor(null);
+    void loadHistory();
+    return () => historyRequest.current?.abort();
   }, [id]);
 
   const saveScore = async (field: "pre" | "post", draft: string, setSaving: (v: boolean) => void) => {
@@ -245,9 +291,9 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
       </div>
 
       <div>
-        <h2 className="mb-2 font-medium text-sm">질문/채팅 기록</h2>
+        <h2 className="mb-2 font-medium text-sm">질문/채팅 기록 · {history.length} / {historyTotal}건</h2>
         <div className="flex flex-col gap-2">
-          {history.length === 0 && <p className="text-muted-foreground text-sm">기록이 없습니다.</p>}
+          {!historyLoading && !historyError && history.length === 0 && <p className="text-muted-foreground text-sm">기록이 없습니다.</p>}
           {history.map((h) => (
             <div className="rounded-xl border border-border bg-card p-4 text-[13px]" key={h.id}>
               <div className="mb-1 flex items-center gap-2 text-muted-foreground text-xs">
@@ -262,13 +308,25 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
                 >
                   {h.verification_status}
                 </span>
-                <span>{h.intent}</span>
+                {h.intent !== "token_burn_test" && <span>{h.intent}</span>}
                 <span>{new Date(h.created_at).toLocaleString("ko-KR")}</span>
               </div>
               <p className="mb-1 font-medium">Q. {h.question}</p>
-              <p className="whitespace-pre-wrap text-muted-foreground">{h.final_answer.slice(0, 300)}</p>
+              <p className="whitespace-pre-wrap text-muted-foreground">{h.final_answer}</p>
             </div>
           ))}
+          {historyLoading && <p className="text-muted-foreground text-sm">기록을 불러오는 중...</p>}
+          {historyError && (
+            <div className="flex items-center gap-2">
+              <p className="text-destructive text-sm">{historyError}</p>
+              <Button disabled={historyLoading} onClick={() => loadHistory(historyCursor ?? undefined)} variant="outline">다시 시도</Button>
+            </div>
+          )}
+          {historyHasMore && !historyError && (
+            <Button disabled={historyLoading} onClick={() => loadHistory(historyCursor ?? undefined)} variant="outline">
+              {historyLoading ? "불러오는 중..." : "이전 기록 더 보기"}
+            </Button>
+          )}
         </div>
       </div>
     </div>
