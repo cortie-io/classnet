@@ -56,6 +56,23 @@ test("phase2 rank excludes repeat farming, unfinished and invalidated answers, a
 	assert.equal(ranking.students[1].chatCount, 100);
 });
 
+test("official examination results never affect learning score or rank", async () => {
+	const before = await getFairRanking();
+	await pool.query(
+		`INSERT INTO exam_attempts(id,user_id,question_ids,status,started_at,is_official) VALUES(6,1,ARRAY[2],'submitted','2025-01-01',true); INSERT INTO exam_answers(attempt_id,question_id,is_correct,score) VALUES(6,2,true,4);`,
+	);
+	const after = await getFairRanking();
+	const scores = (r: typeof before) =>
+		r.students.map((s) => [
+			s.id,
+			s.rank,
+			s.compositeScore,
+			s.questionsGraded,
+			s.activeDays,
+		]);
+	assert.deepEqual(scores(after), scores(before));
+});
+
 test("class and grade rankings recalculate competition ranks within their selected population", async () => {
 	await pool.query(
 		"UPDATE users SET class_code=CASE WHEN id=1 THEN '1-A' ELSE '1-B' END",

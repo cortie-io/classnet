@@ -1,6 +1,9 @@
 "use client";
 
 import {
+  AwardIcon,
+  GraduationCapIcon,
+  LibraryBigIcon,
   BarChart3Icon,
   BookOpenCheckIcon,
   CalendarClockIcon,
@@ -58,6 +61,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 type NavItem = { href: string; label: string; icon: LucideIcon };
 
 const STUDY_NAV: NavItem[] = [
+  { href: "/learn", label: "처음부터 배우기", icon: GraduationCapIcon },
+  { href: "/textbook", label: "교재", icon: LibraryBigIcon },
+  { href: "/official-exams", label: "공식 모의시험", icon: AwardIcon },
   { href: "/practice", label: "문제 연습", icon: BookOpenCheckIcon },
   { href: "/mock-exam", label: "모의고사", icon: TimerIcon },
   { href: "/rounds", label: "기출문제 회차별 풀이", icon: CalendarClockIcon },
@@ -90,12 +96,22 @@ function NavGroup({
         <SidebarMenu className="gap-0.5">
           {items.map((item) => {
             const Icon = item.icon;
-            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const active =
+              pathname === item.href || pathname.startsWith(`${item.href}/`);
             return (
               <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton asChild isActive={active} onClick={onNavigate} tooltip={item.label}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={active}
+                  onClick={onNavigate}
+                  tooltip={item.label}
+                >
                   <Link href={item.href}>
-                    <Icon className={active ? "text-primary" : "text-sidebar-foreground/45"} />
+                    <Icon
+                      className={
+                        active ? "text-primary" : "text-sidebar-foreground/45"
+                      }
+                    />
                     <span>{item.label}</span>
                   </Link>
                 </SidebarMenuButton>
@@ -159,7 +175,10 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                   tooltip="classnet"
                 >
                   <Link href="/" onClick={closeMobile}>
-                    <BrandMark className="size-8! drop-shadow-[0_4px_10px_rgb(67_56_202/0.3)]" title="classnet" />
+                    <BrandMark
+                      className="size-8! drop-shadow-[0_4px_10px_rgb(67_56_202/0.3)]"
+                      title="classnet"
+                    />
                     <BrandWordmark className="truncate text-[17px] group-data-[collapsible=icon]:hidden" />
                   </Link>
                 </SidebarMenuButton>
@@ -203,11 +222,23 @@ export function AppSidebar({ user }: { user: User | undefined }) {
           {user ? <ExamCountdown /> : null}
           {user ? (
             <>
-              <NavGroup items={STUDY_NAV} label="학습하기" onNavigate={closeMobile} pathname={pathname} />
-              <NavGroup items={RECORD_NAV} label="나의 기록" onNavigate={closeMobile} pathname={pathname} />
+              <NavGroup
+                items={STUDY_NAV}
+                label="학습하기"
+                onNavigate={closeMobile}
+                pathname={pathname}
+              />
+              <NavGroup
+                items={RECORD_NAV}
+                label="나의 기록"
+                onNavigate={closeMobile}
+                pathname={pathname}
+              />
               {user.role === "admin" ? (
                 <NavGroup
-                  items={[{ href: "/admin", label: "관리자 콘솔", icon: ShieldIcon }]}
+                  items={[
+                    { href: "/admin", label: "관리자 콘솔", icon: ShieldIcon },
+                  ]}
                   label="관리"
                   onNavigate={closeMobile}
                   pathname={pathname}
@@ -215,7 +246,10 @@ export function AppSidebar({ user }: { user: User | undefined }) {
               ) : null}
             </>
           ) : null}
-          <SidebarHistory onDeleteAll={user ? handleShowDeleteAllDialog : undefined} user={user} />
+          <SidebarHistory
+            onDeleteAll={user ? handleShowDeleteAllDialog : undefined}
+            user={user}
+          />
         </SidebarContent>
         <SidebarFooter className="border-t border-sidebar-border px-3 pt-2.5 pb-3 group-data-[collapsible=icon]:px-2">
           {user ? <SidebarUserNav user={user} /> : null}

@@ -16,6 +16,9 @@ INSERT INTO audit_log(user_id,question,intent,verification_status,final_answer) 
 INSERT INTO exam_questions(id,subject,stem,status) VALUES(1,'network','Question','approved');
 INSERT INTO exam_sets(id,kind,title,question_ids) VALUES(1,'admin_timed','Official exam','{1}'),(2,'mock','Beta mock','{1}');
 INSERT INTO exam_attempts(user_id,exam_set_id,question_ids,score,status) VALUES(2,2,'{1}',1,'submitted');`);
+await db.db.exec(
+	`INSERT INTO learn_progress(user_id,lesson_slug,first_read_at,completed_at) VALUES(2,'beta-lesson',now(),now()); INSERT INTO exam_sets(id,kind,title,question_ids,results_released,rank_released) VALUES(3,'official','Prepared official exam','{1}',true,true);`,
+);
 await archive.db.exec(
 	`INSERT INTO users(id,role,name,email,password_hash) VALUES(1,'admin','Archive teacher','archive@test','oldhash');INSERT INTO audit_log(question,intent,verification_status,final_answer) VALUES('Original phase1','explain','verified','Original answer');`,
 );
@@ -97,7 +100,12 @@ test("confirmed one-way official launch clears only beta learning and preserves 
 		"official",
 	);
 	assert.equal((await call(endpoint, "POST", 1, "2차 정식 시작")).status, 409);
-	for (const table of ["audit_log", "exam_attempts", "sessions"])
+	for (const table of [
+		"audit_log",
+		"exam_attempts",
+		"sessions",
+		"learn_progress",
+	])
 		assert.equal(
 			(await db.db.query<any>(`SELECT count(*)::int AS n FROM ${table}`))
 				.rows[0].n,
@@ -113,6 +121,13 @@ test("confirmed one-way official launch clears only beta learning and preserves 
 	assert.equal(s.level, "beginner");
 	assert.equal(s.manual_pre_test_score, null);
 	assert.equal(s.auth_version, 1);
+	const official = (
+		await db.db.query<any>(
+			"SELECT results_released,rank_released FROM exam_sets WHERE id=3",
+		)
+	).rows[0];
+	assert.equal(official.results_released, false);
+	assert.equal(official.rank_released, false);
 	assert.equal(
 		(await db.db.query<any>("SELECT count(*)::int AS n FROM exam_questions"))
 			.rows[0].n,
@@ -120,7 +135,7 @@ test("confirmed one-way official launch clears only beta learning and preserves 
 	);
 	assert.deepEqual(
 		(await db.db.query<any>("SELECT id FROM exam_sets ORDER BY id")).rows,
-		[{ id: 1 }],
+		[{ id: 1 }, { id: 3 }],
 	);
 	assert.equal(
 		(await archive.db.query<any>("SELECT question FROM audit_log")).rows[0]

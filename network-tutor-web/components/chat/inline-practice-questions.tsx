@@ -20,9 +20,21 @@ export interface PracticeAttempt {
   questions: PracticeQuestion[];
 }
 
-function OneQuestion({ attemptId, question, index }: { attemptId: number; question: PracticeQuestion; index: number }) {
+function OneQuestion({
+  attemptId,
+  question,
+  index,
+}: {
+  attemptId: number;
+  question: PracticeQuestion;
+  index: number;
+}) {
   const [selected, setSelected] = useState<number | null>(null);
-  const [feedback, setFeedback] = useState<{ isCorrect: boolean; correctIndex: number; explanation: string } | null>(null);
+  const [feedback, setFeedback] = useState<{
+    isCorrect: boolean;
+    correctIndex: number;
+    explanation: string;
+  } | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // 보기 클릭은 로컬 선택만 바꾸고, 실제 채점(정오답 공개)은 "정답 확인"을 눌러야 일어난다 —
@@ -40,11 +52,19 @@ function OneQuestion({ attemptId, question, index }: { attemptId: number; questi
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // reveal: 여기서는 "정답 확인"을 눌렀을 때 바로 정오답을 보여준다(서버는 이후 답 변경을 막는다).
-        body: JSON.stringify({ questionId: question.questionId, selectedIndex: selected, reveal: true }),
+        body: JSON.stringify({
+          questionId: question.questionId,
+          selectedIndex: selected,
+          reveal: true,
+        }),
       });
       const data = await res.json();
       if (res.ok && data.instantFeedback) {
-        setFeedback({ isCorrect: data.isCorrect, correctIndex: data.correctIndex, explanation: data.explanation });
+        setFeedback({
+          isCorrect: data.isCorrect,
+          correctIndex: data.correctIndex,
+          explanation: data.explanation,
+        });
       }
     } catch {
       // 네트워크 오류는 조용히 무시 — 채팅 안 미니 카드라 실패해도 대화 자체는 계속 이어가야 한다.
@@ -60,7 +80,11 @@ function OneQuestion({ attemptId, question, index }: { attemptId: number; questi
       </p>
       {question.stemImageUrl ? (
         // biome-ignore lint/performance/noImgElement: 문제 지문 이미지는 public/exam-images의 고정 자산
-        <img alt="문제 지문 이미지" className="mb-2.5 max-h-56 w-fit max-w-full rounded-lg border" src={question.stemImageUrl} />
+        <img
+          alt="문제 지문 이미지"
+          className="mb-2.5 max-h-56 w-fit max-w-full rounded-lg border"
+          src={question.stemImageUrl}
+        />
       ) : null}
       <div className="flex flex-col gap-1.5">
         {question.choices.map((choice, i) => {
@@ -68,8 +92,10 @@ function OneQuestion({ attemptId, question, index }: { attemptId: number; questi
           const showFeedback = !!feedback;
           const isCorrectChoice = feedback?.correctIndex === i;
           let stateClass = "border-border hover:border-ring";
-          if (showFeedback && isCorrectChoice) stateClass = "border-emerald-500 bg-emerald-500/10";
-          else if (showFeedback && isSelected && !feedback.isCorrect) stateClass = "border-destructive bg-destructive/10";
+          if (showFeedback && isCorrectChoice)
+            stateClass = "border-emerald-500 bg-emerald-500/10";
+          else if (showFeedback && isSelected && !feedback.isCorrect)
+            stateClass = "border-destructive bg-destructive/10";
           else if (isSelected) stateClass = "border-ring bg-accent";
           return (
             <button
@@ -98,15 +124,23 @@ function OneQuestion({ attemptId, question, index }: { attemptId: number; questi
       </div>
       {feedback && (
         <div className="mt-2.5 rounded-lg bg-muted/50 p-2.5 text-[12px] leading-relaxed">
-          <p className="mb-1 font-semibold">{feedback.isCorrect ? "정답입니다" : "오답입니다"}</p>
-          <p className="whitespace-pre-wrap text-muted-foreground">{feedback.explanation}</p>
+          <p className="mb-1 font-semibold">
+            {feedback.isCorrect ? "정답입니다" : "오답입니다"}
+          </p>
+          <p className="whitespace-pre-wrap text-muted-foreground">
+            {feedback.explanation}
+          </p>
         </div>
       )}
     </div>
   );
 }
 
-export function InlinePracticeQuestions({ attempt }: { attempt: PracticeAttempt }) {
+export function InlinePracticeQuestions({
+  attempt,
+}: {
+  attempt: PracticeAttempt;
+}) {
   if (!attempt.questions || attempt.questions.length === 0) return null;
   return (
     <div className="mt-3 flex flex-col gap-3">
@@ -114,7 +148,12 @@ export function InlinePracticeQuestions({ attempt }: { attempt: PracticeAttempt 
         문제은행에서 찾은 문제 · 바로 풀어보기
       </Badge>
       {attempt.questions.map((q, i) => (
-        <OneQuestion attemptId={attempt.attemptId} index={i} key={q.questionId} question={q} />
+        <OneQuestion
+          attemptId={attempt.attemptId}
+          index={i}
+          key={q.questionId}
+          question={q}
+        />
       ))}
     </div>
   );

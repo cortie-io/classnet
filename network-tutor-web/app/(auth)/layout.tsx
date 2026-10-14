@@ -1,10 +1,26 @@
-import { BookOpenCheckIcon, CalculatorIcon, NotebookPenIcon } from "lucide-react";
+import {
+  BookOpenCheckIcon,
+  CalculatorIcon,
+  NotebookPenIcon,
+} from "lucide-react";
 import { BrandMark, BrandWordmark } from "@/components/brand/logo";
 
 const FEATURES = [
-  { icon: CalculatorIcon, title: "개념 질문 · 서브넷 계산", body: "헷갈리는 개념과 계산 문제를 바로 물어보세요." },
-  { icon: BookOpenCheckIcon, title: "기출 회차 · 모의고사", body: "실제 시험과 같은 구성으로 실전 감각을 길러요." },
-  { icon: NotebookPenIcon, title: "오답노트 · 학습 리포트", body: "틀린 문제와 약한 주제를 한눈에 모아 복습해요." },
+  {
+    icon: CalculatorIcon,
+    title: "개념 질문 · 서브넷 계산",
+    body: "헷갈리는 개념과 계산 문제를 바로 물어보세요.",
+  },
+  {
+    icon: BookOpenCheckIcon,
+    title: "기출 회차 · 모의고사",
+    body: "실제 시험과 같은 구성으로 실전 감각을 길러요.",
+  },
+  {
+    icon: NotebookPenIcon,
+    title: "오답노트 · 학습 리포트",
+    body: "틀린 문제와 약한 주제를 한눈에 모아 복습해요.",
+  },
 ];
 
 export default function AuthLayout({
@@ -32,7 +48,8 @@ export default function AuthLayout({
             <span className="text-brand">AI 튜터</span>와 함께 합격까지
           </h2>
           <p className="mt-4 text-[15px] text-muted-foreground leading-relaxed">
-            개념 설명부터 서브넷 계산, 기출 해설과 오답 관리까지 — 한 곳에서 꾸준히 공부하세요.
+            개념 설명부터 서브넷 계산, 기출 해설과 오답 관리까지 — 한 곳에서
+            꾸준히 공부하세요.
           </p>
 
           <div className="mt-10 flex flex-col gap-3">
@@ -45,7 +62,9 @@ export default function AuthLayout({
                   <f.icon className="size-5" />
                 </div>
                 <div>
-                  <p className="font-semibold text-[14px] text-foreground">{f.title}</p>
+                  <p className="font-semibold text-[14px] text-foreground">
+                    {f.title}
+                  </p>
                   <p className="text-[13px] text-muted-foreground">{f.body}</p>
                 </div>
               </div>
@@ -53,7 +72,9 @@ export default function AuthLayout({
           </div>
         </div>
 
-        <p className="relative text-[12.5px] text-muted-foreground">학교 자체 호스팅 AI로 운영됩니다</p>
+        <p className="relative text-[12.5px] text-muted-foreground">
+          학교 자체 호스팅 AI로 운영됩니다
+        </p>
       </aside>
 
       {/* 로그인 폼 */}

@@ -17,19 +17,30 @@ export function PageIntro({
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between", className)}>
+    <div
+      className={cn(
+        "flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between",
+        className
+      )}
+    >
       <div className="flex items-start gap-3.5">
         <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-brand text-white shadow-[var(--shadow-brand)]">
           <Icon className="size-5" />
         </div>
         <div className="min-w-0 pt-0.5">
-          <h1 className="font-bold text-[22px] text-foreground tracking-[-0.035em]">{title}</h1>
+          <h1 className="font-bold text-[22px] text-foreground tracking-[-0.035em]">
+            {title}
+          </h1>
           {description ? (
-            <p className="mt-1 text-[13.5px] text-muted-foreground leading-relaxed">{description}</p>
+            <p className="mt-1 text-[13.5px] text-muted-foreground leading-relaxed">
+              {description}
+            </p>
           ) : null}
         </div>
       </div>
-      {children ? <div className="flex shrink-0 flex-wrap gap-2">{children}</div> : null}
+      {children ? (
+        <div className="flex shrink-0 flex-wrap gap-2">{children}</div>
+      ) : null}
     </div>
   );
 }
@@ -54,8 +65,16 @@ export function PageNotice({
         </div>
       ) : null}
       <p className="font-semibold text-[15px] text-foreground">{title}</p>
-      {description ? <p className="max-w-sm text-[13px] text-muted-foreground leading-relaxed">{description}</p> : null}
-      {children ? <div className="mt-2 flex flex-wrap justify-center gap-2">{children}</div> : null}
+      {description ? (
+        <p className="max-w-sm text-[13px] text-muted-foreground leading-relaxed">
+          {description}
+        </p>
+      ) : null}
+      {children ? (
+        <div className="mt-2 flex flex-wrap justify-center gap-2">
+          {children}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -5,7 +5,7 @@ import {
 import { pool } from "../../infrastructure/db/pool.js";
 
 export const rankingMethodology =
-	"문항마다 최초 완료한 유효 응시의 획득점수 ÷ 배점을 합산합니다(문항당 최대 1점). 반복 풀이, 진행 중·무효 응시, 대화 횟수, 접속 일수, 수동 입력 점수는 순위 점수에 반영하지 않습니다. 채점 전 문항은 대기하며 동점은 공동 순위, 평가 기록이 없으면 미산정입니다.";
+	"공식 모의시험은 별도 관리하며 학습 순위에 포함하지 않습니다. 문항마다 최초 완료한 유효 응시의 획득점수 ÷ 배점을 합산합니다(문항당 최대 1점). 반복 풀이, 진행 중·무효 응시, 대화 횟수, 접속 일수, 수동 입력 점수는 순위 점수에 반영하지 않습니다. 채점 전 문항은 대기하며 동점은 공동 순위, 평가 기록이 없으면 미산정입니다.";
 
 export function assignFairRanks<
 	T extends { id: number; compositeScore: number; questionsGraded: number },
@@ -36,7 +36,7 @@ export async function getFairRanking(scope: RankingScope = {}) {
       FROM exam_attempts att
       JOIN exam_answers a ON a.attempt_id=att.id
       JOIN exam_questions q ON q.id=a.question_id
-      WHERE att.status IN ('submitted','auto_submitted')
+      WHERE NOT att.is_official AND att.status IN ('submitted','auto_submitted')
       ORDER BY att.user_id,a.question_id,att.started_at,att.id
     ), assessment AS (
       SELECT user_id, count(*)::int AS attempted,
@@ -49,7 +49,7 @@ export async function getFairRanking(scope: RankingScope = {}) {
       SELECT user_id,count(DISTINCT day)::int AS count FROM (
         SELECT user_id,(created_at AT TIME ZONE 'Asia/Seoul')::date AS day FROM audit_log
         UNION SELECT user_id,(started_at AT TIME ZONE 'Asia/Seoul')::date FROM exam_attempts
-        WHERE status IN ('submitted','auto_submitted')
+        WHERE NOT is_official AND status IN ('submitted','auto_submitted')
       ) activity GROUP BY user_id
     )
     SELECT u.id,u.student_id,u.name,u.email,u.class_code,u.manual_pre_test_score,u.manual_post_test_score,coalesce(a.attempted,0) AS attempted,

@@ -370,9 +370,7 @@ export function SidebarHistory({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>취소</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>
-              삭제
-            </AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete}>삭제</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

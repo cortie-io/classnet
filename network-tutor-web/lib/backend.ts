@@ -6,6 +6,24 @@ const INTERNAL_SECRET = process.env.INTERNAL_API_SECRET ?? "";
 
 export class BackendAuthError extends Error {}
 
+/** 백엔드가 오류로 답한 경우 — 상태 코드와 오류 코드(예: DEVICE_LOCKED)를 그대로 들고 다닌다. */
+export class BackendRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code?: string
+  ) {
+    super(message);
+  }
+}
+
+// 브라우저에서 받아 백엔드로 넘겨도 되는 헤더만 — 그 밖의 헤더는 절대 중계하지 않는다.
+const FORWARDABLE_HEADERS = new Set([
+  "x-exam-token",
+  "x-client-ip",
+  "x-client-user-agent",
+]);
+
 /**
  * 백엔드 URL을 안전하게 만든다. 라우트 파라미터는 Next가 디코딩한 값이라 `../`, `?`, `#`가 섞여 들어올 수 있다
  * — 그대로 이어 붙이면 다른 경로(관리자 API)로 새거나 `?userId=`를 끼워 넣어 다른 사용자로 행세할 수 있었다.
@@ -22,8 +40,15 @@ function backendUrl(path: string, userId?: string): URL {
   ) {
     throw new Error("잘못된 요청 경로입니다.");
   }
+  // 경로 칸은 영문·숫자·-·_만 — URL 파서가 조용히 지우거나 바꾸는 문자(탭·줄바꿈·역슬래시 등)로 검사를 피해
+  // 다른 백엔드 경로로 새는 일을 막는다(보안 감사). 만든 뒤의 경로가 입력과 똑같은지도 다시 확인한다.
+  if (!/^\/api(\/[A-Za-z0-9_-]+)+\/?$/.test(pathname)) {
+    throw new Error("잘못된 요청 경로입니다.");
+  }
   const url = new URL(pathname, BACKEND_URL);
-  for (const [k, v] of new URLSearchParams(search)) url.searchParams.append(k, v);
+  if (url.pathname !== pathname) throw new Error("잘못된 요청 경로입니다.");
+  for (const [k, v] of new URLSearchParams(search))
+    url.searchParams.append(k, v);
   if (userId !== undefined) url.searchParams.set("userId", userId);
   return url;
 }
@@ -31,7 +56,11 @@ function backendUrl(path: string, userId?: string): URL {
 /** network-tutor-server의 /api/* 를 서버 간 신뢰 호출로 대신 부른다(브라우저는 이 시크릿을 절대 보지 못한다). */
 export async function callBackend<T = unknown>(
   path: string,
-  init: { method?: string; body?: unknown } = {},
+  init: {
+    method?: string;
+    body?: unknown;
+    headers?: Record<string, string | undefined>;
+  } = {}
 ): Promise<T> {
   const session = await auth();
   if (!session?.user) throw new BackendAuthError("로그인이 필요합니다.");
@@ -45,15 +74,32 @@ export async function callBackend<T = unknown>(
   const res = await fetch(url, {
     method,
     headers: {
+      ...Object.fromEntries(
+        Object.entries(init.headers ?? {}).filter(
+          (e): e is [string, string] =>
+            FORWARDABLE_HEADERS.has(e[0].toLowerCase()) &&
+            typeof e[1] === "string"
+        )
+      ),
       "Content-Type": "application/json",
       "x-internal-secret": INTERNAL_SECRET,
     },
-    body: isBodyless ? undefined : JSON.stringify({ ...(init.body as object | undefined), userId: Number(session.user.id) }),
+    body: isBodyless
+      ? undefined
+      : JSON.stringify({
+          ...(init.body as object | undefined),
+          userId: Number(session.user.id),
+        }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const err = new Error(data?.error ?? `backend request failed (${res.status})`);
-    throw err;
+    throw new BackendRequestError(
+      typeof data?.error === "string"
+        ? data.error
+        : `backend request failed (${res.status})`,
+      res.status,
+      typeof data?.code === "string" ? data.code : undefined
+    );
   }
   return data as T;
 }

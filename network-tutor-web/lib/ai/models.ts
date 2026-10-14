@@ -60,6 +60,9 @@ export async function getCapabilities(): Promise<
   Record<string, ModelCapabilities>
 > {
   return Object.fromEntries(
-    chatModels.map((m) => [m.id, { reasoning: false, tools: false, vision: true }])
+    chatModels.map((m) => [
+      m.id,
+      { reasoning: false, tools: false, vision: true },
+    ])
   );
 }

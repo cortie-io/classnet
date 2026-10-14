@@ -40,7 +40,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { id, message, selectedChatModel, selectedVisibilityType } = requestBody;
+    const { id, message, selectedChatModel, selectedVisibilityType } =
+      requestBody;
 
     const session = await auth();
     if (!session?.user) {
@@ -143,7 +144,8 @@ export async function POST(request: Request) {
           });
         }
       },
-      onError: () => "죄송합니다, 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.",
+      onError: () =>
+        "죄송합니다, 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.",
     });
 
     return createUIMessageStreamResponse({ stream });

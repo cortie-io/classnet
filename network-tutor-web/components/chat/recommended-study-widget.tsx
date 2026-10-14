@@ -27,7 +27,9 @@ export function RecommendedStudyWidget() {
   if (!rec?.hasSuggestion || !rec.label) return null;
 
   const start = () => {
-    router.push(`/?query=${encodeURIComponent(`${rec.label} 관련 문제 5개 뽑아줘`)}`);
+    router.push(
+      `/?query=${encodeURIComponent(`${rec.label} 관련 문제 5개 뽑아줘`)}`
+    );
   };
 
   return (
@@ -42,7 +44,12 @@ export function RecommendedStudyWidget() {
       </span>
       <span className="text-[12.5px] text-sidebar-foreground">
         {rec.label}
-        {typeof rec.accuracy === "number" && <span className="text-sidebar-foreground/50"> · 정답률 {rec.accuracy}%</span>}
+        {typeof rec.accuracy === "number" && (
+          <span className="text-sidebar-foreground/50">
+            {" "}
+            · 정답률 {rec.accuracy}%
+          </span>
+        )}
       </span>
     </button>
   );

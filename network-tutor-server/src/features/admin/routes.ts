@@ -18,6 +18,8 @@ import {
 } from "../tutor/pipeline/personalization.js";
 
 export const adminRouter = Router();
+const nonOfficial = (alias = "att") =>
+	isArchivePeriod() ? "TRUE" : `NOT ${alias}.is_official`;
 
 // ---------- 학교 전체(전 학생) 현황 대시보드 ----------
 // 교사가 가장 먼저 필요로 하는 것은 "우리 반이 전반적으로 어떤지"다 — 학생 한 명씩 들여다보기 전에
@@ -39,12 +41,12 @@ adminRouter.get(
 				"SELECT count(*) FROM users WHERE role = 'student'",
 			),
 			pool.query<{ correct: string; total: string }>(
-				"SELECT count(*) FILTER (WHERE is_correct = true) AS correct, count(*) AS total FROM exam_answers WHERE is_correct IS NOT NULL",
+				`SELECT count(*) FILTER (WHERE a.is_correct = true) AS correct, count(*) AS total FROM exam_answers a JOIN exam_attempts att ON att.id=a.attempt_id WHERE ${nonOfficial()} AND a.is_correct IS NOT NULL`,
 			),
 			pool.query<{ subject: string; correct: string; total: string }>(
 				`SELECT q.subject, count(*) FILTER (WHERE a.is_correct = true) AS correct, count(*) AS total
-       FROM exam_answers a JOIN exam_questions q ON q.id = a.question_id
-       WHERE a.is_correct IS NOT NULL GROUP BY q.subject ORDER BY q.subject`,
+       FROM exam_answers a JOIN exam_questions q ON q.id = a.question_id JOIN exam_attempts att ON att.id=a.attempt_id
+       WHERE ${nonOfficial()} AND a.is_correct IS NOT NULL GROUP BY q.subject ORDER BY q.subject`,
 			),
 			pool.query<{
 				id: number;
@@ -55,8 +57,8 @@ adminRouter.get(
 			}>(
 				`SELECT q.id, q.stem, q.subject,
               count(*) FILTER (WHERE a.is_correct = true) AS correct, count(*) AS total
-       FROM exam_answers a JOIN exam_questions q ON q.id = a.question_id
-       WHERE a.is_correct IS NOT NULL
+       FROM exam_answers a JOIN exam_questions q ON q.id = a.question_id JOIN exam_attempts att ON att.id=a.attempt_id
+       WHERE ${nonOfficial()} AND a.is_correct IS NOT NULL
        GROUP BY q.id, q.stem, q.subject
        HAVING count(*) >= 5
        ORDER BY (count(*) FILTER (WHERE a.is_correct = true))::float / count(*) ASC
@@ -64,7 +66,7 @@ adminRouter.get(
 			),
 			pool.query<{ day: string; count: string }>(
 				`SELECT to_char(date_trunc('day', started_at), 'YYYY-MM-DD') AS day, count(*)
-       FROM exam_attempts WHERE started_at > now() - interval '14 days'
+       FROM exam_attempts att WHERE ${nonOfficial()} AND started_at > now() - interval '14 days'
        GROUP BY 1 ORDER BY 1`,
 			),
 			pool.query<{
@@ -75,7 +77,7 @@ adminRouter.get(
 			}>(
 				`SELECT u.id, u.name, u.email, count(att.id) AS attempt_count
        FROM users u JOIN exam_attempts att ON att.user_id = u.id
-       WHERE att.started_at > now() - interval '14 days'
+       WHERE ${nonOfficial()} AND att.started_at > now() - interval '14 days'
        GROUP BY u.id ORDER BY attempt_count DESC LIMIT 5`,
 			),
 		]);
@@ -271,14 +273,14 @@ adminRouter.get("/admin/users/:id", requireAdmin, async (req, res) => {
 		getWeakAreas(id),
 		getWeakTopics(id),
 		pool.query<{ correct: string; total: string }>(
-			"SELECT count(*) FILTER (WHERE is_correct = true) AS correct, count(*) AS total FROM exam_answers a JOIN exam_attempts att ON att.id = a.attempt_id WHERE att.user_id = $1 AND a.is_correct IS NOT NULL",
+			`SELECT count(*) FILTER (WHERE is_correct = true) AS correct, count(*) AS total FROM exam_answers a JOIN exam_attempts att ON att.id = a.attempt_id WHERE att.user_id = $1 AND ${nonOfficial()} AND a.is_correct IS NOT NULL`,
 			[id],
 		),
 		pool.query(
 			`SELECT att.id, att.status, att.score, att.started_at, att.submitted_at, att.flagged_for_review,
               s.kind AS set_kind, s.title AS set_title
        FROM exam_attempts att LEFT JOIN exam_sets s ON s.id = att.exam_set_id
-       WHERE att.user_id = $1 ORDER BY att.started_at DESC LIMIT 20`,
+       WHERE att.user_id = $1 AND ${nonOfficial()} ORDER BY att.started_at DESC LIMIT 20`,
 			[id],
 		),
 	]);

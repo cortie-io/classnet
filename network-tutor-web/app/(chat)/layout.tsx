@@ -1,3 +1,4 @@
+import { OfficialExamGuard } from "@/components/official-exam/exam-guard";
 import { cookies } from "next/headers";
 import Script from "next/script";
 import { Suspense } from "react";
@@ -31,6 +32,7 @@ async function SidebarShell({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider defaultOpen={!isCollapsed}>
       <AppSidebar user={session?.user} />
+      {session?.user?.role === "student" ? <OfficialExamGuard /> : null}
       <SidebarInset>
         <ServiceLaunchNotice />
         <Suspense fallback={<div className="flex h-dvh" />}>

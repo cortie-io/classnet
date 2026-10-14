@@ -112,7 +112,7 @@ function PureMultimodalInput({
   isLoading?: boolean;
 }) {
   const router = useRouter();
-  const {data:session}=useSession();
+  const { data: session } = useSession();
   const { setTheme, resolvedTheme } = useTheme();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
@@ -128,7 +128,7 @@ function PureMultimodalInput({
   }, [width]);
 
   const [localStorageInput, setLocalStorageInput] = useLocalStorage(
-    `classnet:phase2:input:${session?.user?.id??"loading"}`,
+    `classnet:phase2:input:${session?.user?.id ?? "loading"}`,
     ""
   );
 
@@ -541,7 +541,9 @@ function PureMultimodalInput({
           onChange={handleInput}
           onKeyDown={handleTextareaKeyDown}
           placeholder={
-            editingMessage ? "수정할 내용을 입력하세요" : "네트워크관리사 2급, 무엇이든 물어보세요"
+            editingMessage
+              ? "수정할 내용을 입력하세요"
+              : "네트워크관리사 2급, 무엇이든 물어보세요"
           }
           ref={textareaRef}
           value={input}

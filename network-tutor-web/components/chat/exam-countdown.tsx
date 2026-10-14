@@ -14,7 +14,9 @@ export function ExamCountdown() {
         const target = new Date(`${d.examDate}T00:00:00`);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const diffDays = Math.round((target.getTime() - today.getTime()) / 86_400_000);
+        const diffDays = Math.round(
+          (target.getTime() - today.getTime()) / 86_400_000
+        );
         setExam({ dday: diffDays, date: target });
       })
       .catch(() => undefined);
@@ -29,7 +31,9 @@ export function ExamCountdown() {
         <CalendarCheck2Icon className="size-[18px]" />
       </div>
       <div className="min-w-0 leading-tight">
-        <p className="truncate font-medium text-[11px] text-sidebar-foreground/60">네트워크관리사 2급 필기</p>
+        <p className="truncate font-medium text-[11px] text-sidebar-foreground/60">
+          네트워크관리사 2급 필기
+        </p>
         <p className="mt-0.5 flex items-baseline gap-1.5">
           <span className="font-extrabold text-[16px] text-foreground tabular-nums tracking-tight">
             {dday > 0 ? `D-${dday}` : dday === 0 ? "D-DAY" : "시험 종료"}

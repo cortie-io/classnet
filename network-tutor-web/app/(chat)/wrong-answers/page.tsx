@@ -1,14 +1,27 @@
 "use client";
 
-import { BookOpenIcon, NotebookPenIcon, PartyPopperIcon, RotateCcwIcon, SparklesIcon } from "lucide-react";
+import {
+  BookOpenIcon,
+  NotebookPenIcon,
+  PartyPopperIcon,
+  RotateCcwIcon,
+  SparklesIcon,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { PageIntro, PageLoading, PageNotice } from "@/components/chat/page-intro";
+import {
+  PageIntro,
+  PageLoading,
+  PageNotice,
+} from "@/components/chat/page-intro";
 import { ChoiceChip } from "@/components/ui/choice-chip";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ExamRunner, type ExamStartResponse } from "@/components/exam/exam-runner";
+import {
+  ExamRunner,
+  type ExamStartResponse,
+} from "@/components/exam/exam-runner";
 import { toast } from "@/components/chat/toast";
 import { loadJson } from "@/components/load-json";
 
@@ -59,11 +72,16 @@ function composeQuestionPrompt(item: WrongAnswerItem): string {
 
 function chunkItems<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = [];
-  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
+  for (let i = 0; i < items.length; i += size)
+    chunks.push(items.slice(i, i + size));
   return chunks;
 }
 
-function composeMultiQuestionPrompt(items: WrongAnswerItem[], chunkIndex: number, totalChunks: number): string {
+function composeMultiQuestionPrompt(
+  items: WrongAnswerItem[],
+  chunkIndex: number,
+  totalChunks: number
+): string {
   const body = items.map((item, i) => questionBlock(item, i)).join("\n\n");
   const lead =
     totalChunks > 1
@@ -82,7 +100,9 @@ export default function WrongAnswersPage() {
   const [retryingAll, setRetryingAll] = useState(false);
 
   useEffect(() => {
-    loadJson("/api/exam/wrong-answers", setItems, { onError: () => setItems([]) });
+    loadJson("/api/exam/wrong-answers", setItems, {
+      onError: () => setItems([]),
+    });
   }, []);
 
   const subjects = useMemo(() => {
@@ -92,14 +112,19 @@ export default function WrongAnswersPage() {
 
   const filtered = useMemo(() => {
     if (!items) return [];
-    return subject === "all" ? items : items.filter((i) => i.subject === subject);
+    return subject === "all"
+      ? items
+      : items.filter((i) => i.subject === subject);
   }, [items, subject]);
 
   // URL 쿼리 파라미터(router.push("/?query=..."))로는 절대 안 보낸다 — 문제 지문+보기가 길면 nginx
   // 요청 URI 길이 제한에 걸려 414 Request-URI Too Large가 난다(실사용 중 확인된 버그: 기출 회차 전체
   // 풀이 후 종합 분석 요청이 이 경로로 414를 냈다). sessionStorage 큐는 길이 제한이 없다.
   const askInChat = (item: WrongAnswerItem) => {
-    sessionStorage.setItem("classnet:phase2:queuedQueries", JSON.stringify([composeQuestionPrompt(item)]));
+    sessionStorage.setItem(
+      "classnet:phase2:queuedQueries",
+      JSON.stringify([composeQuestionPrompt(item)])
+    );
     router.push("/");
   };
 
@@ -109,8 +134,13 @@ export default function WrongAnswersPage() {
   const explainInChat = (items: WrongAnswerItem[]) => {
     if (items.length === 0) return;
     const chunks = chunkItems(items, MAX_BULK_EXPLAIN);
-    const queries = chunks.map((c, i) => composeMultiQuestionPrompt(c, i, chunks.length));
-    sessionStorage.setItem("classnet:phase2:queuedQueries", JSON.stringify(queries));
+    const queries = chunks.map((c, i) =>
+      composeMultiQuestionPrompt(c, i, chunks.length)
+    );
+    sessionStorage.setItem(
+      "classnet:phase2:queuedQueries",
+      JSON.stringify(queries)
+    );
     if (chunks.length > 1) {
       toast({
         type: "success",
@@ -137,19 +167,28 @@ export default function WrongAnswersPage() {
   };
 
   const toggleSelectAll = () => {
-    const allSelected = filtered.length > 0 && filtered.every((i) => selected.has(i.answerId));
-    setSelected(allSelected ? new Set() : new Set(filtered.map((i) => i.answerId)));
+    const allSelected =
+      filtered.length > 0 && filtered.every((i) => selected.has(i.answerId));
+    setSelected(
+      allSelected ? new Set() : new Set(filtered.map((i) => i.answerId))
+    );
   };
 
   const retry = async (item: WrongAnswerItem) => {
     setRetryingId(item.answerId);
     try {
-      const res = await fetch(`/api/exam/bank/${item.questionId}/start`, { method: "POST" });
+      const res = await fetch(`/api/exam/bank/${item.questionId}/start`, {
+        method: "POST",
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "다시 풀 수 없습니다.");
       setRetryStart(data);
     } catch (err) {
-      toast({ type: "error", description: err instanceof Error ? err.message : "오류가 발생했습니다." });
+      toast({
+        type: "error",
+        description:
+          err instanceof Error ? err.message : "오류가 발생했습니다.",
+      });
     } finally {
       setRetryingId(null);
     }
@@ -158,10 +197,15 @@ export default function WrongAnswersPage() {
   const retryAll = async () => {
     setRetryingAll(true);
     try {
-      const res = await fetch("/api/exam/wrong-answers/retry-all", { method: "POST" });
+      const res = await fetch("/api/exam/wrong-answers/retry-all", {
+        method: "POST",
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "다시 풀 수 없습니다.");
-      if (typeof data.totalWrongCount === "number" && data.totalWrongCount > data.includedCount) {
+      if (
+        typeof data.totalWrongCount === "number" &&
+        data.totalWrongCount > data.includedCount
+      ) {
         toast({
           type: "success",
           description: `틀린 문제가 ${data.totalWrongCount}개라 한 번에 다 담을 수 없어, 이번엔 ${data.includedCount}개만 포함했어요. 다시 누르면 나머지를 이어서 볼 수 있어요.`,
@@ -169,7 +213,11 @@ export default function WrongAnswersPage() {
       }
       setRetryStart(data);
     } catch (err) {
-      toast({ type: "error", description: err instanceof Error ? err.message : "오류가 발생했습니다." });
+      toast({
+        type: "error",
+        description:
+          err instanceof Error ? err.message : "오류가 발생했습니다.",
+      });
     } finally {
       setRetryingAll(false);
     }
@@ -190,18 +238,43 @@ export default function WrongAnswersPage() {
       {items === null ? (
         <PageLoading />
       ) : items.length === 0 ? (
-        <PageNotice icon={PartyPopperIcon} title="아직 틀린 문제가 없어요. 잘하고 있어요!" />
+        <PageNotice
+          icon={PartyPopperIcon}
+          title="아직 틀린 문제가 없어요. 잘하고 있어요!"
+        />
       ) : (
         <>
           {subjects.length > 1 && (
             <div className="flex flex-wrap gap-2">
-              <ChoiceChip active={subject === "all"} onClick={() => setSubject("all")}>
-                전체 <span className={subject === "all" ? "text-primary-foreground/70" : "text-muted-foreground"}>{items.length}</span>
+              <ChoiceChip
+                active={subject === "all"}
+                onClick={() => setSubject("all")}
+              >
+                전체{" "}
+                <span
+                  className={
+                    subject === "all"
+                      ? "text-primary-foreground/70"
+                      : "text-muted-foreground"
+                  }
+                >
+                  {items.length}
+                </span>
               </ChoiceChip>
               {subjects.map((s) => (
-                <ChoiceChip active={subject === s} key={s} onClick={() => setSubject(s)}>
+                <ChoiceChip
+                  active={subject === s}
+                  key={s}
+                  onClick={() => setSubject(s)}
+                >
                   {s.replace(/^\d과목_/, "")}{" "}
-                  <span className={subject === s ? "text-primary-foreground/70" : "text-muted-foreground"}>
+                  <span
+                    className={
+                      subject === s
+                        ? "text-primary-foreground/70"
+                        : "text-muted-foreground"
+                    }
+                  >
                     {items.filter((i) => i.subject === s).length}
                   </span>
                 </ChoiceChip>
@@ -212,7 +285,10 @@ export default function WrongAnswersPage() {
           <div className="surface sticky top-16 z-[5] flex flex-wrap items-center justify-between gap-2 px-4 py-3 md:top-3">
             <label className="flex items-center gap-2 font-medium text-[13px]">
               <input
-                checked={filtered.length > 0 && filtered.every((i) => selected.has(i.answerId))}
+                checked={
+                  filtered.length > 0 &&
+                  filtered.every((i) => selected.has(i.answerId))
+                }
                 className="size-4 accent-primary"
                 onChange={toggleSelectAll}
                 type="checkbox"
@@ -220,14 +296,24 @@ export default function WrongAnswersPage() {
               전체 선택 ({selected.size}개 선택됨)
             </label>
             <div className="flex flex-wrap gap-2">
-              <Button disabled={selected.size === 0} onClick={askSelectedInChat} size="sm" variant="outline">
+              <Button
+                disabled={selected.size === 0}
+                onClick={askSelectedInChat}
+                size="sm"
+                variant="outline"
+              >
                 <SparklesIcon className="size-3.5" />
                 선택한 문제 해설 생성
               </Button>
               <Button onClick={askAllInChat} size="sm" variant="outline">
                 전체 해설 생성
               </Button>
-              <Button className="bg-brand" disabled={retryingAll} onClick={retryAll} size="sm">
+              <Button
+                className="bg-brand"
+                disabled={retryingAll}
+                onClick={retryAll}
+                size="sm"
+              >
                 <RotateCcwIcon className="size-3.5" />
                 {retryingAll ? "준비 중..." : "오답 전체 복습하기"}
               </Button>
@@ -247,13 +333,21 @@ export default function WrongAnswersPage() {
                     onChange={() => toggleSelected(item.answerId)}
                     type="checkbox"
                   />
-                  <Badge variant="secondary">{item.subject.replace(/^\d과목_/, "")}</Badge>
+                  <Badge variant="secondary">
+                    {item.subject.replace(/^\d과목_/, "")}
+                  </Badge>
                   {item.questionType !== "multiple_choice" && (
-                    <Badge variant="outline">{QUESTION_TYPE_LABEL[item.questionType]}</Badge>
+                    <Badge variant="outline">
+                      {QUESTION_TYPE_LABEL[item.questionType]}
+                    </Badge>
                   )}
-                  <span>{new Date(item.answeredAt).toLocaleDateString("ko-KR")}</span>
+                  <span>
+                    {new Date(item.answeredAt).toLocaleDateString("ko-KR")}
+                  </span>
                 </div>
-                <p className="mb-3 whitespace-pre-wrap font-semibold text-[14px] text-foreground leading-relaxed">{item.stem}</p>
+                <p className="mb-3 whitespace-pre-wrap font-semibold text-[14px] text-foreground leading-relaxed">
+                  {item.stem}
+                </p>
 
                 {item.questionType === "multiple_choice" && item.choices ? (
                   <div className="flex flex-col gap-1.5">
@@ -261,18 +355,27 @@ export default function WrongAnswersPage() {
                       let stateClass = "border-border/70 text-muted-foreground";
                       let mark: string | null = null;
                       if (i === item.correctIndex) {
-                        stateClass = "border-emerald-500/50 bg-emerald-500/8 text-emerald-900 font-medium";
+                        stateClass =
+                          "border-emerald-500/50 bg-emerald-500/8 text-emerald-900 font-medium";
                         mark = "정답";
                       } else if (i === item.selectedIndex) {
-                        stateClass = "border-destructive/40 bg-destructive/6 text-destructive";
+                        stateClass =
+                          "border-destructive/40 bg-destructive/6 text-destructive";
                         mark = "내 답";
                       }
                       return (
-                        <div className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-[13px] ${stateClass}`} key={i}>
+                        <div
+                          className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-[13px] ${stateClass}`}
+                          key={i}
+                        >
                           <span>
                             {String.fromCharCode(9312 + i)} {c}
                           </span>
-                          {mark ? <span className="shrink-0 font-semibold text-[11px]">{mark}</span> : null}
+                          {mark ? (
+                            <span className="shrink-0 font-semibold text-[11px]">
+                              {mark}
+                            </span>
+                          ) : null}
                         </div>
                       );
                     })}
@@ -284,7 +387,11 @@ export default function WrongAnswersPage() {
                 )}
 
                 <div className="mt-auto flex flex-wrap gap-1.5 pt-4">
-                  <Button onClick={() => askInChat(item)} size="sm" variant="outline">
+                  <Button
+                    onClick={() => askInChat(item)}
+                    size="sm"
+                    variant="outline"
+                  >
                     <SparklesIcon className="size-3.5" />
                     해설 생성
                   </Button>
@@ -294,7 +401,9 @@ export default function WrongAnswersPage() {
                     size="sm"
                     variant="ghost"
                   >
-                    {retryingId === item.answerId ? "준비 중..." : "다시 풀어보기"}
+                    {retryingId === item.answerId
+                      ? "준비 중..."
+                      : "다시 풀어보기"}
                   </Button>
                   {item.conceptNodeId !== null && (
                     <Button asChild size="sm" variant="ghost">

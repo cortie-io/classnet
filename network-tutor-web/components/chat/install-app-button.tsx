@@ -20,7 +20,8 @@ function isStandalone(): boolean {
   return (
     window.matchMedia?.("(display-mode: standalone)").matches ||
     // iOS Safari 전용 속성 — 표준 API가 아니라 타입 정의에 없어 별도로 캐스팅한다.
-    (window.navigator as unknown as { standalone?: boolean }).standalone === true
+    (window.navigator as unknown as { standalone?: boolean }).standalone ===
+      true
   );
 }
 
@@ -31,7 +32,8 @@ function isIOS(): boolean {
 
 export function InstallAppButton() {
   const [installed, setInstalled] = useState(true); // 서버 렌더링 시에는 숨겨두고, 클라이언트에서 판단되면 보여준다
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [deferredPrompt, setDeferredPrompt] =
+    useState<BeforeInstallPromptEvent | null>(null);
   const [showIosGuide, setShowIosGuide] = useState(false);
 
   useEffect(() => {
@@ -73,8 +75,7 @@ export function InstallAppButton() {
         size="sm"
         variant="outline"
       >
-        <DownloadIcon className="size-3.5" />
-        홈 화면에 추가
+        <DownloadIcon className="size-3.5" />홈 화면에 추가
       </Button>
 
       <Dialog onOpenChange={setShowIosGuide} open={showIosGuide}>
@@ -83,9 +84,16 @@ export function InstallAppButton() {
             <DialogTitle>홈 화면에 추가하기</DialogTitle>
           </DialogHeader>
           <ol className="flex flex-col gap-2 text-sm">
-            <li>1. 하단(또는 상단)의 공유 버튼 <span aria-hidden>⬆️</span>을 누르세요.</li>
-            <li>2. 아래로 스크롤해 <b>"홈 화면에 추가"</b>를 선택하세요.</li>
-            <li>3. 오른쪽 위 <b>"추가"</b>를 누르면 완료됩니다.</li>
+            <li>
+              1. 하단(또는 상단)의 공유 버튼 <span aria-hidden>⬆️</span>을
+              누르세요.
+            </li>
+            <li>
+              2. 아래로 스크롤해 <b>"홈 화면에 추가"</b>를 선택하세요.
+            </li>
+            <li>
+              3. 오른쪽 위 <b>"추가"</b>를 누르면 완료됩니다.
+            </li>
           </ol>
         </DialogContent>
       </Dialog>

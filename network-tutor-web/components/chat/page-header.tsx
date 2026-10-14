@@ -25,7 +25,9 @@ const PAGE_TITLES: [prefix: string, title: string][] = [
 export function pageTitleFor(pathname: string): string | undefined {
   const exact = PAGE_TITLES.find(([prefix]) => prefix === pathname);
   if (exact) return exact[1];
-  const prefixed = PAGE_TITLES.find(([prefix]) => pathname.startsWith(`${prefix}/`));
+  const prefixed = PAGE_TITLES.find(([prefix]) =>
+    pathname.startsWith(`${prefix}/`)
+  );
   return prefixed?.[1];
 }
 
@@ -35,12 +37,19 @@ export function PageHeader({ pathname }: { pathname: string }) {
 
   return (
     <header className="sticky top-0 z-10 flex h-14 items-center gap-2.5 border-border/70 border-b bg-card/90 px-3 backdrop-blur-lg md:hidden">
-      <Button className="shrink-0" onClick={toggleSidebar} size="icon-sm" variant="ghost">
+      <Button
+        className="shrink-0"
+        onClick={toggleSidebar}
+        size="icon-sm"
+        variant="ghost"
+      >
         <PanelLeftIcon className="size-4" />
         <span className="sr-only">사이드바 열기</span>
       </Button>
       <BrandMark className="size-6" />
-      {title && <span className="truncate font-semibold text-[15px]">{title}</span>}
+      {title && (
+        <span className="truncate font-semibold text-[15px]">{title}</span>
+      )}
     </header>
   );
 }

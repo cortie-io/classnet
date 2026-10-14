@@ -11,6 +11,7 @@ declare global {
 	namespace Express {
 		interface Request {
 			user?: SessionUser;
+			internalCall?: boolean;
 			sessionToken?: string;
 		}
 	}
@@ -85,6 +86,7 @@ export async function attachUser(
 			const user = await getUserById(userId);
 			if (user) {
 				req.user = user;
+				req.internalCall = true;
 				return next();
 			}
 		}

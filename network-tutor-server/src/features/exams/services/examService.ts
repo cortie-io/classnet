@@ -30,7 +30,7 @@ function matchesAcceptedAnswer(submitted: string, accepted: string[]): boolean {
 	return accepted.some((a) => normalizeShortAnswer(a) === norm);
 }
 
-function shuffleIndices(n: number): number[] {
+export function shuffleIndices(n: number): number[] {
 	const idx = Array.from({ length: n }, (_, i) => i);
 	for (let i = idx.length - 1; i > 0; i--) {
 		const j = randomInt(0, i + 1);
@@ -39,9 +39,11 @@ function shuffleIndices(n: number): number[] {
 	return idx;
 }
 
-/** 관리자 승인을 통과한(status='approved') 문제만 학생에게 노출한다 — "AI생성·검수대기" 문제는 절대 시험/연습에 나가지 않는다. */
-async function fetchApprovedQuestions(
+/** 관리자 승인을 통과한(status='approved') 문제만 학생에게 노출한다 — "AI생성·검수대기" 문제는 절대 시험/연습에 나가지 않는다.
+ * 공식 모의시험 응시만 그 시험 전용으로 낸 문제(status='exam_only')도 함께 받는다. */
+export async function fetchApprovedQuestions(
 	ids: number[],
+	opts: { includeExamOnly?: boolean; allowPendingIds?: number[] } = {},
 ): Promise<Map<number, ApprovedQuestion>> {
 	if (ids.length === 0) return new Map();
 	const { rows } = await pool.query<{
@@ -58,8 +60,9 @@ async function fetchApprovedQuestions(
 		stem_image_url: string | null;
 	}>(
 		`SELECT id, subject, stem, question_type, choices, correct_index, accepted_answers, model_answer, max_score, explanation, stem_image_url
-     FROM exam_questions WHERE id = ANY($1::int[]) AND status = 'approved'`,
-		[ids],
+     FROM exam_questions WHERE id = ANY($1::int[])
+       AND (status = 'approved' OR ($2 AND status = 'exam_only') OR (status = 'pending_review' AND id = ANY($3::int[])))`,
+		[ids, opts.includeExamOnly === true, opts.allowPendingIds ?? []],
 	);
 	return new Map(
 		rows.map((r) => [
@@ -81,18 +84,33 @@ async function fetchApprovedQuestions(
 	);
 }
 
-/** 이 학생이 지금 치르고 있는(in_progress) 모의고사·지정 시험 문항 — 정오답을 바로 알려주지 않는 응시라서,
- * 응시 중에는 같은 문항의 해설 조회·연습 응시·오답노트로 정답을 미리 볼 수 없게 막는 데 쓴다. */
+/** 공개된 공식 모의시험·지정 시험의 응시 기간이 끝나기 전까지는 그 시험 문제를 모든 학생에게 잠근다 — 먼저
+ * 응시한 학생이 문제은행·해설·기출 회차에서 정답을 찾아 아직 안 본 친구에게 알려 주는 길을 막는다.
+ * (마감이 없는 지정 시험은 공개돼 있는 동안 계속 잠근다.) */
+export async function officialLockedQuestionIds(): Promise<Set<number>> {
+	const { rows } = await pool.query<{ qid: number }>(
+		`SELECT DISTINCT unnest(question_ids) AS qid FROM exam_sets
+     WHERE kind IN ('official', 'admin_timed') AND is_published AND (scheduled_end IS NULL OR scheduled_end > now())`,
+	);
+	return new Set(rows.map((r) => r.qid));
+}
+
+/** 이 학생이 지금 정답을 볼 수 없는 문항 — 치르고 있는(in_progress) 모의고사·지정 시험·공식 모의시험 문항과,
+ * 응시 기간 중인 공식 모의시험 문항. 해설 조회·연습 응시·오답노트로 정답을 미리 보는 것을 막는 데 쓴다. */
 export async function lockedQuestionIdsForUser(
 	userId: number,
 ): Promise<Set<number>> {
-	const { rows } = await pool.query<{ qid: number }>(
-		`SELECT DISTINCT unnest(att.question_ids) AS qid
-     FROM exam_attempts att JOIN exam_sets s ON s.id = att.exam_set_id
-     WHERE att.user_id = $1 AND att.status = 'in_progress' AND s.kind IN ('mock', 'admin_timed')`,
-		[userId],
-	);
-	return new Set(rows.map((r) => r.qid));
+	const [{ rows }, official] = await Promise.all([
+		pool.query<{ qid: number }>(
+			`SELECT DISTINCT unnest(att.question_ids) AS qid
+       FROM exam_attempts att JOIN exam_sets s ON s.id = att.exam_set_id
+       WHERE att.user_id = $1 AND att.status = 'in_progress' AND s.kind IN ('mock', 'admin_timed', 'official')`,
+			[userId],
+		),
+		officialLockedQuestionIds(),
+	]);
+	for (const r of rows) official.add(r.qid);
+	return official;
 }
 
 export const LOCKED_QUESTION_MESSAGE =
@@ -142,7 +160,7 @@ export interface AttemptQuestionView {
 	stemImageUrl: string | null;
 }
 
-function buildChoiceOrder(question: ApprovedQuestion): {
+export function buildChoiceOrder(question: ApprovedQuestion): {
 	order: number[];
 	view: string[];
 } {
@@ -162,6 +180,8 @@ export async function createAttempt(params: {
 	title?: string;
 	roundLabel?: string; // past_exam_round일 때 "연도-월-일" 형식으로 회차 지정
 	questionIds?: number[]; // practice_custom일 때 무작위 대신 특정 문제로 고정하고 싶으면(예: 채팅에서 뽑아준 문제)
+	/** 검수 전(pending_review)이지만 이 응시에만 내보내도 되는 문제 — 채팅에서 이 학생을 위해 AI가 만든 문제. */
+	allowPendingIds?: number[];
 }): Promise<{
 	attemptId: number;
 	questions: AttemptQuestionView[];
@@ -174,6 +194,8 @@ export async function createAttempt(params: {
 	let questionIds: number[];
 	let timeLimitMinutes: number | null = null;
 	let examSetId: number | null = null;
+	let oneShot = false;
+	let deadlineAt: Date | null = null;
 	// 회차별 풀이는 원본 그대로의 1~50번 순서를 유지한다(실제 인쇄된 기출문제를 그대로 따라 풀 수 있도록) —
 	// 다른 종류는 전부 부정행위 방지를 위해 문항 순서까지 학생마다 섞는다.
 	const preserveOrder = params.kind === "past_exam_round";
@@ -190,6 +212,13 @@ export async function createAttempt(params: {
 		if (rows.length === 0)
 			throw new Error("해당 회차의 문제를 찾을 수 없습니다.");
 		questionIds = rows.map((r) => r.id);
+		// 회차 풀이는 정답을 바로 공개할 수 있어서, 지금 치르는(또는 응시 기간 중인) 시험 문제가 섞여 있으면 막는다.
+		const locked = await lockedQuestionIdsForUser(params.userId);
+		if (questionIds.some((id) => locked.has(id))) {
+			throw new Error(
+				"이 회차에는 지금 응시 중이거나 응시 기간 중인 시험 문제가 들어 있어, 시험이 끝난 뒤에 풀 수 있어요.",
+			);
+		}
 		timeLimitMinutes = null;
 		const setRes = await pool.query<{ id: number }>(
 			`INSERT INTO exam_sets (kind, title, created_by, question_ids, is_published)
@@ -244,12 +273,23 @@ export async function createAttempt(params: {
 		questionIds = rows[0].question_ids;
 		timeLimitMinutes = rows[0].duration_minutes;
 		examSetId = params.examSetId;
+		oneShot = true;
+		// 마감은 서버가 정한다 — 시작 + 제한시간과 응시 기간 끝 중 이른 쪽(제한시간이 없어도 기간 끝은 지킨다).
+		const limits = [
+			timeLimitMinutes ? Date.now() + timeLimitMinutes * 60_000 : null,
+			rows[0].scheduled_end ? new Date(rows[0].scheduled_end).getTime() : null,
+		].filter((v): v is number => v !== null);
+		deadlineAt = limits.length > 0 ? new Date(Math.min(...limits)) : null;
 	} else if (params.kind === "mock") {
 		const picks: number[] = [];
+		const locked = [...(await officialLockedQuestionIds())];
 		for (const [subject, count] of Object.entries(
 			MOCK_EXAM_SUBJECT_DISTRIBUTION,
 		)) {
-			const ids = await drawRandomApprovedIds(subject, count, picks);
+			const ids = await drawRandomApprovedIds(subject, count, [
+				...picks,
+				...locked,
+			]);
 			picks.push(...ids);
 		}
 		questionIds = picks;
@@ -293,16 +333,12 @@ export async function createAttempt(params: {
 	if (questionIds.length === 0)
 		throw new Error("조건에 맞는 승인된 문제가 없습니다.");
 
-	const approvedMap = await fetchApprovedQuestions(questionIds);
+	const approvedMap = await fetchApprovedQuestions(questionIds, {
+		allowPendingIds: params.allowPendingIds,
+	});
 	const orderedIds = questionIds.filter((id) => approvedMap.has(id));
-	if (
-		orderedIds.length !== questionIds.length ||
-		new Set(orderedIds).size !== orderedIds.length
-	) {
-		throw new Error(
-			"승인되지 않았거나 중복된 문항이 포함되어 응시를 시작할 수 없습니다.",
-		);
-	}
+	if (!orderedIds.length)
+		throw new Error("조건에 맞는 승인된 문제가 없습니다.");
 	// 문항 순서 자체도 학생마다 섞는다(부정행위 방지: 옆 사람과 화면이 달라짐) — 다만 회차별 풀이는
 	// preserveOrder로 원본 1~50번 순서를 그대로 유지한다.
 	const shuffledOrder = preserveOrder
@@ -324,17 +360,35 @@ export async function createAttempt(params: {
 		};
 	});
 
-	const attemptRes = await pool.query<{ id: number }>(
-		`INSERT INTO exam_attempts (exam_set_id, user_id, question_ids, choice_order, time_limit_minutes)
-     VALUES ($1,$2,$3,$4,$5) RETURNING id`,
-		[
-			examSetId,
-			params.userId,
-			shuffledOrder,
-			JSON.stringify(choiceOrderMap),
-			timeLimitMinutes,
-		],
-	);
+	let attemptRes: { rows: { id: number }[] };
+	try {
+		attemptRes = await pool.query<{ id: number }>(
+			`INSERT INTO exam_attempts (exam_set_id, user_id, question_ids, choice_order, time_limit_minutes, one_shot, deadline_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+			[
+				examSetId,
+				params.userId,
+				shuffledOrder,
+				JSON.stringify(choiceOrderMap),
+				timeLimitMinutes,
+				oneShot,
+				deadlineAt,
+			],
+		);
+	} catch (err) {
+		// 같은 지정 시험의 시작 요청이 거의 동시에 들어와 다른 쪽이 먼저 만든 경우 — 그 응시를 이어서 준다.
+		if (oneShot && (err as { code?: string }).code === "23505") {
+			const { rows: existing } = await pool.query<AttemptRow>(
+				`SELECT * FROM exam_attempts WHERE user_id = $1 AND exam_set_id = $2 AND one_shot AND status = 'in_progress'`,
+				[params.userId, examSetId],
+			);
+			if (existing[0]) return resumeAttempt(existing[0]);
+			throw new Error(
+				"이미 응시한 시험입니다. 다시 응시하려면 선생님께 문의하세요.",
+			);
+		}
+		throw err;
+	}
 
 	return {
 		attemptId: attemptRes.rows[0].id,
@@ -355,6 +409,26 @@ interface AttemptRow {
 	status: string;
 	score: number | null;
 	flagged_for_review: boolean;
+	is_official: boolean;
+	deadline_at: Date | null;
+	device_token_hash: string | null;
+	last_heartbeat_at: Date | null;
+}
+
+export type { AttemptRow };
+
+/** 응시 마감 시각(ms). 서버가 응시마다 정해 둔 deadline_at이 있으면 그것, 없으면 시작 + 제한시간. 제한이 없으면 null. */
+export function attemptDeadline(
+	attempt: Pick<
+		AttemptRow,
+		"deadline_at" | "started_at" | "time_limit_minutes"
+	>,
+): number | null {
+	if (attempt.deadline_at) return new Date(attempt.deadline_at).getTime();
+	if (!attempt.time_limit_minutes) return null;
+	return (
+		new Date(attempt.started_at).getTime() + attempt.time_limit_minutes * 60_000
+	);
 }
 
 export async function getAttempt(
@@ -368,13 +442,15 @@ export async function getAttempt(
 }
 
 /** 진행 중인 응시를 처음 받았던 화면 그대로(문항·보기 순서, 남은 시간, 이미 저장한 답) 다시 만들어 준다. */
-async function resumeAttempt(attempt: AttemptRow): Promise<{
+export async function resumeAttempt(attempt: AttemptRow): Promise<{
 	attemptId: number;
 	questions: AttemptQuestionView[];
 	timeLimitMinutes: number | null;
 	savedAnswers: Record<number, { selectedIndex?: number; answerText?: string }>;
 }> {
-	const approvedMap = await fetchApprovedQuestions(attempt.question_ids);
+	const approvedMap = await fetchApprovedQuestions(attempt.question_ids, {
+		includeExamOnly: attempt.is_official,
+	});
 	const views: AttemptQuestionView[] = attempt.question_ids
 		.filter((qid) => approvedMap.has(qid))
 		.map((qid) => {
@@ -420,14 +496,9 @@ async function resumeAttempt(attempt: AttemptRow): Promise<{
 	}
 
 	// 화면은 "지금부터 timeLimitMinutes분"으로 카운트다운하므로 남은 시간만 넘긴다(서버 마감은 그대로).
-	const timeLimitMinutes = attempt.time_limit_minutes
-		? Math.max(
-				0,
-				new Date(attempt.started_at).getTime() +
-					attempt.time_limit_minutes * 60_000 -
-					Date.now(),
-			) / 60_000
-		: null;
+	const deadline = attemptDeadline(attempt);
+	const timeLimitMinutes =
+		deadline !== null ? Math.max(0, deadline - Date.now()) / 60_000 : null;
 	return {
 		attemptId: attempt.id,
 		questions: views,
@@ -447,12 +518,9 @@ async function getExamSetKind(
 	return rows[0]?.kind ?? null;
 }
 
-function isTimeExpired(attempt: AttemptRow): boolean {
-	if (!attempt.time_limit_minutes) return false;
-	const deadline =
-		new Date(attempt.started_at).getTime() +
-		attempt.time_limit_minutes * 60_000;
-	return Date.now() > deadline;
+export function isTimeExpired(attempt: AttemptRow): boolean {
+	const deadline = attemptDeadline(attempt);
+	return deadline !== null && Date.now() > deadline;
 }
 
 export interface AnswerResult {
@@ -474,10 +542,14 @@ export async function submitAnswer(params: {
 	/** 바로 정오답을 보여주는 연습(채팅 안 미니 문제 등)에서 "정답 확인"을 눌렀을 때만 true.
 	 * 한 번 정답을 공개한 문항은 답을 바꿀 수 없다(정답을 보고 고쳐서 맞춘 것으로 기록되는 걸 막음). */
 	reveal?: boolean;
+	/** 공식 모의시험 전용 경로(officialExam.ts)에서만 true — 기기 토큰 확인을 거친 뒤에만 답을 받는다. */
+	official?: boolean;
 }): Promise<AnswerResult> {
 	const attempt = await getAttempt(params.attemptId);
 	if (!attempt || attempt.user_id !== params.userId)
 		throw new Error("응시 기록을 찾을 수 없습니다.");
+	if (attempt.is_official !== (params.official === true))
+		throw new Error(OFFICIAL_ONLY_MESSAGE);
 	if (attempt.status !== "in_progress")
 		throw new Error("이미 종료된 응시입니다.");
 	if (isTimeExpired(attempt)) {
@@ -502,9 +574,11 @@ export async function submitAnswer(params: {
 	const q = rows[0];
 	const maxScore = Number(q.max_score);
 	const kind = await getExamSetKind(attempt.exam_set_id);
+	// 예전에 만들어 둔 연습 응시로 지금 치르는(또는 응시 기간 중인) 시험 문제의 정답을 공개받지 못하게 한다.
 	const instantFeedback =
 		(kind === "practice_custom" || kind === "past_exam_round") &&
-		params.reveal === true;
+		params.reveal === true &&
+		!(await lockedQuestionIdsForUser(params.userId)).has(params.questionId);
 
 	const { rows: prevRows } = await pool.query<{ revealed_at: Date | null }>(
 		"SELECT revealed_at FROM exam_answers WHERE attempt_id = $1 AND question_id = $2",
@@ -614,7 +688,7 @@ export interface AttemptResultItem {
 	stemImageUrl: string | null;
 }
 
-async function buildResultItems(
+export async function buildResultItems(
 	attempt: AttemptRow,
 ): Promise<{
 	score: number;
@@ -708,6 +782,7 @@ async function buildResultItems(
 export async function submitAttempt(
 	attemptId: number,
 	userId: number,
+	opts: { official?: boolean } = {},
 ): Promise<{
 	score: number;
 	total: number;
@@ -717,6 +792,8 @@ export async function submitAttempt(
 	const attempt = await getAttempt(attemptId);
 	if (!attempt || attempt.user_id !== userId)
 		throw new Error("응시 기록을 찾을 수 없습니다.");
+	if (attempt.is_official !== (opts.official === true))
+		throw new Error(OFFICIAL_ONLY_MESSAGE);
 	if (attempt.status !== "in_progress")
 		throw new Error("이미 종료된 응시입니다.");
 
@@ -753,6 +830,7 @@ export async function getAttemptResults(
 	total: number;
 	gradingPending: boolean;
 	items: AttemptResultItem[];
+	itemsHiddenUntil?: Date;
 } | null> {
 	const attempt = await getAttempt(attemptId);
 	if (!attempt || attempt.user_id !== userId) return null;
@@ -765,15 +843,75 @@ export async function getAttemptResults(
 			items: [],
 		};
 	}
+	// 공식 모의시험은 관리자가 결과를 공개하기 전까지 점수·정답·해설을 하나도 내주지 않는다.
+	if (
+		attempt.is_official &&
+		!(await officialResultsReleased(attempt.exam_set_id))
+	) {
+		return {
+			status: attempt.status,
+			score: null,
+			total: attempt.question_ids.length,
+			gradingPending: false,
+			items: [],
+		};
+	}
+	// 지정 시험은 응시 기간이 끝나기 전까지 문제별 정답·해설을 감춘다(먼저 낸 학생이 아직 안 본 친구에게 정답을
+	// 알려 줄 수 있었다). 점수는 바로 보여 준다.
+	if (attempt.exam_set_id) {
+		const { rows } = await pool.query<{
+			kind: string;
+			scheduled_end: Date | null;
+		}>("SELECT kind, scheduled_end FROM exam_sets WHERE id = $1", [
+			attempt.exam_set_id,
+		]);
+		const set = rows[0];
+		if (
+			set?.kind === "admin_timed" &&
+			set.scheduled_end &&
+			new Date(set.scheduled_end).getTime() > Date.now()
+		) {
+			const { total, gradingPending } = await buildResultItems(attempt);
+			return {
+				status: attempt.status,
+				score: attempt.score,
+				total,
+				gradingPending,
+				items: [],
+				itemsHiddenUntil: set.scheduled_end,
+			};
+		}
+	}
 	const { total, gradingPending, items } = await buildResultItems(attempt);
+	// 다른 시험에서 지금 잠겨 있는 문항은 예전 응시 결과에서도 정답·해설을 비운다.
+	const locked = await lockedQuestionIdsForUser(userId);
+	const safeItems = items.map((it) =>
+		locked.has(it.questionId)
+			? { ...it, correctIndex: null, isCorrect: null, explanation: "" }
+			: it,
+	);
 	return {
 		status: attempt.status,
 		score: attempt.score,
 		total,
 		gradingPending,
-		items,
+		items: safeItems,
 	};
 }
+
+export async function officialResultsReleased(
+	examSetId: number | null,
+): Promise<boolean> {
+	if (!examSetId) return false;
+	const { rows } = await pool.query<{ results_released: boolean }>(
+		"SELECT results_released FROM exam_sets WHERE id = $1 AND kind = 'official'",
+		[examSetId],
+	);
+	return rows[0]?.results_released === true;
+}
+
+export const OFFICIAL_ONLY_MESSAGE =
+	"공식 모의시험은 공식 모의시험 화면에서만 응시할 수 있어요.";
 
 export interface PastExamRound {
 	roundLabel: string;
@@ -828,7 +966,7 @@ export async function listMyAttempts(
 	const { rows } = await pool.query(
 		`SELECT a.id, a.status, a.score, a.started_at, a.submitted_at, s.kind AS set_kind, s.title AS set_title
      FROM exam_attempts a LEFT JOIN exam_sets s ON s.id = a.exam_set_id
-     WHERE a.user_id = $1 AND a.status IN ('submitted', 'auto_submitted')
+     WHERE a.user_id = $1 AND a.status IN ('submitted', 'auto_submitted') AND NOT a.is_official
      ORDER BY a.started_at DESC LIMIT $2`,
 		[userId, limit],
 	);
@@ -868,10 +1006,18 @@ export async function logProctorEvent(
 	userId: number,
 	eventType: string,
 	detail: unknown,
-): Promise<{ flagged: boolean; autoSubmit: boolean }> {
+	opts: { official?: boolean } = {},
+): Promise<{
+	flagged: boolean;
+	autoSubmit: boolean;
+	violations?: number;
+	maxViolations?: number;
+}> {
 	const attempt = await getAttempt(attemptId);
 	if (!attempt || attempt.user_id !== userId)
 		throw new Error("응시 기록을 찾을 수 없습니다.");
+	if (attempt.is_official !== (opts.official === true))
+		throw new Error(OFFICIAL_ONLY_MESSAGE);
 	// 끝난 응시에는 더 쌓지 않는다(결과 화면을 보는 중의 탭 전환 등이 기록돼 교사 화면을 어지럽혔다).
 	if (attempt.status !== "in_progress")
 		return { flagged: attempt.flagged_for_review ?? false, autoSubmit: false };
@@ -889,22 +1035,34 @@ export async function logProctorEvent(
 		],
 	);
 
-	if (!SUSPICIOUS_EVENT_TYPES.has(eventType))
+	const violationTypes = attempt.is_official
+		? OFFICIAL_VIOLATION_TYPES
+		: SUSPICIOUS_EVENT_TYPES;
+	if (!violationTypes.has(eventType))
 		return { flagged: attempt.flagged_for_review ?? false, autoSubmit: false };
 
 	const { rows } = await pool.query<{ count: string }>(
 		"SELECT count(*) FROM exam_proctor_events WHERE attempt_id = $1 AND event_type = ANY($2::text[])",
-		[attemptId, [...SUSPICIOUS_EVENT_TYPES]],
+		[attemptId, [...violationTypes]],
 	);
 	const suspiciousCount = Number(rows[0].count);
-	const flagged = suspiciousCount >= FLAG_THRESHOLD;
+	// 공식 모의시험은 한 번만 어겨도 검토 대상으로 표시하고, 관리자가 정한 횟수(max_violations)에 닿으면 자동 제출한다.
+	let maxViolations = AUTO_SUBMIT_THRESHOLD;
+	if (attempt.is_official && attempt.exam_set_id) {
+		const { rows: setRows } = await pool.query<{ max_violations: number }>(
+			"SELECT max_violations FROM exam_sets WHERE id = $1",
+			[attempt.exam_set_id],
+		);
+		maxViolations = Math.max(1, setRows[0]?.max_violations ?? 3);
+	}
+	const flagged = suspiciousCount >= (attempt.is_official ? 1 : FLAG_THRESHOLD);
 	if (flagged) {
 		await pool.query(
 			"UPDATE exam_attempts SET flagged_for_review = true WHERE id = $1",
 			[attemptId],
 		);
 	}
-	const autoSubmit = suspiciousCount >= AUTO_SUBMIT_THRESHOLD;
+	const autoSubmit = suspiciousCount >= maxViolations;
 	if (autoSubmit) {
 		// 예전엔 "자동 제출하라"고 답만 하고 실제 제출은 화면에 맡겨서, 화면을 고치면 그냥 무시할 수 있었다.
 		// 서버가 그 자리에서 채점까지 해서 닫는다(화면은 이어서 결과 화면으로 넘어간다).
@@ -914,8 +1072,21 @@ export async function logProctorEvent(
 			[score, attemptId],
 		);
 	}
-	return { flagged, autoSubmit };
+	return attempt.is_official
+		? { flagged, autoSubmit, violations: suspiciousCount, maxViolations }
+		: { flagged, autoSubmit };
 }
+
+/** 공식 모의시험에서 위반으로 세는 행동 — 브라우저가 막을 수 있는 복사·붙여넣기·우클릭 등은 막고 기록만 한다. */
+export const OFFICIAL_VIOLATION_TYPES = new Set([
+	"tab_hidden", // 다른 탭·앱으로 전환(화면이 가려짐)
+	"window_blur", // 다른 창으로 포커스가 2초 넘게 이동
+	"fullscreen_exit",
+	"multiple_tabs",
+	"devtools_open",
+	"screenshot_key",
+	"heartbeat_gap", // 서버가 감지: 화면 신호가 끊김(창을 닫았거나 기기를 바꾸려 한 경우 등)
+]);
 
 /** 제한 시간이 지난 in_progress 응시를 자동 제출 처리한다 — GET으로 상태를 조회할 때마다 확인한다. */
 export async function autoSubmitIfExpired(attemptId: number): Promise<void> {

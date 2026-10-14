@@ -18,7 +18,10 @@ import {
 import { useDataStream } from "./data-stream-provider";
 import { DocumentToolResult } from "./document";
 import { DocumentPreview } from "./document-preview";
-import { InlinePracticeQuestions, type PracticeAttempt } from "./inline-practice-questions";
+import {
+  InlinePracticeQuestions,
+  type PracticeAttempt,
+} from "./inline-practice-questions";
 import { MessageActions } from "./message-actions";
 import { MessageReasoning } from "./message-reasoning";
 import { PreviewAttachment } from "./preview-attachment";
@@ -26,7 +29,10 @@ import { Weather } from "./weather";
 
 // answerPipeline.ts의 footnoteBlock()이 "\n\n---\n출처:\n..." 형태로 답변 끝에 붙이는 출처 각주를
 // 잘라내 별도의 접이식 UI로 보여준다 — 매번 답변 아래 길게 펼쳐져 있으면 산만하다는 피드백이 있었다.
-function splitSourceFootnote(text: string): { main: string; source: string | null } {
+function splitSourceFootnote(text: string): {
+  main: string;
+  source: string | null;
+} {
   const marker = "\n\n---\n출처:\n";
   const idx = text.indexOf(marker);
   if (idx === -1) return { main: text, source: null };
@@ -35,7 +41,10 @@ function splitSourceFootnote(text: string): { main: string; source: string | nul
 
 // network-tutor-model.ts가 "채팅에서 문제 뽑아줘" 응답 끝에 붙이는 <!--PRACTICE_ATTEMPT:{...}-->
 // 마커를 잘라내 실제로 풀어볼 수 있는 인라인 카드로 렌더링한다.
-function splitPracticeAttempt(text: string): { main: string; attempt: PracticeAttempt | null } {
+function splitPracticeAttempt(text: string): {
+  main: string;
+  attempt: PracticeAttempt | null;
+} {
   const match = text.match(/\n\n<!--PRACTICE_ATTEMPT:([\s\S]*?)-->$/);
   if (!match) return { main: text, attempt: null };
   try {
@@ -53,7 +62,9 @@ function SourceFootnoteDetails({ source }: { source: string }) {
         <BookMarkedIcon className="size-3.5" />
         출처 보기
       </summary>
-      <div className="mt-2 whitespace-pre-wrap rounded-xl bg-muted/70 px-3.5 py-2.5 leading-relaxed">{source}</div>
+      <div className="mt-2 whitespace-pre-wrap rounded-xl bg-muted/70 px-3.5 py-2.5 leading-relaxed">
+        {source}
+      </div>
     </details>
   );
 }
@@ -232,7 +243,9 @@ const PurePreviewMessage = ({
         >
           <MessageResponse>{main}</MessageResponse>
           {source ? <SourceFootnoteDetails source={source} /> : null}
-          {practiceAttempt ? <InlinePracticeQuestions attempt={practiceAttempt} /> : null}
+          {practiceAttempt ? (
+            <InlinePracticeQuestions attempt={practiceAttempt} />
+          ) : null}
         </MessageContent>
       );
     }

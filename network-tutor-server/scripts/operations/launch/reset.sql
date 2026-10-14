@@ -6,6 +6,7 @@ DO $$ BEGIN
   RAISE EXCEPTION 'Stale or duplicate official launch request';
  END IF;
 END $$;
+DELETE FROM learn_progress;
 DO $$ BEGIN IF to_regclass('public."exam_answers"') IS NOT NULL THEN DELETE FROM "exam_answers"; END IF; END $$;
 DO $$ BEGIN IF to_regclass('public."exam_proctor_events"') IS NOT NULL THEN DELETE FROM "exam_proctor_events"; END IF; END $$;
 DO $$ BEGIN IF to_regclass('public."exam_attempts"') IS NOT NULL THEN DELETE FROM "exam_attempts"; END IF; END $$;
@@ -21,7 +22,8 @@ DO $$ BEGIN IF to_regclass('public."Suggestion"') IS NOT NULL THEN DELETE FROM "
 DO $$ BEGIN IF to_regclass('public."Document"') IS NOT NULL THEN DELETE FROM "Document"; END IF; END $$;
 DO $$ BEGIN IF to_regclass('public."sessions"') IS NOT NULL THEN DELETE FROM "sessions"; END IF; END $$;
 DO $$ BEGIN IF to_regclass('public."request_limits"') IS NOT NULL THEN DELETE FROM "request_limits"; END IF; END $$;
-DELETE FROM exam_sets WHERE kind <> 'admin_timed';
+DELETE FROM exam_sets WHERE kind NOT IN ('admin_timed','official');
+UPDATE exam_sets SET results_released=false,rank_released=false,results_released_at=NULL WHERE kind='official';
 UPDATE users SET auth_version=auth_version+1,
  level=CASE WHEN role='student' THEN 'beginner' ELSE level END,
  manual_pre_test_score=CASE WHEN role='student' THEN NULL ELSE manual_pre_test_score END,

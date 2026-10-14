@@ -3,10 +3,16 @@ import { callAdminBackend, AdminAuthError } from "@/lib/adminBackend";
 
 export async function GET(request: Request) {
   try {
-    const data = await callAdminBackend("/api/audit-summary/stats" + new URL(request.url).search);
+    const data = await callAdminBackend(
+      "/api/audit-summary/stats" + new URL(request.url).search
+    );
     return NextResponse.json(data);
   } catch (err) {
-    if (err instanceof AdminAuthError) return NextResponse.json({ error: err.message }, { status: err.status });
-    return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 400 });
+    if (err instanceof AdminAuthError)
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : String(err) },
+      { status: 400 }
+    );
   }
 }

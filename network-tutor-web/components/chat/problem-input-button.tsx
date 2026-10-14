@@ -11,13 +11,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 // 예전에는 이 기능이 별도 페이지(/problem)였는데, 실제로는 "채팅 안에서 바로 문제를 입력해서 보낼 수
 // 있게" 해달라는 요청이었다 — 그래서 별도 화면 대신 채팅 입력창 툴바에 버튼 하나로 넣고, 제출하면
 // 채팅 입력창에 정리된 문장을 채워 넣는다(전송은 기존 전송 버튼으로). 이렇게 하면 대화 맥락(꼬리질문)도
 // 그대로 이어진다 — /problem은 단발성 폼이라 그게 안 됐다.
-export function ProblemInputButton({ setInput }: { setInput: Dispatch<SetStateAction<string>> }) {
+export function ProblemInputButton({
+  setInput,
+}: {
+  setInput: Dispatch<SetStateAction<string>>;
+}) {
   const [open, setOpen] = useState(false);
   const [stem, setStem] = useState("");
   const [choices, setChoices] = useState(["", "", "", "", ""]);
@@ -28,7 +36,13 @@ export function ProblemInputButton({ setInput }: { setInput: Dispatch<SetStateAc
       .map((c, i) => c.trim() && `${String.fromCharCode(9312 + i)} ${c.trim()}`)
       .filter(Boolean)
       .join("\n");
-    const composed = ["[문제]", stem.trim(), choiceLines, "", "정답과 해설을 근거와 함께 알려줘."]
+    const composed = [
+      "[문제]",
+      stem.trim(),
+      choiceLines,
+      "",
+      "정답과 해설을 근거와 함께 알려줘.",
+    ]
       .filter(Boolean)
       .join("\n");
     setInput(composed);
@@ -73,7 +87,9 @@ export function ProblemInputButton({ setInput }: { setInput: Dispatch<SetStateAc
               <Label>선택지 (객관식이면 입력, 아니면 비워두세요)</Label>
               {choices.map((c, i) => (
                 <div className="flex items-center gap-2" key={i}>
-                  <span className="w-5 text-muted-foreground text-sm">{i + 1}</span>
+                  <span className="w-5 text-muted-foreground text-sm">
+                    {i + 1}
+                  </span>
                   <Textarea
                     className="min-h-9 resize-none py-2"
                     onChange={(e) => {

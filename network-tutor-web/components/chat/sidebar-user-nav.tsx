@@ -51,7 +51,8 @@ export function SidebarUserNav({ user }: { user: User }) {
   const handleAuthClick = useCallback(() => {
     if (status === "loading") {
       toast({
-        description: "로그인 상태를 확인하는 중이에요. 잠시 후 다시 시도해 주세요.",
+        description:
+          "로그인 상태를 확인하는 중이에요. 잠시 후 다시 시도해 주세요.",
         type: "error",
       });
 
@@ -87,15 +88,22 @@ export function SidebarUserNav({ user }: { user: User }) {
               >
                 <div
                   className="flex size-8 shrink-0 items-center justify-center rounded-full font-bold text-[13px] text-white shadow-[var(--shadow-card)]"
-                  style={{ background: avatarBackground(user.email ?? user.name ?? "") }}
+                  style={{
+                    background: avatarBackground(user.email ?? user.name ?? ""),
+                  }}
                 >
                   {(user.name ?? "?").slice(0, 1)}
                 </div>
                 <div className="flex min-w-0 flex-col leading-tight">
-                  <span className="truncate font-semibold text-[13px]" data-testid="user-email">
+                  <span
+                    className="truncate font-semibold text-[13px]"
+                    data-testid="user-email"
+                  >
                     {displayLabel(user)}
                   </span>
-                  <span className="truncate text-[11px] text-sidebar-foreground/50">{roleLabel(user)} 계정</span>
+                  <span className="truncate text-[11px] text-sidebar-foreground/50">
+                    {roleLabel(user)} 계정
+                  </span>
                 </div>
                 <ChevronsUpDownIcon className="ml-auto size-3.5 text-sidebar-foreground/40" />
               </SidebarMenuButton>

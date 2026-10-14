@@ -25,7 +25,10 @@ export function AuthForm({
   return (
     <Form action={action} className="flex flex-col gap-5">
       <div className="flex flex-col gap-2">
-        <Label className="font-semibold text-[13px] text-foreground" htmlFor={isAdmin ? "email" : "studentId"}>
+        <Label
+          className="font-semibold text-[13px] text-foreground"
+          htmlFor={isAdmin ? "email" : "studentId"}
+        >
           {isAdmin ? "이메일" : "학번"}
         </Label>
         {isAdmin ? (
@@ -56,7 +59,10 @@ export function AuthForm({
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label className="font-semibold text-[13px] text-foreground" htmlFor="password">
+        <Label
+          className="font-semibold text-[13px] text-foreground"
+          htmlFor="password"
+        >
           비밀번호
         </Label>
         <div className="relative">
@@ -75,7 +81,11 @@ export function AuthForm({
             tabIndex={-1}
             type="button"
           >
-            {showPassword ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
+            {showPassword ? (
+              <EyeOffIcon className="size-4" />
+            ) : (
+              <EyeIcon className="size-4" />
+            )}
           </button>
         </div>
       </div>

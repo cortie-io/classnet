@@ -6,7 +6,11 @@ export async function GET() {
     const data = await callBackend("/api/exam/wrong-answers");
     return NextResponse.json(data);
   } catch (err) {
-    if (err instanceof BackendAuthError) return NextResponse.json({ error: err.message }, { status: 401 });
-    return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
+    if (err instanceof BackendAuthError)
+      return NextResponse.json({ error: err.message }, { status: 401 });
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : String(err) },
+      { status: 500 }
+    );
   }
 }

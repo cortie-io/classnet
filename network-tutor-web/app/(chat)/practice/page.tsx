@@ -5,7 +5,10 @@ import { useEffect, useState } from "react";
 import { PageIntro } from "@/components/chat/page-intro";
 import { Button } from "@/components/ui/button";
 import { ChoiceChip } from "@/components/ui/choice-chip";
-import { ExamRunner, type ExamStartResponse } from "@/components/exam/exam-runner";
+import {
+  ExamRunner,
+  type ExamStartResponse,
+} from "@/components/exam/exam-runner";
 import { toast } from "@/components/chat/toast";
 import { loadJson } from "@/components/load-json";
 
@@ -36,7 +39,11 @@ export default function PracticePage() {
       if (!res.ok) throw new Error(data.error ?? "시작할 수 없습니다.");
       setStart(data);
     } catch (err) {
-      toast({ type: "error", description: err instanceof Error ? err.message : "오류가 발생했습니다." });
+      toast({
+        type: "error",
+        description:
+          err instanceof Error ? err.message : "오류가 발생했습니다.",
+      });
     } finally {
       setLoading(false);
     }
@@ -68,9 +75,19 @@ export default function PracticePage() {
               전체
             </ChoiceChip>
             {meta?.subjects.map((s) => (
-              <ChoiceChip active={subject === s.subject} key={s.subject} onClick={() => setSubject(s.subject)}>
+              <ChoiceChip
+                active={subject === s.subject}
+                key={s.subject}
+                onClick={() => setSubject(s.subject)}
+              >
                 {s.subject.replace(/^\d과목_/, "")}
-                <span className={subject === s.subject ? "text-primary-foreground/70" : "text-muted-foreground"}>
+                <span
+                  className={
+                    subject === s.subject
+                      ? "text-primary-foreground/70"
+                      : "text-muted-foreground"
+                  }
+                >
                   {s.count}
                 </span>
               </ChoiceChip>
@@ -84,7 +101,12 @@ export default function PracticePage() {
           </h2>
           <div className="grid grid-cols-3 gap-2 sm:max-w-sm">
             {[5, 10, 20].map((n) => (
-              <ChoiceChip active={count === n} className="justify-center rounded-xl" key={n} onClick={() => setCount(n)}>
+              <ChoiceChip
+                active={count === n}
+                className="justify-center rounded-xl"
+                key={n}
+                onClick={() => setCount(n)}
+              >
                 {n}문제
               </ChoiceChip>
             ))}
@@ -93,11 +115,20 @@ export default function PracticePage() {
 
         <div className="flex flex-col gap-3 border-border border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-[13px] text-muted-foreground">
-            <b className="font-semibold text-foreground">{subject ? subject.replace(/^\d과목_/, "") : "전체 과목"}</b>
-            {typeof subjectCount === "number" ? ` 문제 ${subjectCount.toLocaleString()}개 중 ` : "에서 "}
-            <b className="font-semibold text-foreground">{count}문제</b>를 무작위로 출제해요
+            <b className="font-semibold text-foreground">
+              {subject ? subject.replace(/^\d과목_/, "") : "전체 과목"}
+            </b>
+            {typeof subjectCount === "number"
+              ? ` 문제 ${subjectCount.toLocaleString()}개 중 `
+              : "에서 "}
+            <b className="font-semibold text-foreground">{count}문제</b>를
+            무작위로 출제해요
           </p>
-          <Button className="h-11 gap-1.5 rounded-xl bg-brand px-5 text-[14px]" disabled={loading} onClick={begin}>
+          <Button
+            className="h-11 gap-1.5 rounded-xl bg-brand px-5 text-[14px]"
+            disabled={loading}
+            onClick={begin}
+          >
             {loading ? "준비 중..." : "연습 시작"}
             {loading ? null : <ArrowRightIcon className="size-4" />}
           </Button>

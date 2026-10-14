@@ -1,9 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CalendarClockIcon, ChevronLeftIcon, ChevronRightIcon, FileTextIcon } from "lucide-react";
-import { PageIntro, PageLoading, PageNotice } from "@/components/chat/page-intro";
-import { ExamRunner, type ExamStartResponse } from "@/components/exam/exam-runner";
+import {
+  CalendarClockIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  FileTextIcon,
+} from "lucide-react";
+import {
+  PageIntro,
+  PageLoading,
+  PageNotice,
+} from "@/components/chat/page-intro";
+import {
+  ExamRunner,
+  type ExamStartResponse,
+} from "@/components/exam/exam-runner";
 import { toast } from "@/components/chat/toast";
 import { loadJson } from "@/components/load-json";
 
@@ -34,18 +46,25 @@ export default function RoundsPage() {
 
   const roundsInYear = useMemo(
     () => (rounds ?? []).filter((r) => r.year === selectedYear),
-    [rounds, selectedYear],
+    [rounds, selectedYear]
   );
 
   const begin = async (roundLabel: string) => {
     setStartingLabel(roundLabel);
     try {
-      const res = await fetch(`/api/exam/round/${encodeURIComponent(roundLabel)}/start`, { method: "POST" });
+      const res = await fetch(
+        `/api/exam/round/${encodeURIComponent(roundLabel)}/start`,
+        { method: "POST" }
+      );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "시작할 수 없습니다.");
       setStart(data);
     } catch (err) {
-      toast({ type: "error", description: err instanceof Error ? err.message : "오류가 발생했습니다." });
+      toast({
+        type: "error",
+        description:
+          err instanceof Error ? err.message : "오류가 발생했습니다.",
+      });
     } finally {
       setStartingLabel(null);
     }
@@ -76,9 +95,13 @@ export default function RoundsPage() {
               onClick={() => setSelectedYear(year)}
               type="button"
             >
-              <span className="rounded-full bg-accent px-2 py-0.5 font-semibold text-[11px] text-primary">{count}회차</span>
+              <span className="rounded-full bg-accent px-2 py-0.5 font-semibold text-[11px] text-primary">
+                {count}회차
+              </span>
               <span className="flex w-full items-center justify-between">
-                <span className="font-bold text-[20px] text-foreground tracking-tight">{year}</span>
+                <span className="font-bold text-[20px] text-foreground tracking-tight">
+                  {year}
+                </span>
                 <ChevronRightIcon className="size-4 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
               </span>
             </button>
@@ -112,7 +135,9 @@ export default function RoundsPage() {
                     {r.year}년 {r.month}월 {r.day}일
                   </span>
                   <span className="text-[12px] text-muted-foreground">
-                    {startingLabel === r.roundLabel ? "시작하는 중..." : `${r.questionCount}문제`}
+                    {startingLabel === r.roundLabel
+                      ? "시작하는 중..."
+                      : `${r.questionCount}문제`}
                   </span>
                 </span>
                 <ChevronRightIcon className="size-4 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />

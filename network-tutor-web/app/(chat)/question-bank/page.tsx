@@ -1,7 +1,11 @@
 "use client";
 
 import { LibraryIcon, SearchIcon, SearchXIcon } from "lucide-react";
-import { PageIntro, PageLoading, PageNotice } from "@/components/chat/page-intro";
+import {
+  PageIntro,
+  PageLoading,
+  PageNotice,
+} from "@/components/chat/page-intro";
 import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -13,7 +17,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ExamRunner, type ExamStartResponse } from "@/components/exam/exam-runner";
+import {
+  ExamRunner,
+  type ExamStartResponse,
+} from "@/components/exam/exam-runner";
 import { toast } from "@/components/chat/toast";
 import { loadJson } from "@/components/load-json";
 
@@ -74,11 +81,14 @@ export default function QuestionBankPage() {
     if (appliedKeyword.trim()) params.set("q", appliedKeyword.trim());
     params.set("limit", String(PAGE_SIZE));
     params.set("offset", String(page * PAGE_SIZE));
-    loadJson<{ items?: BankItem[]; total?: number }>(`/api/exam/bank?${params.toString()}`, (d) => {
-      if (seq !== requestSeqRef.current) return; // 더 나중에 보낸 요청이 있으면 이 응답은 버린다
-      setItems(d.items ?? []);
-      setTotal(d.total ?? 0);
-    }).finally(() => {
+    loadJson<{ items?: BankItem[]; total?: number }>(
+      `/api/exam/bank?${params.toString()}`,
+      (d) => {
+        if (seq !== requestSeqRef.current) return; // 더 나중에 보낸 요청이 있으면 이 응답은 버린다
+        setItems(d.items ?? []);
+        setTotal(d.total ?? 0);
+      }
+    ).finally(() => {
       if (seq === requestSeqRef.current) setLoading(false);
     });
   };
@@ -98,7 +108,11 @@ export default function QuestionBankPage() {
       if (!res.ok) throw new Error(data.error ?? "시작할 수 없습니다.");
       setStart(data);
     } catch (err) {
-      toast({ type: "error", description: err instanceof Error ? err.message : "오류가 발생했습니다." });
+      toast({
+        type: "error",
+        description:
+          err instanceof Error ? err.message : "오류가 발생했습니다.",
+      });
     } finally {
       setStartingId(null);
     }
@@ -112,20 +126,42 @@ export default function QuestionBankPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:py-12">
-      <PageIntro description="승인된 문제를 직접 검색하고 골라서 풀어볼 수 있어요." icon={LibraryIcon} title="문제은행" />
+      <PageIntro
+        description="승인된 문제를 직접 검색하고 골라서 풀어볼 수 있어요."
+        icon={LibraryIcon}
+        title="문제은행"
+      />
 
       <div className="surface flex flex-col gap-2 p-3 sm:flex-row">
-        <Select onValueChange={(v) => { setSubject(v); setPage(0); }} value={subject}>
-          <SelectTrigger className="w-full sm:w-52"><SelectValue /></SelectTrigger>
+        <Select
+          onValueChange={(v) => {
+            setSubject(v);
+            setPage(0);
+          }}
+          value={subject}
+        >
+          <SelectTrigger className="w-full sm:w-52">
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">전체 과목</SelectItem>
             {SUBJECTS.map((s) => (
-              <SelectItem key={s} value={s}>{s.replace(/^\d과목_/, "")}</SelectItem>
+              <SelectItem key={s} value={s}>
+                {s.replace(/^\d과목_/, "")}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
-        <Select onValueChange={(v) => { setQuestionType(v); setPage(0); }} value={questionType}>
-          <SelectTrigger className="w-full sm:w-40"><SelectValue /></SelectTrigger>
+        <Select
+          onValueChange={(v) => {
+            setQuestionType(v);
+            setPage(0);
+          }}
+          value={questionType}
+        >
+          <SelectTrigger className="w-full sm:w-40">
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">전체 유형</SelectItem>
             <SelectItem value="multiple_choice">객관식</SelectItem>
@@ -145,18 +181,28 @@ export default function QuestionBankPage() {
               value={keyword}
             />
           </div>
-          <Button className="rounded-xl" onClick={search}>검색</Button>
+          <Button className="rounded-xl" onClick={search}>
+            검색
+          </Button>
         </div>
       </div>
 
       <p className="-mb-3 px-1 text-[12.5px] text-muted-foreground">
-        총 <b className="font-semibold text-foreground">{total.toLocaleString()}</b>개
+        총{" "}
+        <b className="font-semibold text-foreground">
+          {total.toLocaleString()}
+        </b>
+        개
       </p>
 
       {loading ? (
         <PageLoading />
       ) : items.length === 0 ? (
-        <PageNotice description="과목·유형을 바꾸거나 다른 검색어로 찾아보세요." icon={SearchXIcon} title="조건에 맞는 문제가 없어요" />
+        <PageNotice
+          description="과목·유형을 바꾸거나 다른 검색어로 찾아보세요."
+          icon={SearchXIcon}
+          title="조건에 맞는 문제가 없어요"
+        />
       ) : (
         <div className="flex flex-col gap-2.5">
           {items.map((item) => (
@@ -166,13 +212,27 @@ export default function QuestionBankPage() {
             >
               <div className="min-w-0">
                 <div className="mb-2 flex flex-wrap items-center gap-1.5">
-                  <Badge variant="secondary">{item.subject.replace(/^\d과목_/, "")}</Badge>
-                  <Badge variant="outline">{QUESTION_TYPE_LABEL[item.question_type] ?? item.question_type}</Badge>
-                  <span className="text-muted-foreground text-xs">{SOURCE_LABEL[item.source] ?? item.source}</span>
+                  <Badge variant="secondary">
+                    {item.subject.replace(/^\d과목_/, "")}
+                  </Badge>
+                  <Badge variant="outline">
+                    {QUESTION_TYPE_LABEL[item.question_type] ??
+                      item.question_type}
+                  </Badge>
+                  <span className="text-muted-foreground text-xs">
+                    {SOURCE_LABEL[item.source] ?? item.source}
+                  </span>
                 </div>
-                <p className="line-clamp-2 whitespace-pre-wrap font-medium text-[13.5px] text-foreground leading-relaxed">{item.stem}</p>
+                <p className="line-clamp-2 whitespace-pre-wrap font-medium text-[13.5px] text-foreground leading-relaxed">
+                  {item.stem}
+                </p>
               </div>
-              <Button className="shrink-0 rounded-lg" disabled={startingId === item.id} onClick={() => solve(item.id)} size="sm">
+              <Button
+                className="shrink-0 rounded-lg"
+                disabled={startingId === item.id}
+                onClick={() => solve(item.id)}
+                size="sm"
+              >
                 {startingId === item.id ? "시작 중..." : "풀어보기"}
               </Button>
             </div>
@@ -182,10 +242,17 @@ export default function QuestionBankPage() {
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <Button disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))} size="sm" variant="outline">
+          <Button
+            disabled={page === 0}
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            size="sm"
+            variant="outline"
+          >
             이전
           </Button>
-          <span className="text-muted-foreground text-xs">{page + 1} / {totalPages}</span>
+          <span className="text-muted-foreground text-xs">
+            {page + 1} / {totalPages}
+          </span>
           <Button
             disabled={page >= totalPages - 1}
             onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}

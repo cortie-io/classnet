@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { auth } from "@/app/(auth)/auth";
-import { getChatById, getMessagesByChatId, getVotesByChatId, voteMessage } from "@/lib/db/queries";
+import {
+  getChatById,
+  getMessagesByChatId,
+  getVotesByChatId,
+  voteMessage,
+} from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
 
 const voteSchema = z.object({
@@ -72,19 +77,31 @@ export async function PATCH(request: Request) {
   }
 
   const messages = await getMessagesByChatId({ id: chatId });
-  const message = messages.find((m) => m.id === messageId && m.role === "assistant");
+  const message = messages.find(
+    (m) => m.id === messageId && m.role === "assistant"
+  );
   if (!message) return new ChatbotError("not_found:vote").toResponse();
   if (type === "down") {
-    const text = (message.parts as Array<{type: string; text?: string}>)
-      .filter((part) => part.type === "text").map((part) => part.text ?? "").join("\n");
-    const auditId = Array.from(text.matchAll(/<!--AUDIT_LOG_ID:(\d+)-->/g)).at(-1)?.[1];
+    const text = (message.parts as Array<{ type: string; text?: string }>)
+      .filter((part) => part.type === "text")
+      .map((part) => part.text ?? "")
+      .join("\n");
+    const auditId = Array.from(text.matchAll(/<!--AUDIT_LOG_ID:(\d+)-->/g)).at(
+      -1
+    )?.[1];
     if (auditId) {
-      const response = await fetch(`${process.env.BACKEND_API_URL ?? "http://127.0.0.1:3300"}/api/audit/${auditId}/report`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json", "x-internal-secret": process.env.INTERNAL_API_SECRET ?? ""},
-        body: JSON.stringify({userId: Number(session.user.id)}),
-        signal: AbortSignal.timeout(10_000),
-      });
+      const response = await fetch(
+        `${process.env.BACKEND_API_URL ?? "http://127.0.0.1:3300"}/api/audit/${auditId}/report`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-internal-secret": process.env.INTERNAL_API_SECRET ?? "",
+          },
+          body: JSON.stringify({ userId: Number(session.user.id) }),
+          signal: AbortSignal.timeout(10_000),
+        }
+      );
       if (!response.ok) return new ChatbotError("offline:chat").toResponse();
     }
   }
@@ -95,5 +112,5 @@ export async function PATCH(request: Request) {
     type,
   });
 
-  return Response.json({ok: true});
+  return Response.json({ ok: true });
 }

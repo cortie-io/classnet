@@ -14,6 +14,7 @@ import {
 	MOCK_EXAM_DURATION_MINUTES,
 	lockedQuestionIdsForUser,
 	LOCKED_QUESTION_MESSAGE,
+	attemptDeadline,
 } from "./services/examService.js";
 import {
 	getWrongAnswers,
@@ -25,10 +26,41 @@ import {
 	getWeakTopics,
 } from "../tutor/pipeline/personalization.js";
 import { pool } from "../../infrastructure/db/pool.js";
+import {
+	analysisLimiter,
+	attemptStartLimiter,
+	examWriteLimiter,
+	explainLimiter,
+	limitPerUser,
+} from "../auth/rateLimit.js";
 
-import { sendAskError } from "../tutor/pipeline/askError.js";
+const START_RATE_MESSAGE =
+	"문제 풀이를 너무 자주 시작하고 있어요. 잠시 후 다시 시도해 주세요.";
+const startLimit = limitPerUser(attemptStartLimiter, START_RATE_MESSAGE);
+const writeLimit = limitPerUser(
+	examWriteLimiter,
+	"요청이 너무 잦아요. 잠시 후 다시 시도해 주세요.",
+);
 
 export const examRouter = Router();
+
+/** 경로의 숫자 id — 숫자가 아니면 DB까지 가지 않고 400(예전엔 "NaN"이 그대로 쿼리에 들어가 500·DB 오류 문구가 났다). */
+function routeId(raw: string | undefined): number | null {
+	return raw && /^\d{1,9}$/.test(raw) ? Number(raw) : null;
+}
+
+/** 학생에게 보여 줄 오류 문구 — 서비스가 일부러 던진 안내 문구만 그대로, DB 오류 같은 내부 메시지는 감춘다. */
+function userMessage(err: unknown): string {
+	if (
+		err &&
+		typeof err === "object" &&
+		typeof (err as { code?: unknown }).code === "string"
+	) {
+		console.error("[exam] 처리 중 오류:", err);
+		return "요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.";
+	}
+	return err instanceof Error ? err.message : String(err);
+}
 
 // 사이드바 "오늘의 추천 학습" 위젯용 — 가장 취약한 세부 주제(없으면 과목)를 하나 골라준다.
 // 매번 새로 계산해도 가벼운 쿼리라 캐싱하지 않는다.
@@ -70,8 +102,14 @@ const SOURCES = new Set(["ai_generated", "admin_authored", "past_exam"]);
 // 실제로 응시할 때만 채점 결과로 알 수 있다).
 examRouter.get("/exam/bank", requireAuth, async (req, res) => {
 	const { subject, questionType, source, q } = req.query;
-	const limit = Math.min(Number(req.query.limit ?? 30), 100);
-	const offset = Math.max(Number(req.query.offset ?? 0), 0);
+	const limit = Math.min(
+		Math.max(Number.parseInt(String(req.query.limit ?? 30), 10) || 30, 1),
+		100,
+	);
+	const offset = Math.min(
+		Math.max(Number.parseInt(String(req.query.offset ?? 0), 10) || 0, 0),
+		100_000,
+	);
 
 	const conditions = ["status = 'approved'"];
 	const params: unknown[] = [];
@@ -88,9 +126,12 @@ examRouter.get("/exam/bank", requireAuth, async (req, res) => {
 		conditions.push(`source = $${params.length}`);
 	}
 	if (typeof q === "string" && q.trim()) {
-		params.push(`%${q.trim()}%`);
+		params.push(`%${q.trim().slice(0, 100)}%`);
 		conditions.push(`stem ILIKE $${params.length}`);
 	}
+	// 응시 중이거나 응시 기간 중인 공식 모의시험 문제는 목록에서도 감춘다.
+	params.push([...(await lockedQuestionIdsForUser(req.user!.id))]);
+	conditions.push(`NOT (id = ANY($${params.length}::int[]))`);
 	const where = conditions.join(" AND ");
 
 	const { rows: countRows } = await pool.query<{ total: string }>(
@@ -106,33 +147,48 @@ examRouter.get("/exam/bank", requireAuth, async (req, res) => {
 	res.json({ total: Number(countRows[0].total), items: rows });
 });
 
-examRouter.post("/exam/bank/:id/start", requireAuth, async (req, res) => {
-	try {
-		const result = await createAttempt({
-			userId: req.user!.id,
-			kind: "practice_custom",
-			questionIds: [Number(req.params.id)],
-			title: "문제은행에서 바로 풀기",
-		});
-		res.json(result);
-	} catch (err) {
-		res
-			.status(400)
-			.json({ error: err instanceof Error ? err.message : String(err) });
-	}
-});
+examRouter.post(
+	"/exam/bank/:id/start",
+	requireAuth,
+	startLimit,
+	async (req, res) => {
+		const id = routeId(req.params.id);
+		if (id === null)
+			return res.status(400).json({ error: "잘못된 문제 번호입니다." });
+		try {
+			const result = await createAttempt({
+				userId: req.user!.id,
+				kind: "practice_custom",
+				questionIds: [id],
+				title: "문제은행에서 바로 풀기",
+			});
+			res.json(result);
+		} catch (err) {
+			res.status(400).json({ error: userMessage(err) });
+		}
+	},
+);
 
 // 플래시카드에서 개념을 보다가 바로 "이 개념 문제 풀어보기"로 넘어갈 수 있게 한다 — 학습 기능들이
 // 서로 단절돼 있지 않고 이어지게 해달라는 요구사항 반영.
 examRouter.post(
 	"/exam/concept/:nodeId/practice-start",
 	requireAuth,
+	startLimit,
 	async (req, res) => {
-		const nodeId = Number(req.params.nodeId);
-		const { title } = req.body ?? {};
-		const { rows } = await pool.query<{ id: number }>(
-			"SELECT id FROM exam_questions WHERE status = 'approved' AND concept_node_id = $1 ORDER BY random() LIMIT 5",
+		const nodeId = routeId(req.params.nodeId);
+		if (nodeId === null)
+			return res.status(400).json({ error: "잘못된 개념 번호입니다." });
+		// 제목은 학생이 보낸 값을 쓰지 않고 개념 노드에서 가져온다(관리자 CSV 내보내기에 수식이 심기던 경로).
+		const { rows: nodeRows } = await pool.query<{ title: string }>(
+			"SELECT title FROM concept_nodes WHERE id = $1",
 			[nodeId],
+		);
+		const title = nodeRows[0]?.title ?? null;
+		const { rows } = await pool.query<{ id: number }>(
+			`SELECT id FROM exam_questions WHERE status = 'approved' AND concept_node_id = $1
+     AND NOT (id = ANY($2::int[])) ORDER BY random() LIMIT 5`,
+			[nodeId, [...(await lockedQuestionIdsForUser(req.user!.id))]],
 		);
 		if (rows.length === 0) {
 			return res
@@ -144,16 +200,11 @@ examRouter.post(
 				userId: req.user!.id,
 				kind: "practice_custom",
 				questionIds: rows.map((r) => r.id),
-				title:
-					typeof title === "string" && title
-						? `${title} 관련 문제`
-						: "개념 관련 문제",
+				title: title ? `${title} 관련 문제` : "개념 관련 문제",
 			});
 			res.json(result);
 		} catch (err) {
-			res
-				.status(400)
-				.json({ error: err instanceof Error ? err.message : String(err) });
+			res.status(400).json({ error: userMessage(err) });
 		}
 	},
 );
@@ -171,33 +222,43 @@ examRouter.get("/exam/meta", requireAuth, async (_req, res) => {
 	});
 });
 
-examRouter.post("/exam/practice/start", requireAuth, async (req, res) => {
-	const { subject, count } = req.body ?? {};
-	try {
-		const result = await createAttempt({
-			userId: req.user!.id,
-			kind: "practice_custom",
-			subject: typeof subject === "string" ? subject : null,
-			count: typeof count === "number" ? Math.min(Math.max(count, 1), 50) : 10,
-		});
-		res.json(result);
-	} catch (err) {
-		res
-			.status(400)
-			.json({ error: err instanceof Error ? err.message : String(err) });
-	}
-});
+examRouter.post(
+	"/exam/practice/start",
+	requireAuth,
+	startLimit,
+	async (req, res) => {
+		const { subject, count } = req.body ?? {};
+		try {
+			const result = await createAttempt({
+				userId: req.user!.id,
+				kind: "practice_custom",
+				subject: typeof subject === "string" ? subject : null,
+				count:
+					typeof count === "number" ? Math.min(Math.max(count, 1), 50) : 10,
+			});
+			res.json(result);
+		} catch (err) {
+			res.status(400).json({ error: userMessage(err) });
+		}
+	},
+);
 
-examRouter.post("/exam/mock/start", requireAuth, async (req, res) => {
-	try {
-		const result = await createAttempt({ userId: req.user!.id, kind: "mock" });
-		res.json(result);
-	} catch (err) {
-		res
-			.status(400)
-			.json({ error: err instanceof Error ? err.message : String(err) });
-	}
-});
+examRouter.post(
+	"/exam/mock/start",
+	requireAuth,
+	startLimit,
+	async (req, res) => {
+		try {
+			const result = await createAttempt({
+				userId: req.user!.id,
+				kind: "mock",
+			});
+			res.json(result);
+		} catch (err) {
+			res.status(400).json({ error: userMessage(err) });
+		}
+	},
+);
 
 examRouter.get("/exam/rounds", requireAuth, async (_req, res) => {
 	res.json(await listPastExamRounds());
@@ -206,7 +267,10 @@ examRouter.get("/exam/rounds", requireAuth, async (_req, res) => {
 examRouter.post(
 	"/exam/round/:roundLabel/start",
 	requireAuth,
+	startLimit,
 	async (req, res) => {
+		if (!/^[\w-]{1,40}$/.test(req.params.roundLabel ?? ""))
+			return res.status(400).json({ error: "잘못된 회차입니다." });
 		try {
 			const result = await createAttempt({
 				userId: req.user!.id,
@@ -215,9 +279,7 @@ examRouter.post(
 			});
 			res.json(result);
 		} catch (err) {
-			res
-				.status(400)
-				.json({ error: err instanceof Error ? err.message : String(err) });
+			res.status(400).json({ error: userMessage(err) });
 		}
 	},
 );
@@ -258,17 +320,18 @@ examRouter.post(
 	"/exam/timed/:examSetId/start",
 	requireAuth,
 	async (req, res) => {
+		const examSetId = routeId(req.params.examSetId);
+		if (examSetId === null)
+			return res.status(400).json({ error: "잘못된 시험 번호입니다." });
 		try {
 			const result = await createAttempt({
 				userId: req.user!.id,
 				kind: "admin_timed",
-				examSetId: Number(req.params.examSetId),
+				examSetId,
 			});
 			res.json(result);
 		} catch (err) {
-			res
-				.status(400)
-				.json({ error: err instanceof Error ? err.message : String(err) });
+			res.status(400).json({ error: userMessage(err) });
 		}
 	},
 );
@@ -289,6 +352,7 @@ const RETRY_ALL_LIMIT = 20;
 examRouter.post(
 	"/exam/wrong-answers/retry-all",
 	requireAuth,
+	startLimit,
 	async (req, res) => {
 		const wrongAnswers = await getWrongAnswers(req.user!.id, 200);
 		const allQuestionIds = [...new Set(wrongAnswers.map((w) => w.questionId))];
@@ -326,9 +390,7 @@ examRouter.post(
 				includedCount: questionIds.length,
 			});
 		} catch (err) {
-			res
-				.status(400)
-				.json({ error: err instanceof Error ? err.message : String(err) });
+			res.status(400).json({ error: userMessage(err) });
 		}
 	},
 );
@@ -341,36 +403,39 @@ examRouter.get("/exam/my-report/analysis", requireAuth, async (req, res) => {
 	try {
 		res.json(await getOrCreateReportAnalysis(req.user!.id));
 	} catch (err) {
-		sendAskError(res, err, "exam");
+		res.status(500).json({ error: userMessage(err) });
 	}
 });
 
 examRouter.post(
 	"/exam/my-report/analysis/regenerate",
 	requireAuth,
+	limitPerUser(
+		analysisLimiter,
+		"분석 다시 만들기는 10분에 한 번만 할 수 있어요.",
+	),
 	async (req, res) => {
 		try {
 			res.json(await getOrCreateReportAnalysis(req.user!.id, true));
 		} catch (err) {
-			sendAskError(res, err, "exam");
+			res.status(500).json({ error: userMessage(err) });
 		}
 	},
 );
 
 examRouter.get("/exam/attempts/:id", requireAuth, async (req, res) => {
-	const attemptId = Number(req.params.id);
-	await autoSubmitIfExpired(attemptId);
-	const attempt = await getAttempt(attemptId);
-	if (!attempt || attempt.user_id !== req.user!.id)
+	const attemptId = routeId(req.params.id);
+	if (attemptId === null)
 		return res.status(404).json({ error: "응시 기록을 찾을 수 없습니다." });
+	const owned = await getAttempt(attemptId);
+	if (!owned || owned.user_id !== req.user!.id)
+		return res.status(404).json({ error: "응시 기록을 찾을 수 없습니다." });
+	await autoSubmitIfExpired(attemptId);
+	const attempt = (await getAttempt(attemptId))!;
 	if (attempt.status === "in_progress") {
-		const deadline = attempt.time_limit_minutes
-			? new Date(attempt.started_at).getTime() +
-				attempt.time_limit_minutes * 60_000
-			: null;
 		return res.json({
 			status: attempt.status,
-			deadline,
+			deadline: attemptDeadline(attempt),
 			questionCount: attempt.question_ids.length,
 		});
 	}
@@ -378,80 +443,106 @@ examRouter.get("/exam/attempts/:id", requireAuth, async (req, res) => {
 	res.json(results);
 });
 
-examRouter.post("/exam/attempts/:id/answer", requireAuth, async (req, res) => {
-	const { questionId, selectedIndex, answerText } = req.body ?? {};
-	if (
-		typeof questionId !== "number" ||
-		(typeof selectedIndex !== "number" && typeof answerText !== "string")
-	) {
-		return res
-			.status(400)
-			.json({
-				error:
-					"questionId와, selectedIndex(객관식) 또는 answerText(단답식/주관식/서술형) 중 하나가 필요합니다.",
+examRouter.post(
+	"/exam/attempts/:id/answer",
+	requireAuth,
+	writeLimit,
+	async (req, res) => {
+		const { questionId, selectedIndex, answerText } = req.body ?? {};
+		if (
+			typeof questionId !== "number" ||
+			(typeof selectedIndex !== "number" && typeof answerText !== "string")
+		) {
+			return res
+				.status(400)
+				.json({
+					error:
+						"questionId와, selectedIndex(객관식) 또는 answerText(단답식/주관식/서술형) 중 하나가 필요합니다.",
+				});
+		}
+		try {
+			const attemptId = routeId(req.params.id);
+			if (attemptId === null)
+				return res.status(404).json({ error: "응시 기록을 찾을 수 없습니다." });
+			if (typeof answerText === "string" && answerText.length > 5000) {
+				return res
+					.status(400)
+					.json({ error: "답안이 너무 깁니다(5000자 이내)." });
+			}
+			const result = await submitAnswer({
+				attemptId,
+				userId: req.user!.id,
+				questionId,
+				selectedDisplayIndex:
+					typeof selectedIndex === "number" ? selectedIndex : undefined,
+				answerText: typeof answerText === "string" ? answerText : undefined,
+				reveal: req.body?.reveal === true,
 			});
-	}
-	try {
-		const result = await submitAnswer({
-			attemptId: Number(req.params.id),
-			userId: req.user!.id,
-			questionId,
-			selectedDisplayIndex:
-				typeof selectedIndex === "number" ? selectedIndex : undefined,
-			answerText: typeof answerText === "string" ? answerText : undefined,
-			reveal: req.body?.reveal === true,
-		});
-		res.json(result);
-	} catch (err) {
-		res
-			.status(400)
-			.json({ error: err instanceof Error ? err.message : String(err) });
-	}
-});
+			res.json(result);
+		} catch (err) {
+			res.status(400).json({ error: userMessage(err) });
+		}
+	},
+);
 
 examRouter.post("/exam/attempts/:id/submit", requireAuth, async (req, res) => {
+	const attemptId = routeId(req.params.id);
+	if (attemptId === null)
+		return res.status(404).json({ error: "응시 기록을 찾을 수 없습니다." });
 	try {
-		const result = await submitAttempt(Number(req.params.id), req.user!.id);
-		res.json(result);
+		await submitAttempt(attemptId, req.user!.id);
+		// 제출 응답도 결과 조회와 같은 공개 규칙을 따른다(지정 시험은 응시 기간이 끝날 때까지 정답·해설 비공개).
+		res.json(await getAttemptResults(attemptId, req.user!.id));
 	} catch (err) {
-		res
-			.status(400)
-			.json({ error: err instanceof Error ? err.message : String(err) });
+		res.status(400).json({ error: userMessage(err) });
 	}
 });
 
 examRouter.post(
 	"/exam/attempts/:id/proctor-event",
 	requireAuth,
+	writeLimit,
 	async (req, res) => {
 		const { eventType, detail } = req.body ?? {};
 		if (typeof eventType !== "string")
 			return res.status(400).json({ error: "eventType(string)이 필요합니다." });
 		try {
+			const attemptId = routeId(req.params.id);
+			if (attemptId === null)
+				return res.status(404).json({ error: "응시 기록을 찾을 수 없습니다." });
 			const result = await logProctorEvent(
-				Number(req.params.id),
+				attemptId,
 				req.user!.id,
-				eventType,
+				eventType.slice(0, 40),
 				detail,
 			);
 			res.json(result);
 		} catch (err) {
-			res
-				.status(400)
-				.json({ error: err instanceof Error ? err.message : String(err) });
+			res.status(400).json({ error: userMessage(err) });
 		}
 	},
 );
 
-examRouter.get("/exam/questions/:id/explain", requireAuth, async (req, res) => {
-	const { rows } = await pool.query(
-		"SELECT id, subject, stem, choices, correct_index, explanation, stem_image_url FROM exam_questions WHERE id = $1 AND status = 'approved'",
-		[Number(req.params.id)],
-	);
-	if (rows.length === 0)
-		return res.status(404).json({ error: "문제를 찾을 수 없습니다." });
-	if ((await lockedQuestionIdsForUser(req.user!.id)).has(rows[0].id)) {
-		return res.status(403).json({ error: LOCKED_QUESTION_MESSAGE });
-	}
-	res.json(rows[0]);
-});
+examRouter.get(
+	"/exam/questions/:id/explain",
+	requireAuth,
+	limitPerUser(
+		explainLimiter,
+		"해설 조회가 너무 잦아요. 잠시 후 다시 시도해 주세요.",
+	),
+	async (req, res) => {
+		const qid = routeId(req.params.id);
+		if (qid === null)
+			return res.status(404).json({ error: "문제를 찾을 수 없습니다." });
+		const { rows } = await pool.query(
+			"SELECT id, subject, stem, choices, correct_index, explanation, stem_image_url FROM exam_questions WHERE id = $1 AND status = 'approved'",
+			[qid],
+		);
+		if (rows.length === 0)
+			return res.status(404).json({ error: "문제를 찾을 수 없습니다." });
+		if ((await lockedQuestionIdsForUser(req.user!.id)).has(rows[0].id)) {
+			return res.status(403).json({ error: LOCKED_QUESTION_MESSAGE });
+		}
+		res.json(rows[0]);
+	},
+);

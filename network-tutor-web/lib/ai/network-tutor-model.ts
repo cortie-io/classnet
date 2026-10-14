@@ -32,7 +32,10 @@ const INTERNAL_SECRET = process.env.INTERNAL_API_SECRET ?? "";
 // UI Message Stream에 별도 데이터 파트를 얹는 배관을 새로 만드는 대신, 이미 텍스트로 흐르고 있는
 // 스트림에 HTML 주석으로 감춘 마커를 붙이고 프런트(message.tsx)에서 그걸 파싱해 카드로 렌더링한다 —
 // footnoteBlock의 "출처:" 폴딩과 동일한 패턴이라 배관을 하나만 유지하면 된다.
-function appendPracticeMarker(text: string, practiceAttempt: BackendAskResponse["practiceAttempt"]): string {
+function appendPracticeMarker(
+  text: string,
+  practiceAttempt: BackendAskResponse["practiceAttempt"]
+): string {
   if (!practiceAttempt) return text;
   return `${text}\n\n<!--PRACTICE_ATTEMPT:${JSON.stringify(practiceAttempt)}-->`;
 }
@@ -61,13 +64,23 @@ async function callBackend(
     throw new Error("지금 답변을 만들지 못했어요. 잠시 후 다시 시도해 주세요.");
   }
   const data = (await res.json()) as BackendAskResponse;
-  const answer = data.auditLogId ? `${data.answer}\n\n<!--AUDIT_LOG_ID:${data.auditLogId}-->` : data.answer;
+  const answer = data.auditLogId
+    ? `${data.answer}\n\n<!--AUDIT_LOG_ID:${data.auditLogId}-->`
+    : data.answer;
   return appendPracticeMarker(answer, data.practiceAttempt);
 }
 
 type PromptMessage = {
   role: string;
-  content: string | Array<{ type: string; text?: string; data?: unknown; url?: string; mediaType?: string }>;
+  content:
+    | string
+    | Array<{
+        type: string;
+        text?: string;
+        data?: unknown;
+        url?: string;
+        mediaType?: string;
+      }>;
 };
 
 // data: URI("data:image/png;base64,AAAA...")에서 base64 부분만 뽑는다. 첨부파일 업로드
@@ -110,7 +123,9 @@ function humanizeHistoryText(text: string): string {
         return `${i + 1}번 문제: ${q.stem ?? ""}${choicesText}`;
       })
       .join("\n\n");
-    return listed ? `${before}\n\n[문제은행에서 찾아준 문제 목록]\n${listed}` : before;
+    return listed
+      ? `${before}\n\n[문제은행에서 찾아준 문제 목록]\n${listed}`
+      : before;
   } catch {
     return before;
   }
@@ -150,10 +165,17 @@ function extractRequest(prompt: PromptMessage[]): {
   const history: HistoryTurn[] = prompt
     .slice(0, lastUserIdx)
     .filter((m) => m.role === "user" || m.role === "assistant")
-    .map((m) => ({ role: m.role as "user" | "assistant", content: humanizeHistoryText(textOf(m)) }))
+    .map((m) => ({
+      role: m.role as "user" | "assistant",
+      content: humanizeHistoryText(textOf(m)),
+    }))
     .filter((h) => h.content.trim().length > 0);
 
-  return { question, imageBase64, history: history.length > 0 ? history : undefined };
+  return {
+    question,
+    imageBase64,
+    history: history.length > 0 ? history : undefined,
+  };
 }
 
 const USAGE_PLACEHOLDER = {
@@ -166,9 +188,12 @@ type CallOptions = {
   providerOptions?: { networkTutor?: NetworkTutorProviderOptions };
 };
 
-function requireOptions(providerOptions: CallOptions["providerOptions"]): NetworkTutorProviderOptions {
+function requireOptions(
+  providerOptions: CallOptions["providerOptions"]
+): NetworkTutorProviderOptions {
   const opts = providerOptions?.networkTutor;
-  if (!opts) throw new Error("networkTutor providerOptions가 전달되지 않았습니다.");
+  if (!opts)
+    throw new Error("networkTutor providerOptions가 전달되지 않았습니다.");
   return opts;
 }
 
@@ -195,7 +220,12 @@ export const networkTutorModel: LanguageModel = {
           try {
             const opts = requireOptions(providerOptions);
             const { question, imageBase64, history } = extractRequest(prompt);
-            const text = await callBackend(question, imageBase64, history, opts);
+            const text = await callBackend(
+              question,
+              imageBase64,
+              history,
+              opts
+            );
             controller.enqueue({ delta: text, id: "t1", type: "text-delta" });
           } catch (err) {
             controller.enqueue({

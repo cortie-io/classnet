@@ -1,3 +1,6 @@
+import { officialExamLockdown } from "./features/exams/services/officialLockdown.js";
+import { officialExamRouter } from "./features/exams/officialRoutes.js";
+import { learnRouter } from "./features/learn/routes.js";
 import "express-async-errors";
 import express, { type ErrorRequestHandler } from "express";
 import path from "node:path";
@@ -41,6 +44,7 @@ export function createApp() {
 	// 실제로 답을 만들 수 있는지(DB·답변 공급자·검색 모드) — routes/ready.ts
 	app.get("/ready", readyHandler);
 
+	app.use("/api", officialExamLockdown);
 	app.get("/api/admin/periods", requireAdmin, periodMetadata);
 	app.use("/api/admin", requireAdmin, selectAdminPeriod);
 	app.use("/api", authRouter);
@@ -53,6 +57,8 @@ export function createApp() {
 	app.use("/api", lookupRouter);
 	app.use("/api", auditRouter);
 	app.use("/api", examRouter);
+	app.use("/api", officialExamRouter);
+	app.use("/api", learnRouter);
 	app.use("/api", adminExamRouter);
 	app.use("/api", bookmarksRouter);
 	app.use("/api", settingsRouter);

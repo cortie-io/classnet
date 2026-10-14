@@ -11,10 +11,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ChevronLeftIcon, ChevronRightIcon, LayersIcon, RotateCwIcon, StarIcon } from "lucide-react";
-import { PageIntro, PageLoading, PageNotice } from "@/components/chat/page-intro";
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  LayersIcon,
+  RotateCwIcon,
+  StarIcon,
+} from "lucide-react";
+import {
+  PageIntro,
+  PageLoading,
+  PageNotice,
+} from "@/components/chat/page-intro";
 import { MessageResponse } from "@/components/ai-elements/message";
-import { ExamRunner, type ExamStartResponse } from "@/components/exam/exam-runner";
+import {
+  ExamRunner,
+  type ExamStartResponse,
+} from "@/components/exam/exam-runner";
 import { toast } from "@/components/chat/toast";
 import { loadJson } from "@/components/load-json";
 
@@ -44,13 +57,17 @@ export default function FlashcardsPage() {
   const [flipped, setFlipped] = useState(false);
   const [bodyMd, setBodyMd] = useState<string | null>(null);
   const [startingPractice, setStartingPractice] = useState(false);
-  const [practiceStart, setPracticeStart] = useState<ExamStartResponse | null>(null);
+  const [practiceStart, setPracticeStart] = useState<ExamStartResponse | null>(
+    null
+  );
 
   useEffect(() => {
     loadJson("/api/ontology/tree", setTree);
     fetch("/api/bookmarks")
       .then((r) => r.json())
-      .then((rows: { concept_node_id: number }[]) => setBookmarked(new Set(rows.map((r) => r.concept_node_id))))
+      .then((rows: { concept_node_id: number }[]) =>
+        setBookmarked(new Set(rows.map((r) => r.concept_node_id)))
+      )
       .catch(() => undefined);
   }, []);
 
@@ -66,12 +83,18 @@ export default function FlashcardsPage() {
   }, [tree]);
 
   const cards = useMemo(() => {
-    let list = subject === "all" ? allCards : allCards.filter((c) => c.subject === subject);
+    let list =
+      subject === "all"
+        ? allCards
+        : allCards.filter((c) => c.subject === subject);
     if (showBookmarkedOnly) list = list.filter((c) => bookmarked.has(c.id));
     const q = search.trim().toLowerCase();
     if (q) {
       list = list.filter(
-        (c) => c.title.toLowerCase().includes(q) || c.topic.toLowerCase().includes(q) || c.sectionNo.toLowerCase().includes(q),
+        (c) =>
+          c.title.toLowerCase().includes(q) ||
+          c.topic.toLowerCase().includes(q) ||
+          c.sectionNo.toLowerCase().includes(q)
       );
     }
     return list;
@@ -115,7 +138,9 @@ export default function FlashcardsPage() {
       isBookmarked ? next.delete(current.id) : next.add(current.id);
       return next;
     });
-    await fetch(`/api/bookmarks/${current.id}`, { method: isBookmarked ? "DELETE" : "POST" });
+    await fetch(`/api/bookmarks/${current.id}`, {
+      method: isBookmarked ? "DELETE" : "POST",
+    });
   };
 
   const subjects = Object.keys(tree ?? {});
@@ -124,16 +149,23 @@ export default function FlashcardsPage() {
     if (!current) return;
     setStartingPractice(true);
     try {
-      const res = await fetch(`/api/exam/concept/${current.id}/practice-start`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: current.title }),
-      });
+      const res = await fetch(
+        `/api/exam/concept/${current.id}/practice-start`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: current.title }),
+        }
+      );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "시작할 수 없습니다.");
       setPracticeStart(data);
     } catch (err) {
-      toast({ type: "error", description: err instanceof Error ? err.message : "오류가 발생했습니다." });
+      toast({
+        type: "error",
+        description:
+          err instanceof Error ? err.message : "오류가 발생했습니다.",
+      });
     } finally {
       setStartingPractice(false);
     }
@@ -147,7 +179,11 @@ export default function FlashcardsPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:py-12">
-      <PageIntro description="카드를 눌러 뒤집으면 개념의 정의를 확인할 수 있어요." icon={LayersIcon} title="플래시카드" />
+      <PageIntro
+        description="카드를 눌러 뒤집으면 개념의 정의를 확인할 수 있어요."
+        icon={LayersIcon}
+        title="플래시카드"
+      />
 
       <div className="surface flex flex-col gap-2 p-3 sm:flex-row sm:items-center">
         <Input
@@ -157,11 +193,15 @@ export default function FlashcardsPage() {
           value={search}
         />
         <Select onValueChange={setSubject} value={subject}>
-          <SelectTrigger className="w-full sm:w-56"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-56">
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">전체 과목</SelectItem>
             {subjects.map((s) => (
-              <SelectItem key={s} value={s}>{s.replace(/^\d과목_/, "")}</SelectItem>
+              <SelectItem key={s} value={s}>
+                {s.replace(/^\d과목_/, "")}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -184,10 +224,16 @@ export default function FlashcardsPage() {
             <div className="flex flex-1 items-center gap-3">
               <span className="font-semibold text-[13px] text-foreground tabular-nums">
                 {index + 1}
-                <span className="font-normal text-muted-foreground"> / {cards.length}</span>
+                <span className="font-normal text-muted-foreground">
+                  {" "}
+                  / {cards.length}
+                </span>
               </span>
               <div className="h-1.5 max-w-60 flex-1 overflow-hidden rounded-full bg-muted">
-                <div className="h-full rounded-full bg-brand transition-[width] duration-300" style={{ width: `${((index + 1) / cards.length) * 100}%` }} />
+                <div
+                  className="h-full rounded-full bg-brand transition-[width] duration-300"
+                  style={{ width: `${((index + 1) / cards.length) * 100}%` }}
+                />
               </div>
             </div>
             <button
@@ -196,11 +242,15 @@ export default function FlashcardsPage() {
               onClick={toggleBookmark}
               type="button"
             >
-              <StarIcon className={`size-[18px] ${bookmarked.has(current.id) ? "fill-amber-400 text-amber-400" : "text-muted-foreground"}`} />
+              <StarIcon
+                className={`size-[18px] ${bookmarked.has(current.id) ? "fill-amber-400 text-amber-400" : "text-muted-foreground"}`}
+              />
             </button>
           </div>
 
-          <div className={`min-h-72 overflow-hidden rounded-[1.5rem] border shadow-[var(--shadow-card)] transition-shadow duration-200 hover:shadow-[var(--shadow-float)] ${flipped ? "border-border bg-card" : "border-primary/15 bg-brand-soft"}`}>
+          <div
+            className={`min-h-72 overflow-hidden rounded-[1.5rem] border shadow-[var(--shadow-card)] transition-shadow duration-200 hover:shadow-[var(--shadow-float)] ${flipped ? "border-border bg-card" : "border-primary/15 bg-brand-soft"}`}
+          >
             {!flipped ? (
               <button
                 className="relative flex h-full min-h-72 w-full flex-col items-center justify-center gap-3 p-8 text-center"
@@ -211,7 +261,9 @@ export default function FlashcardsPage() {
                 <span className="relative rounded-full bg-white/80 px-3 py-1 font-medium text-[12px] text-primary shadow-[var(--shadow-card)]">
                   {current.subject.replace(/^\d과목_/, "")} · {current.topic}
                 </span>
-                <span className="relative font-bold text-[26px] text-foreground tracking-[-0.03em]">{current.title}</span>
+                <span className="relative font-bold text-[26px] text-foreground tracking-[-0.03em]">
+                  {current.title}
+                </span>
                 <span className="relative mt-3 inline-flex items-center gap-1.5 text-[12.5px] text-muted-foreground">
                   <RotateCwIcon className="size-3.5" />
                   눌러서 정의 보기
@@ -219,10 +271,14 @@ export default function FlashcardsPage() {
               </button>
             ) : (
               <div className="flex flex-col gap-4 p-6 sm:p-8">
-                <span className="w-fit rounded-full bg-accent px-3 py-1 font-semibold text-[12px] text-primary">{current.title}</span>
+                <span className="w-fit rounded-full bg-accent px-3 py-1 font-semibold text-[12px] text-primary">
+                  {current.title}
+                </span>
                 <div className="overflow-x-auto text-[14px] leading-[1.75]">
                   {bodyMd === null ? (
-                    <p className="text-muted-foreground text-sm">불러오는 중...</p>
+                    <p className="text-muted-foreground text-sm">
+                      불러오는 중...
+                    </p>
                   ) : (
                     <MessageResponse>{bodyMd}</MessageResponse>
                   )}
@@ -235,7 +291,12 @@ export default function FlashcardsPage() {
                   >
                     ← 앞면으로
                   </button>
-                  <Button disabled={startingPractice} onClick={practiceThisConcept} size="sm" variant="outline">
+                  <Button
+                    disabled={startingPractice}
+                    onClick={practiceThisConcept}
+                    size="sm"
+                    variant="outline"
+                  >
                     {startingPractice ? "준비 중..." : "이 개념 문제 풀어보기"}
                   </Button>
                 </div>

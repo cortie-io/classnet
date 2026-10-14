@@ -1,7 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronLeftIcon, ChevronRightIcon, SendIcon, ShieldAlertIcon, TimerIcon } from "lucide-react";
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  SendIcon,
+  ShieldAlertIcon,
+  TimerIcon,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,7 +15,11 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/chat/toast";
 
-export type QuestionType = "multiple_choice" | "short_answer" | "subjective" | "essay";
+export type QuestionType =
+  | "multiple_choice"
+  | "short_answer"
+  | "subjective"
+  | "essay";
 
 const QUESTION_TYPE_LABEL: Record<QuestionType, string> = {
   multiple_choice: "객관식",
@@ -32,7 +42,10 @@ export interface ExamStartResponse {
   questions: AttemptQuestionView[];
   timeLimitMinutes: number | null;
   /** 진행 중이던 응시를 이어서 열 때(지정 시험 새로고침 등) 이미 저장해 둔 답 — 화면 기준 보기 번호. */
-  savedAnswers?: Record<number, { selectedIndex?: number; answerText?: string }>;
+  savedAnswers?: Record<
+    number,
+    { selectedIndex?: number; answerText?: string }
+  >;
   error?: string;
 }
 
@@ -44,22 +57,35 @@ const PROCTORED_EVENTS_HELP =
 // 모든 문제를 다 풀고 제출해야만 한번에 채점되길 원했다("문제 연습도 다 풀고 제출해야하고 확인 가능하게
 // 하고 모의고사도 다 풀고 제출하고 나서 확인 가능하게 해줘"). 그래서 여기서는 정답 여부를 절대 보여주지
 // 않고 그냥 답만 저장한다 — 채점 결과는 전부 제출 후 /exam/[id] 결과 화면에서만 확인할 수 있다.
-export function ExamRunner({ start, proctored }: { start: ExamStartResponse; proctored: boolean }) {
+export function ExamRunner({
+  start,
+  proctored,
+  onSubmitted,
+}: {
+  start: ExamStartResponse;
+  proctored: boolean;
+  /** 제출이 끝나면 결과 화면으로 가는 대신 이걸 부른다(처음부터 배우기의 단원 확인 문제처럼 그 자리에 머물 때). */
+  onSubmitted?: (attemptId: number) => void;
+}) {
   const router = useRouter();
   const { attemptId, questions, timeLimitMinutes, savedAnswers } = start;
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<Record<number, number>>(() => {
     const init: Record<number, number> = {};
-    for (const [qid, a] of Object.entries(savedAnswers ?? {})) if (a.selectedIndex !== undefined) init[Number(qid)] = a.selectedIndex;
+    for (const [qid, a] of Object.entries(savedAnswers ?? {}))
+      if (a.selectedIndex !== undefined) init[Number(qid)] = a.selectedIndex;
     return init;
   });
   const [answerTexts, setAnswerTexts] = useState<Record<number, string>>(() => {
     const init: Record<number, string> = {};
-    for (const [qid, a] of Object.entries(savedAnswers ?? {})) if (a.answerText !== undefined) init[Number(qid)] = a.answerText;
+    for (const [qid, a] of Object.entries(savedAnswers ?? {}))
+      if (a.answerText !== undefined) init[Number(qid)] = a.answerText;
     return init;
   });
   const [saved, setSaved] = useState<Record<number, boolean>>(() =>
-    Object.fromEntries(Object.keys(savedAnswers ?? {}).map((qid) => [Number(qid), true])),
+    Object.fromEntries(
+      Object.keys(savedAnswers ?? {}).map((qid) => [Number(qid), true])
+    )
   );
   // 시간 만료로 자동 제출할 때 아직 "저장"을 안 누른 주관식 입력도 먼저 저장하려고 최신 값을 ref로 들고 있는다.
   const answerTextsRef = useRef(answerTexts);
@@ -73,8 +99,12 @@ export function ExamRunner({ start, proctored }: { start: ExamStartResponse; pro
   const [saveFailed, setSaveFailed] = useState<Record<number, boolean>>({});
   const [confirmingSubmit, setConfirmingSubmit] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [remainingSec, setRemainingSec] = useState<number | null>(timeLimitMinutes ? timeLimitMinutes * 60 : null);
-  const deadlineRef = useRef<number | null>(timeLimitMinutes ? Date.now() + timeLimitMinutes * 60_000 : null);
+  const [remainingSec, setRemainingSec] = useState<number | null>(
+    timeLimitMinutes ? timeLimitMinutes * 60 : null
+  );
+  const deadlineRef = useRef<number | null>(
+    timeLimitMinutes ? Date.now() + timeLimitMinutes * 60_000 : null
+  );
   const submittedRef = useRef(false);
 
   const current = questions[index];
@@ -91,26 +121,38 @@ export function ExamRunner({ start, proctored }: { start: ExamStartResponse; pro
         await fetch(`/api/exam/attempts/${attemptId}/answer`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ questionId: Number(qid), answerText: text.trim() }),
+          body: JSON.stringify({
+            questionId: Number(qid),
+            answerText: text.trim(),
+          }),
         }).catch(() => undefined);
       }
-      const res = await fetch(`/api/exam/attempts/${attemptId}/submit`, { method: "POST" });
+      const res = await fetch(`/api/exam/attempts/${attemptId}/submit`, {
+        method: "POST",
+      });
       if (!res.ok) {
-        const message: string = (await res.json().catch(() => ({}))).error ?? "제출 실패";
+        const message: string =
+          (await res.json().catch(() => ({}))).error ?? "제출 실패";
         // 서버가 이미 마감 처리한 경우(시간 만료 직후 저장 등)엔 멈춰 있지 말고 결과 화면으로 간다.
         if (message.includes("이미 종료") || message.includes("자동 제출")) {
-          router.push(`/exam/${attemptId}`);
+          if (onSubmitted) onSubmitted(attemptId);
+          else router.push(`/exam/${attemptId}`);
           return;
         }
         throw new Error(message);
       }
-      router.push(`/exam/${attemptId}`);
+      if (onSubmitted) onSubmitted(attemptId);
+      else router.push(`/exam/${attemptId}`);
     } catch (err) {
-      toast({ type: "error", description: err instanceof Error ? err.message : "제출 중 오류가 발생했습니다." });
+      toast({
+        type: "error",
+        description:
+          err instanceof Error ? err.message : "제출 중 오류가 발생했습니다.",
+      });
       setSubmitting(false);
       submittedRef.current = false;
     }
-  }, [attemptId, router]);
+  }, [attemptId, router, onSubmitted]);
 
   const postProctorEvent = useCallback(
     (eventType: string, detail?: Record<string, unknown>) => {
@@ -123,15 +165,23 @@ export function ExamRunner({ start, proctored }: { start: ExamStartResponse; pro
         .then((r) => r.json())
         .then((d) => {
           if (d?.autoSubmit) {
-            toast({ type: "error", description: "이상 행동이 반복 감지되어 시험이 자동 제출되었습니다." });
+            toast({
+              type: "error",
+              description:
+                "이상 행동이 반복 감지되어 시험이 자동 제출되었습니다.",
+            });
             finalize();
           } else if (d?.flagged) {
-            toast({ type: "error", description: "이상 행동이 반복 감지되어 검토 대상으로 표시되었습니다." });
+            toast({
+              type: "error",
+              description:
+                "이상 행동이 반복 감지되어 검토 대상으로 표시되었습니다.",
+            });
           }
         })
         .catch(() => undefined);
     },
-    [attemptId, proctored, finalize],
+    [attemptId, proctored, finalize]
   );
 
   // 감독 대상 응시: 화면 이탈/전체화면 해제/복사·붙여넣기/우클릭/개발자도구/다중 탭 감지.
@@ -185,7 +235,8 @@ export function ExamRunner({ start, proctored }: { start: ExamStartResponse; pro
       bc = new BroadcastChannel(`exam-attempt-${attemptId}`);
       bc.onmessage = (e) => {
         if (e.data?.type === "ping") bc?.postMessage({ type: "pong" });
-        if (e.data?.type === "ping" || e.data?.type === "pong") postProctorEvent("multiple_tabs");
+        if (e.data?.type === "ping" || e.data?.type === "pong")
+          postProctorEvent("multiple_tabs");
       };
       bc.postMessage({ type: "ping" });
     }
@@ -217,11 +268,17 @@ export function ExamRunner({ start, proctored }: { start: ExamStartResponse; pro
   useEffect(() => {
     if (!deadlineRef.current) return;
     const timer = setInterval(() => {
-      const left = Math.max(0, Math.round((deadlineRef.current! - Date.now()) / 1000));
+      const left = Math.max(
+        0,
+        Math.round((deadlineRef.current! - Date.now()) / 1000)
+      );
       setRemainingSec(left);
       if (left <= 0) {
         clearInterval(timer);
-        toast({ type: "error", description: "제한 시간이 종료되어 자동 제출됩니다." });
+        toast({
+          type: "error",
+          description: "제한 시간이 종료되어 자동 제출됩니다.",
+        });
         finalize();
       }
     }, 1000);
@@ -244,15 +301,27 @@ export function ExamRunner({ start, proctored }: { start: ExamStartResponse; pro
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ questionId: qid, selectedIndex: choiceIdx }),
         });
-        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "답변 저장 실패");
-        if (saveSeqRef.current[qid] === seq) setSaved((prev) => ({ ...prev, [qid]: true }));
+        if (!res.ok)
+          throw new Error(
+            (await res.json().catch(() => ({}))).error ?? "답변 저장 실패"
+          );
+        if (saveSeqRef.current[qid] === seq)
+          setSaved((prev) => ({ ...prev, [qid]: true }));
       } catch (err) {
         if (saveSeqRef.current[qid] !== seq) return;
         setSaveFailed((prev) => ({ ...prev, [qid]: true }));
-        toast({ type: "error", description: err instanceof Error ? err.message : "답변 저장 중 오류가 발생했습니다." });
+        toast({
+          type: "error",
+          description:
+            err instanceof Error
+              ? err.message
+              : "답변 저장 중 오류가 발생했습니다.",
+        });
       }
     };
-    saveChainRef.current[qid] = (saveChainRef.current[qid] ?? Promise.resolve()).then(send);
+    saveChainRef.current[qid] = (
+      saveChainRef.current[qid] ?? Promise.resolve()
+    ).then(send);
   };
 
   const submitTextAnswer = async (): Promise<boolean> => {
@@ -262,13 +331,21 @@ export function ExamRunner({ start, proctored }: { start: ExamStartResponse; pro
       const res = await fetch(`/api/exam/attempts/${attemptId}/answer`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ questionId: current.questionId, answerText: text }),
+        body: JSON.stringify({
+          questionId: current.questionId,
+          answerText: text,
+        }),
       });
-      if (!res.ok) throw new Error((await res.json()).error ?? "답변 저장 실패");
+      if (!res.ok)
+        throw new Error((await res.json()).error ?? "답변 저장 실패");
       setSaved((prev) => ({ ...prev, [current.questionId]: true }));
       return true;
     } catch (err) {
-      toast({ type: "error", description: err instanceof Error ? err.message : "오류가 발생했습니다." });
+      toast({
+        type: "error",
+        description:
+          err instanceof Error ? err.message : "오류가 발생했습니다.",
+      });
       return false;
     }
   };
@@ -286,7 +363,11 @@ export function ExamRunner({ start, proctored }: { start: ExamStartResponse; pro
   };
 
   const goTo = async (target: number) => {
-    if (!isMC && (answerTexts[current.questionId] ?? "").trim() && !saved[current.questionId]) {
+    if (
+      !isMC &&
+      (answerTexts[current.questionId] ?? "").trim() &&
+      !saved[current.questionId]
+    ) {
       await submitTextAnswer();
     }
     setConfirmingSubmit(false);
@@ -294,7 +375,9 @@ export function ExamRunner({ start, proctored }: { start: ExamStartResponse; pro
   };
 
   const isAnswered = (q: AttemptQuestionView) =>
-    q.questionType === "multiple_choice" ? selected[q.questionId] !== undefined : !!saved[q.questionId];
+    q.questionType === "multiple_choice"
+      ? selected[q.questionId] !== undefined
+      : !!saved[q.questionId];
   const unansweredCount = questions.filter((q) => !isAnswered(q)).length;
 
   // 답하지 않은 문제가 있으면 바로 내지 않고 한 번 확인받는다(실제 시험처럼 건너뛰었다가 돌아올 수 있으므로).
@@ -320,14 +403,21 @@ export function ExamRunner({ start, proctored }: { start: ExamStartResponse; pro
           <div className="flex items-baseline gap-2">
             <span className="font-extrabold text-[20px] text-foreground tabular-nums tracking-tight">
               {index + 1}
-              <span className="font-medium text-[14px] text-muted-foreground"> / {questions.length}</span>
+              <span className="font-medium text-[14px] text-muted-foreground">
+                {" "}
+                / {questions.length}
+              </span>
             </span>
-            <span className="text-[12.5px] text-muted-foreground">· {answeredCount}문제 답함</span>
+            <span className="text-[12.5px] text-muted-foreground">
+              · {answeredCount}문제 답함
+            </span>
           </div>
           {remainingSec !== null && (
             <span
               className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-bold text-[13px] tabular-nums ${
-                remainingSec < 60 ? "animate-pulse bg-destructive/10 text-destructive" : "bg-accent text-primary"
+                remainingSec < 60
+                  ? "animate-pulse bg-destructive/10 text-destructive"
+                  : "bg-accent text-primary"
               }`}
             >
               <TimerIcon className="size-4" />
@@ -341,32 +431,33 @@ export function ExamRunner({ start, proctored }: { start: ExamStartResponse; pro
             style={{ width: `${(answeredCount / questions.length) * 100}%` }}
           />
         </div>
-      <div className="flex flex-wrap gap-1.5" aria-label="문항 이동">
-        {questions.map((q, i) => {
-          const done = isAnswered(q);
-          const failed = saveFailed[q.questionId];
-          const base = "h-8 min-w-8 rounded-lg border px-1.5 font-medium text-[12.5px] tabular-nums transition-all duration-150";
-          const tone = failed
-            ? "border-destructive bg-destructive/10 text-destructive"
-            : i === index
-              ? "border-primary bg-primary font-bold text-primary-foreground shadow-[var(--shadow-brand)]"
-              : done
-                ? "border-primary/20 bg-accent text-primary"
-                : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-primary";
-          return (
-            <button
-              aria-current={i === index ? "step" : undefined}
-              aria-label={`${i + 1}번${done ? " (답함)" : ""}`}
-              className={`${base} ${tone}`}
-              key={q.questionId}
-              onClick={() => goTo(i)}
-              type="button"
-            >
-              {i + 1}
-            </button>
-          );
-        })}
-      </div>
+        <div className="flex flex-wrap gap-1.5" aria-label="문항 이동">
+          {questions.map((q, i) => {
+            const done = isAnswered(q);
+            const failed = saveFailed[q.questionId];
+            const base =
+              "h-8 min-w-8 rounded-lg border px-1.5 font-medium text-[12.5px] tabular-nums transition-all duration-150";
+            const tone = failed
+              ? "border-destructive bg-destructive/10 text-destructive"
+              : i === index
+                ? "border-primary bg-primary font-bold text-primary-foreground shadow-[var(--shadow-brand)]"
+                : done
+                  ? "border-primary/20 bg-accent text-primary"
+                  : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-primary";
+            return (
+              <button
+                aria-current={i === index ? "step" : undefined}
+                aria-label={`${i + 1}번${done ? " (답함)" : ""}`}
+                className={`${base} ${tone}`}
+                key={q.questionId}
+                onClick={() => goTo(i)}
+                type="button"
+              >
+                {i + 1}
+              </button>
+            );
+          })}
+        </div>
       </div>
       {proctored && (
         <p className="flex gap-2.5 rounded-2xl border border-warning/40 bg-warning/10 px-4 py-3 text-[12.5px] text-foreground/75 leading-relaxed">
@@ -376,11 +467,23 @@ export function ExamRunner({ start, proctored }: { start: ExamStartResponse; pro
       )}
       <div className={`surface p-5 sm:p-7 ${proctored ? "select-none" : ""}`}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <span className="rounded-lg bg-brand px-2.5 py-1 font-bold text-[12px] text-white">Q{index + 1}</span>
-          {!isMC && <Badge variant="secondary">{QUESTION_TYPE_LABEL[current.questionType]}</Badge>}
-          {!isMC && <span className="text-muted-foreground text-xs">배점 {current.maxScore}점</span>}
+          <span className="rounded-lg bg-brand px-2.5 py-1 font-bold text-[12px] text-white">
+            Q{index + 1}
+          </span>
+          {!isMC && (
+            <Badge variant="secondary">
+              {QUESTION_TYPE_LABEL[current.questionType]}
+            </Badge>
+          )}
+          {!isMC && (
+            <span className="text-muted-foreground text-xs">
+              배점 {current.maxScore}점
+            </span>
+          )}
         </div>
-        <p className="whitespace-pre-wrap font-semibold text-[16px] text-foreground leading-[1.7] tracking-[-0.02em]">{current.stem}</p>
+        <p className="whitespace-pre-wrap font-semibold text-[16px] text-foreground leading-[1.7] tracking-[-0.02em]">
+          {current.stem}
+        </p>
         {current.stemImageUrl ? (
           // biome-ignore lint/performance/noImgElement: 문제 지문 이미지는 public/exam-images의 고정 자산
           <img
@@ -407,7 +510,9 @@ export function ExamRunner({ start, proctored }: { start: ExamStartResponse; pro
                 >
                   <span
                     className={`flex size-6 shrink-0 items-center justify-center rounded-full font-bold text-[12px] transition-colors ${
-                      isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                      isSelected
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground"
                     }`}
                   >
                     {i + 1}
@@ -420,7 +525,11 @@ export function ExamRunner({ start, proctored }: { start: ExamStartResponse; pro
               <span
                 className={`self-end text-xs ${saveFailed[current.questionId] ? "text-destructive" : saved[current.questionId] ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}
               >
-                {saveFailed[current.questionId] ? "저장 실패 — 보기를 다시 눌러 주세요" : saved[current.questionId] ? "저장됨" : "저장 중…"}
+                {saveFailed[current.questionId]
+                  ? "저장 실패 — 보기를 다시 눌러 주세요"
+                  : saved[current.questionId]
+                    ? "저장됨"
+                    : "저장 중…"}
               </span>
             )}
           </div>
@@ -430,67 +539,114 @@ export function ExamRunner({ start, proctored }: { start: ExamStartResponse; pro
           <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
             <Input
               onChange={(e) => {
-                setAnswerTexts((p) => ({ ...p, [current.questionId]: e.target.value }));
+                setAnswerTexts((p) => ({
+                  ...p,
+                  [current.questionId]: e.target.value,
+                }));
                 setSaved((p) => ({ ...p, [current.questionId]: false }));
               }}
               placeholder="답을 입력하세요"
               value={answerTexts[current.questionId] ?? ""}
             />
-            <Button onClick={() => submitTextAnswer()} type="button" variant="outline">
+            <Button
+              onClick={() => submitTextAnswer()}
+              type="button"
+              variant="outline"
+            >
               저장
             </Button>
             {saved[current.questionId] && (
-              <span className="shrink-0 text-emerald-600 text-xs dark:text-emerald-400">저장됨</span>
+              <span className="shrink-0 text-emerald-600 text-xs dark:text-emerald-400">
+                저장됨
+              </span>
             )}
           </div>
         )}
 
-        {!isMC && (current.questionType === "subjective" || current.questionType === "essay") && (
-          <div className="mt-4 flex flex-col gap-2">
-            <Textarea
-              onChange={(e) => {
-                setAnswerTexts((p) => ({ ...p, [current.questionId]: e.target.value }));
-                setSaved((p) => ({ ...p, [current.questionId]: false }));
-              }}
-              placeholder="답안을 작성하세요"
-              rows={current.questionType === "essay" ? 8 : 3}
-              value={answerTexts[current.questionId] ?? ""}
-            />
-            <div className="flex items-center justify-end gap-2">
-              {saved[current.questionId] && (
-                <span className="text-emerald-600 text-xs dark:text-emerald-400">저장됨</span>
-              )}
-              <Button onClick={() => submitTextAnswer()} type="button" variant="outline">
-                저장
-              </Button>
+        {!isMC &&
+          (current.questionType === "subjective" ||
+            current.questionType === "essay") && (
+            <div className="mt-4 flex flex-col gap-2">
+              <Textarea
+                onChange={(e) => {
+                  setAnswerTexts((p) => ({
+                    ...p,
+                    [current.questionId]: e.target.value,
+                  }));
+                  setSaved((p) => ({ ...p, [current.questionId]: false }));
+                }}
+                placeholder="답안을 작성하세요"
+                rows={current.questionType === "essay" ? 8 : 3}
+                value={answerTexts[current.questionId] ?? ""}
+              />
+              <div className="flex items-center justify-end gap-2">
+                {saved[current.questionId] && (
+                  <span className="text-emerald-600 text-xs dark:text-emerald-400">
+                    저장됨
+                  </span>
+                )}
+                <Button
+                  onClick={() => submitTextAnswer()}
+                  type="button"
+                  variant="outline"
+                >
+                  저장
+                </Button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
       </div>
       {confirmingSubmit && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-warning/50 bg-warning/10 px-4 py-3 font-medium text-sm">
-          <span>답하지 않은 문제가 {unansweredCount}개 있습니다. 그대로 제출할까요?</span>
+          <span>
+            답하지 않은 문제가 {unansweredCount}개 있습니다. 그대로 제출할까요?
+          </span>
           <div className="flex gap-2">
-            <Button onClick={() => setConfirmingSubmit(false)} size="sm" type="button" variant="outline">
+            <Button
+              onClick={() => setConfirmingSubmit(false)}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
               계속 풀기
             </Button>
-            <Button disabled={submitting} onClick={() => finalize()} size="sm" type="button">
+            <Button
+              disabled={submitting}
+              onClick={() => finalize()}
+              size="sm"
+              type="button"
+            >
               그대로 제출
             </Button>
           </div>
         </div>
       )}
       <div className="flex items-center justify-between gap-2">
-        <Button className="h-11 rounded-xl" disabled={submitting || index === 0} onClick={() => goTo(index - 1)} type="button" variant="outline">
+        <Button
+          className="h-11 rounded-xl"
+          disabled={submitting || index === 0}
+          onClick={() => goTo(index - 1)}
+          type="button"
+          variant="outline"
+        >
           <ChevronLeftIcon className="size-4" />
           이전
         </Button>
         <div className="flex items-center gap-2">
           {!answered && (
-            <span className="hidden text-muted-foreground text-xs sm:inline">{isMC ? "건너뛰고 나중에 풀 수 있어요" : "답을 입력하고 저장하세요"}</span>
+            <span className="hidden text-muted-foreground text-xs sm:inline">
+              {isMC
+                ? "건너뛰고 나중에 풀 수 있어요"
+                : "답을 입력하고 저장하세요"}
+            </span>
           )}
           {index < questions.length - 1 && (
-            <Button className="h-11 rounded-xl bg-brand px-5" disabled={submitting} onClick={goNext} type="button">
+            <Button
+              className="h-11 rounded-xl bg-brand px-5"
+              disabled={submitting}
+              onClick={goNext}
+              type="button"
+            >
               다음
               <ChevronRightIcon className="size-4" />
             </Button>
@@ -499,13 +655,20 @@ export function ExamRunner({ start, proctored }: { start: ExamStartResponse; pro
             className={`h-11 rounded-xl ${index < questions.length - 1 ? "" : "bg-brand px-5"}`}
             disabled={submitting}
             onClick={async () => {
-              if (!isMC && (answerTexts[current.questionId] ?? "").trim() && !saved[current.questionId]) await submitTextAnswer();
+              if (
+                !isMC &&
+                (answerTexts[current.questionId] ?? "").trim() &&
+                !saved[current.questionId]
+              )
+                await submitTextAnswer();
               requestSubmit();
             }}
             type="button"
             variant={index < questions.length - 1 ? "outline" : "default"}
           >
-            {index < questions.length - 1 ? null : <SendIcon className="size-4" />}
+            {index < questions.length - 1 ? null : (
+              <SendIcon className="size-4" />
+            )}
             {submitting ? "제출 중…" : "제출하기"}
           </Button>
         </div>

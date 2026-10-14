@@ -69,12 +69,18 @@ function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
               onClick={handleSuggestionClick}
               suggestion={suggestedAction.prompt}
             >
-              <span className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${tone}`}>
+              <span
+                className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${tone}`}
+              >
                 <Icon className="size-4" />
               </span>
               <span className="flex min-w-0 flex-col gap-0.5">
-                <span className="font-semibold text-[11.5px] text-muted-foreground">{suggestedAction.label}</span>
-                <span className="font-medium text-[13px] text-foreground leading-snug">{suggestedAction.prompt}</span>
+                <span className="font-semibold text-[11.5px] text-muted-foreground">
+                  {suggestedAction.label}
+                </span>
+                <span className="font-medium text-[13px] text-foreground leading-snug">
+                  {suggestedAction.prompt}
+                </span>
               </span>
             </Suggestion>
           </motion.div>

@@ -1,10 +1,22 @@
 "use client";
 
-import { CalendarRangeIcon, ClipboardCheckIcon, ListOrderedIcon, TimerIcon } from "lucide-react";
+import {
+  CalendarRangeIcon,
+  ClipboardCheckIcon,
+  ListOrderedIcon,
+  TimerIcon,
+} from "lucide-react";
 import { useEffect, useState } from "react";
-import { PageIntro, PageLoading, PageNotice } from "@/components/chat/page-intro";
+import {
+  PageIntro,
+  PageLoading,
+  PageNotice,
+} from "@/components/chat/page-intro";
 import { Button } from "@/components/ui/button";
-import { ExamRunner, type ExamStartResponse } from "@/components/exam/exam-runner";
+import {
+  ExamRunner,
+  type ExamStartResponse,
+} from "@/components/exam/exam-runner";
 import { toast } from "@/components/chat/toast";
 import { loadJson } from "@/components/load-json";
 
@@ -41,12 +53,18 @@ export default function TimedExamPage() {
   const begin = async (id: number) => {
     setStartingId(id);
     try {
-      const res = await fetch(`/api/exam/timed/${id}/start`, { method: "POST" });
+      const res = await fetch(`/api/exam/timed/${id}/start`, {
+        method: "POST",
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "시작할 수 없습니다.");
       setStart(data);
     } catch (err) {
-      toast({ type: "error", description: err instanceof Error ? err.message : "오류가 발생했습니다." });
+      toast({
+        type: "error",
+        description:
+          err instanceof Error ? err.message : "오류가 발생했습니다.",
+      });
     } finally {
       setStartingId(null);
     }
@@ -67,7 +85,10 @@ export default function TimedExamPage() {
       {rows === null ? (
         <PageLoading />
       ) : rows.length === 0 ? (
-        <PageNotice icon={ClipboardCheckIcon} title="아직 배정된 지정 시험이 없어요" />
+        <PageNotice
+          icon={ClipboardCheckIcon}
+          title="아직 배정된 지정 시험이 없어요"
+        />
       ) : (
         <div className="flex flex-col gap-3">
           {rows.map((r) => (
@@ -77,10 +98,14 @@ export default function TimedExamPage() {
             >
               <div className="min-w-0">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
-                  <span className={`rounded-full px-2.5 py-0.5 font-semibold text-[11.5px] ${STATUS_CLASS[r.status]}`}>
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 font-semibold text-[11.5px] ${STATUS_CLASS[r.status]}`}
+                  >
                     {STATUS_LABEL[r.status]}
                   </span>
-                  <span className="font-semibold text-[15px] text-foreground">{r.title}</span>
+                  <span className="font-semibold text-[15px] text-foreground">
+                    {r.title}
+                  </span>
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12.5px] text-muted-foreground">
                   <span className="inline-flex items-center gap-1.5">
@@ -89,14 +114,20 @@ export default function TimedExamPage() {
                   </span>
                   <span className="inline-flex items-center gap-1.5">
                     <TimerIcon className="size-3.5" />
-                    {r.duration_minutes ? `제한시간 ${r.duration_minutes}분` : "제한시간 없음"}
+                    {r.duration_minutes
+                      ? `제한시간 ${r.duration_minutes}분`
+                      : "제한시간 없음"}
                   </span>
                   {(r.scheduled_start || r.scheduled_end) && (
                     <span className="inline-flex items-center gap-1.5">
                       <CalendarRangeIcon className="size-3.5" />
-                      {r.scheduled_start ? new Date(r.scheduled_start).toLocaleString("ko-KR") : "제한 없음"}
+                      {r.scheduled_start
+                        ? new Date(r.scheduled_start).toLocaleString("ko-KR")
+                        : "제한 없음"}
                       {" ~ "}
-                      {r.scheduled_end ? new Date(r.scheduled_end).toLocaleString("ko-KR") : "제한 없음"}
+                      {r.scheduled_end
+                        ? new Date(r.scheduled_end).toLocaleString("ko-KR")
+                        : "제한 없음"}
                     </span>
                   )}
                 </div>
@@ -107,7 +138,11 @@ export default function TimedExamPage() {
                 onClick={() => begin(r.id)}
                 variant={r.status === "open" ? "default" : "outline"}
               >
-                {startingId === r.id ? "시작하는 중..." : r.status === "open" ? "응시 시작" : STATUS_LABEL[r.status]}
+                {startingId === r.id
+                  ? "시작하는 중..."
+                  : r.status === "open"
+                    ? "응시 시작"
+                    : STATUS_LABEL[r.status]}
               </Button>
             </div>
           ))}

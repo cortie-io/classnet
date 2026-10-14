@@ -1,3 +1,4 @@
+import { lockedQuestionIdsForUser } from "./examService.js";
 import { consumeLimit } from "../../auth/limits.js";
 import { pool } from "../../../infrastructure/db/pool.js";
 import {
@@ -28,6 +29,7 @@ export async function getWrongAnswers(
 	userId: number,
 	limit = 100,
 ): Promise<WrongAnswerItem[]> {
+	const locked = [...(await lockedQuestionIdsForUser(userId))];
 	const { rows } = await pool.query(
 		`SELECT a.id AS answer_id, a.question_id, a.selected_index, a.answer_text, a.answered_at,
             q.subject, q.stem, q.question_type, q.choices, q.correct_index, q.explanation, q.concept_node_id
@@ -36,10 +38,10 @@ export async function getWrongAnswers(
      JOIN exam_attempts att ON att.id = a.attempt_id
      -- 끝난 응시의 답, 또는 연습에서 이미 정답을 공개한 답만 — 진행 중인 모의고사·지정 시험의 오답을
      -- 여기서 보여주면 정답을 보고 고쳐 낼 수 있었다. 무효 처리(invalidated)된 응시는 뺀다.
-     WHERE att.user_id = $1 AND att.status <> 'invalidated' AND a.is_correct = false
+     WHERE att.user_id = $1 AND NOT att.is_official AND att.status <> 'invalidated' AND a.is_correct = false AND NOT (a.question_id = ANY($3::int[]))
        AND (att.status IN ('submitted', 'auto_submitted') OR a.revealed_at IS NOT NULL)
      ORDER BY a.answered_at DESC LIMIT $2`,
-		[userId, limit],
+		[userId, limit, locked],
 	);
 	return rows.map((r) => ({
 		answerId: r.answer_id,
@@ -91,7 +93,7 @@ export async function getStudentReport(userId: number): Promise<StudentReport> {
      FROM exam_answers a
      JOIN exam_questions q ON q.id = a.question_id
      JOIN exam_attempts att ON att.id = a.attempt_id
-     WHERE att.user_id = $1 AND att.status <> 'invalidated' AND (att.status IN ('submitted', 'auto_submitted') OR a.revealed_at IS NOT NULL) AND a.is_correct IS NOT NULL
+     WHERE att.user_id = $1 AND NOT att.is_official AND att.status <> 'invalidated' AND (att.status IN ('submitted', 'auto_submitted') OR a.revealed_at IS NOT NULL) AND a.is_correct IS NOT NULL
      GROUP BY q.subject ORDER BY q.subject`,
 		[userId],
 	);
@@ -116,7 +118,7 @@ export async function getStudentReport(userId: number): Promise<StudentReport> {
 	}>(
 		`SELECT to_char(date_trunc('day', answered_at), 'YYYY-MM-DD') AS day, count(*)
      FROM exam_answers a JOIN exam_attempts att ON att.id = a.attempt_id
-     WHERE att.user_id = $1 AND a.answered_at > now() - interval '14 days'
+     WHERE att.user_id = $1 AND NOT att.is_official AND a.answered_at > now() - interval '14 days'
      GROUP BY 1 ORDER BY 1`,
 		[userId],
 	);
@@ -124,7 +126,7 @@ export async function getStudentReport(userId: number): Promise<StudentReport> {
 	const { rows: attemptRows } = await pool.query(
 		`SELECT a.id, a.score, array_length(a.question_ids, 1) AS total, s.kind AS set_kind, a.submitted_at
      FROM exam_attempts a LEFT JOIN exam_sets s ON s.id = a.exam_set_id
-     WHERE a.user_id = $1 AND a.status IN ('submitted','auto_submitted')
+     WHERE a.user_id = $1 AND NOT a.is_official AND a.status IN ('submitted','auto_submitted')
      ORDER BY a.submitted_at DESC LIMIT 10`,
 		[userId],
 	);

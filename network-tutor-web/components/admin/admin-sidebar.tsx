@@ -1,6 +1,9 @@
 "use client";
 
 import {
+  AwardIcon,
+  GraduationCapIcon,
+  LibraryBigIcon,
   ClipboardListIcon,
   LayoutDashboardIcon,
   MessageSquareIcon,
@@ -30,6 +33,8 @@ import {
 } from "@/components/ui/sidebar";
 
 const NAV_ITEMS = [
+  { href: "/admin/learn", label: "학습 진도", icon: GraduationCapIcon },
+  { href: "/admin/official-exams", label: "공식 모의시험", icon: AwardIcon },
   { href: "/admin", label: "대시보드", icon: LayoutDashboardIcon },
   { href: "/admin/students", label: "학생 관리", icon: UsersIcon },
   { href: "/admin/ranking", label: "학습 순위", icon: TrophyIcon },

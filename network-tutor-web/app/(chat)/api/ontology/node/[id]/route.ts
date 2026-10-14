@@ -1,13 +1,20 @@
 import { NextResponse } from "next/server";
 import { callBackend, BackendAuthError } from "@/lib/backend";
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   const { id } = await params;
   try {
     const data = await callBackend(`/api/ontology/node/${id}`);
     return NextResponse.json(data);
   } catch (err) {
-    if (err instanceof BackendAuthError) return NextResponse.json({ error: err.message }, { status: 401 });
-    return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
+    if (err instanceof BackendAuthError)
+      return NextResponse.json({ error: err.message }, { status: 401 });
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : String(err) },
+      { status: 500 }
+    );
   }
 }

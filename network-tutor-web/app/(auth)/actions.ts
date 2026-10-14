@@ -27,7 +27,10 @@ export const login = async (
     const rawStudentId = formData.get("studentId");
     const rawEmail = formData.get("email");
     const validatedData = authFormSchema.parse({
-      studentId: typeof rawStudentId === "string" && rawStudentId ? rawStudentId : undefined,
+      studentId:
+        typeof rawStudentId === "string" && rawStudentId
+          ? rawStudentId
+          : undefined,
       email: typeof rawEmail === "string" && rawEmail ? rawEmail : undefined,
       password: formData.get("password"),
     });
@@ -36,8 +39,11 @@ export const login = async (
     // 내부 직렬화 과정에서 문자열 "undefined"로 변해버려("undefined" ?? "" 는 "undefined"라 truthy)
     // authorize()가 항상 학번 로그인으로 오인하는 버그가 있었다(실측 확인됨). 값이 있는 필드만 아예
     // 키 자체를 넣어서 이 문제를 피한다.
-    const signInCredentials: Record<string, string> = { password: validatedData.password };
-    if (validatedData.studentId) signInCredentials.studentId = validatedData.studentId;
+    const signInCredentials: Record<string, string> = {
+      password: validatedData.password,
+    };
+    if (validatedData.studentId)
+      signInCredentials.studentId = validatedData.studentId;
     if (validatedData.email) signInCredentials.email = validatedData.email;
 
     await signIn("credentials", { ...signInCredentials, redirect: false });

@@ -41,7 +41,8 @@ export const Greeting = () => {
         initial={{ opacity: 0, y: 10 }}
         transition={{ delay: 0.4, duration: 0.5, ease: EASE }}
       >
-        개념 설명부터 서브넷 계산, 기출 해설까지 네트워크관리사 2급 공부를 함께할게요.
+        개념 설명부터 서브넷 계산, 기출 해설까지 네트워크관리사 2급 공부를
+        함께할게요.
       </motion.p>
     </div>
   );
