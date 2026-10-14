@@ -35,7 +35,7 @@ bps = baud x 신호 요소 하나에 싣는 비트 수
 
 | 한 신호에 싣는 비트 | 부르는 이름 | 신호 상태 수 | 예 | 관계 |
 |---|---|---|---|---|
-| 1비트 | 원비트(Onebit) | 2 | 2-PSK, 기본 FSK | bps = baud |
+| 1비트 | 모노비트(Monobit) | 2 | 2-PSK, 기본 FSK | bps = baud |
 | 2비트 | 디비트(Dibit) | 4 | 4-PSK(QPSK) | bps = 2 × baud |
 | 3비트 | 트리비트(Tribit) | 8 | 8-PSK | bps = 3 × baud |
 | 4비트 | 쿼드비트(Quadbit) | 16 | 16-QAM | bps = 4 × baud |

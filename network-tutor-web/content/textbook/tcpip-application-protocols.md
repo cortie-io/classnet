@@ -206,7 +206,7 @@ SMTP는 사람이 읽을 수 있는 짧은 명령으로 대화해요. `HELO`(또
 
 ```text
 MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="part-boundary"
+Content-Type: image/png
 Content-Transfer-Encoding: base64
 ```
 

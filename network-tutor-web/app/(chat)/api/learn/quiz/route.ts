@@ -21,7 +21,7 @@ export async function POST(request: Request) {
       method: "POST",
       body: {
         slug: lesson.slug,
-        subject: lesson.quiz.subject,
+        topic: lesson.quiz.topic,
         terms: lesson.quiz.terms,
         title: lesson.title,
       },

@@ -25,12 +25,16 @@ export class LearnError extends Error {
 }
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+){0,9}$/;
-const QUIZ_SUBJECTS = new Set([
-	"1과목_네트워크_일반",
-	"2과목_TCP_IP",
-	"3과목_NOS",
-	"4과목_네트워크_운용기기",
-]);
+// 확인 문제 묶음(웹 curriculum.ts의 quiz.topic) → 문제은행의 subject 값.
+// 문제은행은 기출 1~10번 묶음에 '1과목_네트워크_일반', 11~27번 묶음에 '2과목_TCP_IP'를 붙여 두었는데, 내용은 거꾸로다
+// (2026-10-14 확인: '1과목_네트워크_일반' 문항의 약 77%가 IP·TCP·UDP·서브넷·DNS 같은 TCP/IP 주제이고, 변조·다중화·CRC·HDLC 같은
+// 네트워크 일반 주제는 '2과목_TCP_IP'에 있다). 문제은행 과목 값을 바로잡으면 여기만 고친다.
+export const TOPIC_BUCKET: Record<string, string> = {
+	general: "2과목_TCP_IP",
+	tcpip: "1과목_네트워크_일반",
+	nos: "3과목_NOS",
+	devices: "4과목_네트워크_운용기기",
+};
 export const LESSON_QUIZ_SIZE = 5;
 
 export function validSlug(slug: unknown): slug is string {
@@ -155,12 +159,15 @@ function cleanTerms(terms: unknown): string[] {
  */
 export async function startLessonQuiz(
 	userId: number,
-	input: { slug: unknown; subject: unknown; terms: unknown; title?: unknown },
+	input: { slug: unknown; topic: unknown; terms: unknown; title?: unknown },
 ) {
-	const { slug, subject } = input;
+	const { slug, topic } = input;
 	if (!validSlug(slug)) throw new LearnError("잘못된 단원입니다.");
-	if (typeof subject !== "string" || !QUIZ_SUBJECTS.has(subject))
-		throw new LearnError("잘못된 과목입니다.");
+	const subject =
+		typeof topic === "string" && Object.hasOwn(TOPIC_BUCKET, topic)
+			? TOPIC_BUCKET[topic]
+			: null;
+	if (!subject) throw new LearnError("잘못된 과목입니다.");
 	const terms = cleanTerms(input.terms);
 	if (terms.length === 0)
 		throw new LearnError("확인 문제를 고를 주제어가 없습니다.");
@@ -183,6 +190,7 @@ export async function startLessonQuiz(
 
 	const locked = [...(await lockedQuestionIdsForUser(userId))];
 	const { patterns } = buildTopicTerms(terms);
+	// 같은 과목 묶음에서 주제어가 나오는 문제 → 모자라면 다른 과목에서도 주제어 문제 → 그래도 모자라면 같은 묶음에서 채운다.
 	const picked = await searchBankByPatterns({
 		userId,
 		patterns,
@@ -190,6 +198,17 @@ export async function startLessonQuiz(
 		subject,
 		limit: LESSON_QUIZ_SIZE,
 	});
+	if (picked.length < LESSON_QUIZ_SIZE) {
+		picked.push(
+			...(await searchBankByPatterns({
+				userId,
+				patterns,
+				excludeIds: [...locked, ...picked],
+				subject: null,
+				limit: LESSON_QUIZ_SIZE - picked.length,
+			})),
+		);
+	}
 	if (picked.length < LESSON_QUIZ_SIZE) {
 		picked.push(
 			...(await searchBankBySubject({

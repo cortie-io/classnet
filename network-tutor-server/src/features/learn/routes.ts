@@ -23,7 +23,7 @@ learnRouter.use("/admin/learn", (_req, res, next) => {
 			.status(404)
 			.json({
 				error:
-					"이 기능은 2차부터 제공됩니다. 1차 기존 학습 기록은 학생 관리에서 조회해 주세요.",
+					"이 기능은 2차부터 제공됩니다. 1차 기록은 학생 관리에서 조회해 주세요.",
 			});
 	next();
 });
@@ -87,10 +87,10 @@ learnRouter.post(
 );
 
 learnRouter.post("/learn/quiz", requireAuth, startLimit, async (req, res) => {
-	const { slug, subject, terms, title } = req.body ?? {};
+	const { slug, topic, terms, title } = req.body ?? {};
 	try {
 		res.json(
-			await startLessonQuiz(req.user!.id, { slug, subject, terms, title }),
+			await startLessonQuiz(req.user!.id, { slug, topic, terms, title }),
 		);
 	} catch (err) {
 		fail(res, err);

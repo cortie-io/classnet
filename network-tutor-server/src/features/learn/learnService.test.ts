@@ -35,18 +35,19 @@ beforeEach(async () => {
 	for (const stem of stems) {
 		const { rows: q } = await pool.query<{ id: number }>(
 			`INSERT INTO exam_questions (source, subject, stem, question_type, choices, correct_index, max_score, explanation, status)
-       VALUES ('past_exam', '2과목_TCP_IP', $1, 'multiple_choice', '["A","B","C","D"]', 0, 1, '해설', 'approved') RETURNING id`,
-			[stem],
+       VALUES ('past_exam', $2, $1, 'multiple_choice', '["A","B","C","D"]', 0, 1, '해설', 'approved') RETURNING id`,
+			[stem, stem.startsWith("ARP") ? "2과목_TCP_IP" : "1과목_네트워크_일반"],
 		);
 		if (stem.includes("서브넷") || stem.includes("서브네팅"))
 			subnetQids.push(q[0].id);
 	}
 });
 
+// 문제은행에서 TCP/IP 내용은 '1과목_네트워크_일반' 값에 들어 있다(learnService의 TOPIC_BUCKET 참고).
 const quizInput = {
 	slug: "tcpip-subnetting",
-	subject: "2과목_TCP_IP",
-	terms: ["서브넷", "서브네팅"],
+	topic: "tcpip",
+	terms: ["서브넷", "서브네팅", "ARP"],
 	title: "서브넷 마스크와 서브네팅",
 };
 
@@ -70,12 +71,16 @@ test("이상한 단원 이름은 받지 않는다", async () => {
 	}
 });
 
-test("확인 문제는 단원 주제어가 나오는 문제를 먼저 고르고, 모자라면 같은 과목으로 채운다", async () => {
+test("확인 문제는 같은 묶음의 주제어 문제 → 다른 과목의 주제어 문제 → 같은 묶음 순으로 고른다", async () => {
 	const r = await learn.startLessonQuiz(student, quizInput);
 	const ids = r.questions.map((q) => q.questionId);
 	assert.equal(ids.length, learn.LESSON_QUIZ_SIZE);
 	for (const id of subnetQids)
 		assert.ok(ids.includes(id), "주제어 문제가 빠짐");
+	const { rows } = await pool.query<{ id: number }>(
+		"SELECT id FROM exam_questions WHERE stem LIKE 'ARP%'",
+	);
+	assert.ok(ids.includes(rows[0].id), "다른 과목의 주제어 문제가 빠짐");
 	// 풀던 확인 문제가 있으면 새로 만들지 않고 이어 준다
 	const again = await learn.startLessonQuiz(student, quizInput);
 	assert.equal(again.attemptId, r.attemptId);
@@ -85,8 +90,12 @@ test("확인 문제 입력 검사", async () => {
 	await assert.rejects(
 		learn.startLessonQuiz(student, {
 			...quizInput,
-			subject: "5과목_정보보호개론",
+			topic: "5과목_정보보호개론",
 		}),
+		learn.LearnError,
+	);
+	await assert.rejects(
+		learn.startLessonQuiz(student, { ...quizInput, topic: "__proto__" }),
 		learn.LearnError,
 	);
 	await assert.rejects(

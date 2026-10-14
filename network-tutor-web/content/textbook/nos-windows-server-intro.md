@@ -84,7 +84,7 @@ Nano Server는 Windows Server 2016에서 처음 선보인 초경량 설치 옵�
 | 원격 데스크톱 서비스 | 여러 사용자에게 원격 작업 환경 제공 | RD 세션 호스트, RD 게이트웨이, RD 라이선싱, RD 웹 액세스, RD 연결 브로커 |
 | Hyper-V | 가상 머신 실행 | — |
 | 인쇄 및 문서 서비스 | 네트워크 프린터 관리 | 인쇄 서버 |
-| Windows Server Update Services(WSUS) | 업데이트를 사내에 배포 | — |
+| Windows Server Update Services(WSUS) | 업데이트를 사내에 배포 | WSUS 서비스, WID 연결, SQL Server 연결 |
 | Active Directory 인증서 서비스(AD CS) | 디지털 인증서 발급 | 인증 기관 |
 
 기능의 예로는 다음과 같은 것들이 있어요.

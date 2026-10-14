@@ -62,7 +62,15 @@ function plainHeading(raw: string): string {
 
 /** 4지선다 보기(①②③④)가 한 줄씩 이어 쓰여 있으면 마크다운이 한 문단으로 붙여 버린다 — 줄바꿈을 살린다. */
 function keepChoiceLineBreaks(text: string): string {
-  return text.replace(/([^\n])\n(?=[①②③④⑤])/g, "$1  \n");
+  return text
+    .split("\n")
+    .map((line) =>
+      /^\s*①/.test(line) && line.includes("②")
+        ? line.replace(/\s+(?=[②③④⑤])/g, "  \n")
+        : line
+    )
+    .join("\n")
+    .replace(/([^\n])\n(?=[①②③④⑤])/g, "$1  \n");
 }
 
 export function parseLesson(markdown: string): ParsedLesson {

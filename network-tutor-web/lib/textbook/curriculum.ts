@@ -2,17 +2,15 @@
 // 순서가 곧 학습 순서다 — 학습 경로는 이 배열을 위에서부터 따라간다.
 // quiz.terms는 단원 확인 문제를 문제은행에서 고를 때 쓰는 말(문제 지문에 나오는 표현)이다.
 
-export type ExamSubject =
-  | "1과목_네트워크_일반"
-  | "2과목_TCP_IP"
-  | "3과목_NOS"
-  | "4과목_네트워크_운용기기";
+// 확인 문제를 고를 과목 묶음. 문제은행의 과목 값과 실제 내용이 어긋난 곳이 있어(서버 learnService의 TOPIC_BUCKET 참고)
+// 여기서는 내용 기준 이름만 쓰고, 실제 과목 값으로 바꾸는 일은 서버가 한다.
+export type QuizTopic = "general" | "tcpip" | "nos" | "devices";
 
 export interface Lesson {
   slug: string;
   title: string;
   summary: string;
-  quiz?: { subject: ExamSubject; terms: string[] };
+  quiz?: { topic: QuizTopic; terms: string[] };
 }
 
 export interface Part {
@@ -20,14 +18,13 @@ export interface Part {
   label: string;
   title: string;
   description: string;
-  subject?: ExamSubject;
   lessons: Lesson[];
 }
 
 export const CURRICULUM: Part[] = [
   {
     id: "start",
-    label: "시작",
+    label: "준비",
     title: "시작하기",
     description:
       "시험이 어떻게 생겼는지 알고, 네트워크를 배우는 데 필요한 기초 감각을 먼저 잡아요.",
@@ -42,7 +39,7 @@ export const CURRICULUM: Part[] = [
         title: "비트와 진법 — 컴퓨터가 숫자를 다루는 방법",
         summary: "비트·바이트, 2진수·16진수 변환, 속도와 용량 단위",
         quiz: {
-          subject: "2과목_TCP_IP",
+          topic: "general",
           terms: ["2진수", "16진수", "진수", "비트", "바이트"],
         },
       },
@@ -59,7 +56,6 @@ export const CURRICULUM: Part[] = [
     title: "네트워크 일반",
     description:
       "신호가 선을 타고 가는 원리부터 OSI 7계층, LAN·WAN 기술까지 통신의 바탕을 다져요.",
-    subject: "1과목_네트워크_일반",
     lessons: [
       {
         slug: "net-data-communication",
@@ -67,7 +63,7 @@ export const CURRICULUM: Part[] = [
         summary:
           "통신 시스템의 구성, 단방향·반이중·전이중, 직렬·병렬, 동기·비동기",
         quiz: {
-          subject: "1과목_네트워크_일반",
+          topic: "general",
           terms: [
             "전이중",
             "반이중",
@@ -85,7 +81,7 @@ export const CURRICULUM: Part[] = [
         title: "신호와 변조",
         summary: "아날로그·디지털 신호, ASK·FSK·PSK·QAM, PCM, 회선 부호화",
         quiz: {
-          subject: "1과목_네트워크_일반",
+          topic: "general",
           terms: [
             "변조",
             "ASK",
@@ -105,7 +101,7 @@ export const CURRICULUM: Part[] = [
         title: "전송 속도와 채널 용량",
         summary: "bps와 baud, 나이퀴스트·샤논 공식, 전송 장애",
         quiz: {
-          subject: "1과목_네트워크_일반",
+          topic: "general",
           terms: [
             "샤논",
             "나이퀴스트",
@@ -115,6 +111,8 @@ export const CURRICULUM: Part[] = [
             "감쇠",
             "잡음",
             "신호 대 잡음",
+            "전송 속도",
+            "대역폭",
           ],
         },
       },
@@ -123,7 +121,7 @@ export const CURRICULUM: Part[] = [
         title: "다중화와 다중 접속",
         summary: "FDM·TDM·WDM·CDM, 동기식·통계적 TDM, FDMA·TDMA·CDMA",
         quiz: {
-          subject: "1과목_네트워크_일반",
+          topic: "general",
           terms: [
             "다중화",
             "FDM",
@@ -142,7 +140,7 @@ export const CURRICULUM: Part[] = [
         summary:
           "UTP·STP 카테고리, 동축, 광섬유, 무선 매체, 다이렉트·크로스 케이블",
         quiz: {
-          subject: "1과목_네트워크_일반",
+          topic: "general",
           terms: [
             "UTP",
             "STP",
@@ -161,7 +159,7 @@ export const CURRICULUM: Part[] = [
         title: "오류 제어와 흐름 제어",
         summary: "패리티·CRC·해밍 코드, ARQ 방식, 슬라이딩 윈도우",
         quiz: {
-          subject: "1과목_네트워크_일반",
+          topic: "general",
           terms: [
             "CRC",
             "해밍",
@@ -179,7 +177,7 @@ export const CURRICULUM: Part[] = [
         title: "교환 방식",
         summary: "회선 교환·메시지 교환·패킷 교환, 데이터그램과 가상 회선",
         quiz: {
-          subject: "1과목_네트워크_일반",
+          topic: "general",
           terms: [
             "회선 교환",
             "패킷 교환",
@@ -195,7 +193,7 @@ export const CURRICULUM: Part[] = [
         title: "네트워크의 분류와 토폴로지",
         summary: "LAN·MAN·WAN, 버스·스타·링·트리·메시, 클라이언트-서버와 P2P",
         quiz: {
-          subject: "1과목_네트워크_일반",
+          topic: "general",
           terms: [
             "토폴로지",
             "성형",
@@ -213,7 +211,7 @@ export const CURRICULUM: Part[] = [
         title: "OSI 7계층",
         summary: "계층별 역할과 데이터 단위, 대표 프로토콜과 장비, 캡슐화",
         quiz: {
-          subject: "1과목_네트워크_일반",
+          topic: "general",
           terms: [
             "OSI",
             "계층",
@@ -232,7 +230,7 @@ export const CURRICULUM: Part[] = [
         summary:
           "IEEE 802 시리즈, MAC 주소와 이더넷 프레임, CSMA/CD, 이더넷 규격 읽는 법",
         quiz: {
-          subject: "1과목_네트워크_일반",
+          topic: "general",
           terms: [
             "IEEE 802",
             "이더넷",
@@ -250,7 +248,7 @@ export const CURRICULUM: Part[] = [
         summary:
           "802.11 규격, CSMA/CA, SSID와 AP, 무선 보안, 블루투스·NFC·지그비",
         quiz: {
-          subject: "1과목_네트워크_일반",
+          topic: "general",
           terms: [
             "802.11",
             "무선",
@@ -268,7 +266,7 @@ export const CURRICULUM: Part[] = [
         title: "WAN 기술",
         summary: "전용 회선, X.25·프레임 릴레이·ATM, ISDN·xDSL, PPP·HDLC, MPLS",
         quiz: {
-          subject: "1과목_네트워크_일반",
+          topic: "general",
           terms: [
             "X.25",
             "프레임 릴레이",
@@ -287,7 +285,7 @@ export const CURRICULUM: Part[] = [
         title: "이동 통신과 새로운 네트워크",
         summary: "셀룰러와 핸드오프, 4G·5G, IoT, 클라우드, SDN·NFV",
         quiz: {
-          subject: "1과목_네트워크_일반",
+          topic: "general",
           terms: [
             "이동 통신",
             "LTE",
@@ -308,7 +306,6 @@ export const CURRICULUM: Part[] = [
     title: "TCP/IP",
     description:
       "인터넷이 실제로 쓰는 약속들 — IP 주소와 서브넷, TCP·UDP, DNS, 라우팅, IPv6를 배워요.",
-    subject: "2과목_TCP_IP",
     lessons: [
       {
         slug: "tcpip-model",
@@ -316,7 +313,7 @@ export const CURRICULUM: Part[] = [
         summary:
           "4계층 구조와 OSI 대응, 계층별 프로토콜, 헤더가 붙고 떨어지는 과정",
         quiz: {
-          subject: "2과목_TCP_IP",
+          topic: "tcpip",
           terms: ["TCP/IP", "캡슐화", "인터넷 계층", "네트워크 접근", "4계층"],
         },
       },
@@ -325,7 +322,7 @@ export const CURRICULUM: Part[] = [
         title: "IPv4 주소 체계",
         summary: "32비트 주소, 클래스 A~E, 사설 IP, 특수 주소",
         quiz: {
-          subject: "2과목_TCP_IP",
+          topic: "tcpip",
           terms: [
             "클래스",
             "사설",
@@ -344,7 +341,7 @@ export const CURRICULUM: Part[] = [
         summary:
           "네트워크·브로드캐스트 주소 구하기, 호스트 수 계산, 단계별 예제",
         quiz: {
-          subject: "2과목_TCP_IP",
+          topic: "tcpip",
           terms: [
             "서브넷",
             "서브네팅",
@@ -360,8 +357,17 @@ export const CURRICULUM: Part[] = [
         title: "CIDR·VLSM·슈퍼네팅",
         summary: "클래스 없는 주소, 가변 길이 서브넷, 경로 요약",
         quiz: {
-          subject: "2과목_TCP_IP",
-          terms: ["CIDR", "VLSM", "슈퍼넷", "슈퍼네팅", "프리픽스", "요약"],
+          topic: "tcpip",
+          terms: [
+            "CIDR",
+            "VLSM",
+            "슈퍼넷",
+            "슈퍼네팅",
+            "프리픽스",
+            "요약",
+            "Classless",
+            "서브넷",
+          ],
         },
       },
       {
@@ -369,7 +375,7 @@ export const CURRICULUM: Part[] = [
         title: "IP 패킷의 구조와 단편화",
         summary: "IPv4 헤더 필드, TTL과 프로토콜 번호, MTU와 단편화",
         quiz: {
-          subject: "2과목_TCP_IP",
+          topic: "tcpip",
           terms: [
             "헤더",
             "TTL",
@@ -386,7 +392,7 @@ export const CURRICULUM: Part[] = [
         title: "ARP·ICMP·IGMP",
         summary: "IP로 MAC 찾기, 오류와 진단 메시지, 멀티캐스트 그룹 관리",
         quiz: {
-          subject: "2과목_TCP_IP",
+          topic: "tcpip",
           terms: ["ARP", "RARP", "ICMP", "IGMP", "ping", "Echo"],
         },
       },
@@ -395,7 +401,7 @@ export const CURRICULUM: Part[] = [
         title: "TCP",
         summary: "연결 설정과 종료, 순서 번호와 확인 응답, 흐름·혼잡 제어",
         quiz: {
-          subject: "2과목_TCP_IP",
+          topic: "tcpip",
           terms: [
             "TCP",
             "3-way",
@@ -412,17 +418,14 @@ export const CURRICULUM: Part[] = [
         slug: "tcpip-udp-ports",
         title: "UDP와 포트 번호",
         summary: "UDP의 특징, TCP와 비교, 꼭 외울 잘 알려진 포트",
-        quiz: {
-          subject: "2과목_TCP_IP",
-          terms: ["UDP", "포트", "Well-known", "소켓"],
-        },
+        quiz: { topic: "tcpip", terms: ["UDP", "포트", "Well-known", "소켓"] },
       },
       {
         slug: "tcpip-dns-dhcp",
         title: "DNS와 DHCP",
         summary: "도메인 이름 해석, 레코드 종류, DHCP 주소 할당 과정",
         quiz: {
-          subject: "2과목_TCP_IP",
+          topic: "tcpip",
           terms: [
             "DNS",
             "DHCP",
@@ -440,7 +443,7 @@ export const CURRICULUM: Part[] = [
         title: "응용 계층 프로토콜",
         summary: "HTTP·FTP·메일·원격 접속·SNMP·NTP",
         quiz: {
-          subject: "2과목_TCP_IP",
+          topic: "tcpip",
           terms: [
             "HTTP",
             "FTP",
@@ -458,7 +461,7 @@ export const CURRICULUM: Part[] = [
         title: "라우팅의 원리",
         summary: "라우팅 테이블, 정적·기본 경로, 메트릭과 관리 거리",
         quiz: {
-          subject: "2과목_TCP_IP",
+          topic: "tcpip",
           terms: [
             "라우팅",
             "라우팅 테이블",
@@ -474,7 +477,7 @@ export const CURRICULUM: Part[] = [
         title: "동적 라우팅 프로토콜",
         summary: "거리 벡터와 링크 상태, RIP·OSPF·EIGRP·BGP",
         quiz: {
-          subject: "2과목_TCP_IP",
+          topic: "tcpip",
           terms: [
             "RIP",
             "OSPF",
@@ -492,7 +495,7 @@ export const CURRICULUM: Part[] = [
         title: "NAT와 전송 방식",
         summary: "NAT·PAT, 유니캐스트·브로드캐스트·멀티캐스트·애니캐스트",
         quiz: {
-          subject: "2과목_TCP_IP",
+          topic: "tcpip",
           terms: [
             "NAT",
             "PAT",
@@ -508,7 +511,7 @@ export const CURRICULUM: Part[] = [
         title: "IPv6",
         summary: "128비트 주소 표기와 축약, 주소 유형, 헤더, 전환 기술",
         quiz: {
-          subject: "2과목_TCP_IP",
+          topic: "tcpip",
           terms: [
             "IPv6",
             "128",
@@ -524,7 +527,7 @@ export const CURRICULUM: Part[] = [
         title: "네트워크 보안 기초",
         summary: "암호 방식, SSL/TLS·IPSec·VPN, 대표적인 공격 기법",
         quiz: {
-          subject: "2과목_TCP_IP",
+          topic: "tcpip",
           terms: [
             "IPSec",
             "SSL",
@@ -545,7 +548,6 @@ export const CURRICULUM: Part[] = [
     title: "NOS (네트워크 운영체제)",
     description:
       "서버를 직접 다루는 과목이에요. Windows Server와 리눅스의 개념·명령어·서비스를 익혀요.",
-    subject: "3과목_NOS",
     lessons: [
       {
         slug: "nos-os-basics",
@@ -553,7 +555,7 @@ export const CURRICULUM: Part[] = [
         summary:
           "운영체제의 역할, 프로세스와 메모리, 파일 시스템, 서버 운영체제",
         quiz: {
-          subject: "3과목_NOS",
+          topic: "nos",
           terms: [
             "운영체제",
             "프로세스",
@@ -569,7 +571,7 @@ export const CURRICULUM: Part[] = [
         title: "Windows Server 시작하기",
         summary: "에디션과 설치 옵션, 서버 관리자와 역할·기능, PowerShell",
         quiz: {
-          subject: "3과목_NOS",
+          topic: "nos",
           terms: [
             "Windows Server",
             "서버 관리자",
@@ -585,7 +587,7 @@ export const CURRICULUM: Part[] = [
         title: "Active Directory와 그룹 정책",
         summary: "도메인·트리·포리스트·OU, 도메인 컨트롤러, 그룹 정책",
         quiz: {
-          subject: "3과목_NOS",
+          topic: "nos",
           terms: [
             "Active Directory",
             "도메인 컨트롤러",
@@ -602,7 +604,7 @@ export const CURRICULUM: Part[] = [
         title: "Windows 파일 시스템과 권한",
         summary: "NTFS 권한과 공유 권한, 디스크 관리, 암호화와 할당량",
         quiz: {
-          subject: "3과목_NOS",
+          topic: "nos",
           terms: [
             "NTFS",
             "공유 권한",
@@ -620,7 +622,7 @@ export const CURRICULUM: Part[] = [
         title: "Windows 네트워크 서비스",
         summary: "DNS·DHCP 서버, IIS, 원격 데스크톱, Hyper-V, 모니터링 도구",
         quiz: {
-          subject: "3과목_NOS",
+          topic: "nos",
           terms: [
             "IIS",
             "DHCP 서버",
@@ -637,7 +639,7 @@ export const CURRICULUM: Part[] = [
         title: "Windows 네트워크 명령어",
         summary: "ipconfig·ping·tracert·nslookup·netstat·arp·route",
         quiz: {
-          subject: "3과목_NOS",
+          topic: "nos",
           terms: [
             "ipconfig",
             "tracert",
@@ -654,7 +656,7 @@ export const CURRICULUM: Part[] = [
         title: "리눅스 기초",
         summary: "배포판과 커널·셸, 디렉터리 구조, 부팅과 systemd",
         quiz: {
-          subject: "3과목_NOS",
+          topic: "nos",
           terms: [
             "리눅스",
             "Linux",
@@ -673,7 +675,7 @@ export const CURRICULUM: Part[] = [
         summary:
           "파일·디렉터리 명령어, 찾기와 보기, 링크, 압축, 리다이렉션과 파이프",
         quiz: {
-          subject: "3과목_NOS",
+          topic: "nos",
           terms: ["ls", "cp", "find", "grep", "tar", "ln", "mkdir", "명령어"],
         },
       },
@@ -683,7 +685,7 @@ export const CURRICULUM: Part[] = [
         summary:
           "rwx와 8진수 권한, chmod·chown·umask, 특수 권한, 사용자·그룹 관리",
         quiz: {
-          subject: "3과목_NOS",
+          topic: "nos",
           terms: [
             "chmod",
             "chown",
@@ -701,7 +703,7 @@ export const CURRICULUM: Part[] = [
         title: "리눅스 프로세스와 시스템 관리",
         summary: "ps·top·kill, systemctl, cron, 패키지 관리, 디스크와 로그",
         quiz: {
-          subject: "3과목_NOS",
+          topic: "nos",
           terms: [
             "ps",
             "kill",
@@ -720,7 +722,7 @@ export const CURRICULUM: Part[] = [
         summary:
           "네트워크 설정 명령과 파일, 방화벽, Apache·Samba·NFS·FTP·DNS 서버",
         quiz: {
-          subject: "3과목_NOS",
+          topic: "nos",
           terms: [
             "ifconfig",
             "Apache",
@@ -738,7 +740,7 @@ export const CURRICULUM: Part[] = [
         title: "vi 편집기와 셸",
         summary: "vi의 모드와 주요 명령, 셸 종류와 환경 변수, 간단한 스크립트",
         quiz: {
-          subject: "3과목_NOS",
+          topic: "nos",
           terms: ["vi", "셸", "bash", "환경 변수", "명령 모드", "PATH"],
         },
       },
@@ -750,7 +752,6 @@ export const CURRICULUM: Part[] = [
     title: "네트워크 운용기기",
     description:
       "허브·스위치·라우터부터 보안 장비와 스토리지까지, 네트워크를 이루는 장비를 알아봐요.",
-    subject: "4과목_네트워크_운용기기",
     lessons: [
       {
         slug: "dev-l1-l2-devices",
@@ -758,7 +759,7 @@ export const CURRICULUM: Part[] = [
         summary:
           "NIC·리피터·허브·브리지·스위치, 충돌 도메인과 브로드캐스트 도메인",
         quiz: {
-          subject: "4과목_네트워크_운용기기",
+          topic: "devices",
           terms: [
             "허브",
             "리피터",
@@ -775,7 +776,7 @@ export const CURRICULUM: Part[] = [
         title: "스위치 심화 — VLAN과 STP",
         summary: "VLAN과 트렁크, 스패닝 트리, 링크 묶기, PoE와 포트 미러링",
         quiz: {
-          subject: "4과목_네트워크_운용기기",
+          topic: "devices",
           terms: [
             "VLAN",
             "STP",
@@ -784,6 +785,8 @@ export const CURRICULUM: Part[] = [
             "802.1Q",
             "PoE",
             "루트 브리지",
+            "Spanning",
+            "스위치",
           ],
         },
       },
@@ -793,7 +796,7 @@ export const CURRICULUM: Part[] = [
         summary:
           "라우터의 구성과 역할, L3·L4·L7 스위치, 로드 밸런서, 게이트웨이",
         quiz: {
-          subject: "4과목_네트워크_운용기기",
+          topic: "devices",
           terms: [
             "라우터",
             "L3",
@@ -810,7 +813,7 @@ export const CURRICULUM: Part[] = [
         title: "라우터·스위치 기본 설정",
         summary: "CLI 모드, 인터페이스 설정, 정적 라우팅, show 명령, 설정 저장",
         quiz: {
-          subject: "4과목_네트워크_운용기기",
+          topic: "devices",
           terms: [
             "show",
             "running-config",
@@ -818,6 +821,8 @@ export const CURRICULUM: Part[] = [
             "configure terminal",
             "interface",
             "ip route",
+            "라우터",
+            "Router",
           ],
         },
       },
@@ -826,8 +831,18 @@ export const CURRICULUM: Part[] = [
         title: "보안 장비",
         summary: "방화벽의 종류, DMZ, IDS·IPS, UTM·WAF, VPN 장비, NAC",
         quiz: {
-          subject: "4과목_네트워크_운용기기",
-          terms: ["방화벽", "IDS", "IPS", "DMZ", "UTM", "VPN", "침입"],
+          topic: "devices",
+          terms: [
+            "방화벽",
+            "IDS",
+            "IPS",
+            "DMZ",
+            "UTM",
+            "VPN",
+            "침입",
+            "Firewall",
+            "보안",
+          ],
         },
       },
       {
@@ -835,7 +850,7 @@ export const CURRICULUM: Part[] = [
         title: "무선 장비",
         summary: "AP와 무선 컨트롤러, 안테나, 무선 브리지와 메시",
         quiz: {
-          subject: "4과목_네트워크_운용기기",
+          topic: "devices",
           terms: ["AP", "무선", "안테나", "액세스 포인트", "무선 랜"],
         },
       },
@@ -844,7 +859,7 @@ export const CURRICULUM: Part[] = [
         title: "서버·스토리지와 이중화",
         summary: "RAID 레벨, DAS·NAS·SAN, 백업 방식, UPS와 고가용성",
         quiz: {
-          subject: "4과목_네트워크_운용기기",
+          topic: "devices",
           terms: ["RAID", "NAS", "SAN", "DAS", "백업", "UPS", "이중화"],
         },
       },
@@ -854,7 +869,7 @@ export const CURRICULUM: Part[] = [
         summary:
           "구조화 배선, 패치 패널과 랙, 광 커넥터와 트랜시버, 테스터와 장애 처리",
         quiz: {
-          subject: "4과목_네트워크_운용기기",
+          topic: "devices",
           terms: ["패치 패널", "OTDR", "커넥터", "SFP", "테스터", "배선", "광"],
         },
       },
