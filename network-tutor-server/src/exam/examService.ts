@@ -547,6 +547,15 @@ export async function submitAttempt(
   return { score, total, gradingPending, items };
 }
 
+/** 교사가 서술형을 채점한 뒤 응시 점수를 다시 계산한다 — 제출 때와 같은 공식(응시의 전체 문항 배점 합이
+ * 분모)을 써야 한다. 예전엔 답한 문항 배점만 더해서, 서술형 1개만 답하고 만점을 받으면 2%가 100%가 됐다. */
+export async function recomputeAttemptScore(attemptId: number): Promise<void> {
+  const attempt = await getAttempt(attemptId);
+  if (!attempt || attempt.status === "in_progress") return;
+  const { score } = await buildResultItems(attempt);
+  await pool.query("UPDATE exam_attempts SET score = $1 WHERE id = $2", [score, attemptId]);
+}
+
 /** 이미 제출된 응시의 결과(문제별 정답·해설 포함)를 상태 변경 없이 다시 조회한다 — "내가 푼 문제 해설 보기". */
 export async function getAttemptResults(
   attemptId: number,

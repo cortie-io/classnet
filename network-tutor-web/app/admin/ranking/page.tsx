@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/chat/toast";
+import { loadJson } from "@/components/admin/load-json";
 
 interface RankedStudent {
   id: number;
@@ -56,13 +57,23 @@ export default function RankingPage() {
   const [savingKey, setSavingKey] = useState<string | null>(null);
 
   const load = () => {
-    fetch("/api/admin/analytics/ranking", { cache: "no-store" }).then((r) => r.json()).then(setData);
+    loadJson("/api/admin/analytics/ranking", setData, { cache: "no-store" });
   };
 
   useEffect(() => {
     load();
-    const intervalId = setInterval(load, 5000); // 배치가 계속 채팅 기록을 쌓으므로 화면도 주기적으로 최신화한다
-    return () => clearInterval(intervalId);
+    // 순위 집계는 무거운 쿼리라 30초마다, 이 탭이 화면에 보일 때만 새로 고친다(다시 보이면 바로 한 번).
+    const intervalId = setInterval(() => {
+      if (document.visibilityState === "visible") load();
+    }, 30_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   const keyOf = (id: number, field: PrePostField) => `${id}:${field}`;

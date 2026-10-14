@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { pool } from "../db/pool.js";
 import { requireAdmin } from "../auth/middleware.js";
+import { recomputeAttemptScore } from "../exam/examService.js";
 
 export const adminExamRouter = Router();
 
@@ -311,22 +312,7 @@ adminExamRouter.post("/admin/exam/answers/:id/grade", requireAdmin, async (req, 
   if (updated.length === 0) return res.status(404).json({ error: "답안을 찾을 수 없습니다." });
 
   // 채점이 끝나 최종 점수가 바뀌었을 수 있으니 해당 응시의 score를 다시 계산해 반영한다.
-  const { rows: attemptRows } = await pool.query<{ question_ids: number[] }>(
-    "SELECT question_ids FROM exam_attempts WHERE id = $1",
-    [updated[0].attempt_id],
-  );
-  if (attemptRows.length > 0) {
-    const { rows: scoreRows } = await pool.query<{ score_sum: string | null; max_sum: string | null }>(
-      `SELECT sum(a.score) AS score_sum, sum(q.max_score) AS max_sum
-       FROM exam_answers a JOIN exam_questions q ON q.id = a.question_id
-       WHERE a.attempt_id = $1`,
-      [updated[0].attempt_id],
-    );
-    const scoreSum = Number(scoreRows[0]?.score_sum ?? 0);
-    const maxSum = Number(scoreRows[0]?.max_sum ?? 0);
-    const finalScore = maxSum > 0 ? Math.round((scoreSum / maxSum) * 1000) / 10 : 0;
-    await pool.query("UPDATE exam_attempts SET score = $1 WHERE id = $2", [finalScore, updated[0].attempt_id]);
-  }
+  await recomputeAttemptScore(updated[0].attempt_id);
 
   res.json({ ok: true });
 });

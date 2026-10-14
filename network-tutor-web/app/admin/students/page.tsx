@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/chat/toast";
+import { loadJson } from "@/components/admin/load-json";
 
 interface StudentRow {
   id: number;
@@ -27,17 +28,15 @@ export default function StudentsPage() {
 
   const load = () => {
     setLoading(true);
-    fetch("/api/admin/users")
-      .then((r) => r.json())
-      .then(setStudents)
-      .finally(() => setLoading(false));
+    loadJson("/api/admin/users", setStudents).finally(() => setLoading(false));
   };
 
   useEffect(load, []);
 
   const createStudent = async () => {
-    if (!form.name || !form.email || form.password.length < 8) {
-      toast({ type: "error", description: "이름, 이메일, 비밀번호(8자 이상)를 입력하세요." });
+    // 학생은 학번으로 로그인하므로 학번이 없으면 만들어도 로그인할 수 없다.
+    if (!form.studentId.trim() || !form.name || !form.email || form.password.length < 8) {
+      toast({ type: "error", description: "학번, 이름, 이메일, 비밀번호(8자 이상)를 입력하세요." });
       return;
     }
     setCreating(true);

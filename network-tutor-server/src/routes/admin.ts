@@ -248,12 +248,16 @@ adminRouter.post("/admin/users", requireAdmin, async (req, res) => {
     return res.status(400).json({ error: "name, email, password(8자 이상)가 필요합니다." });
   }
   const finalRole = role === "admin" ? "admin" : "student";
+  // 학생은 학번으로 로그인한다(web auth.ts) — 학번 없이 만들면 영영 로그인할 수 없는 계정이 된다.
+  if (finalRole === "student" && (typeof studentId !== "string" || !studentId.trim())) {
+    return res.status(400).json({ error: "학생 계정에는 학번이 필요합니다(학번으로 로그인합니다)." });
+  }
   try {
     const passwordHash = await hashPassword(password);
     const { rows } = await pool.query(
       `INSERT INTO users (role, student_id, name, birthdate, department, email, password_hash, created_by)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id, role, student_id, name, department, email, created_at`,
-      [finalRole, studentId || null, name, birthdate || null, department || null, email.trim().toLowerCase(), passwordHash, req.user!.id],
+      [finalRole, (typeof studentId === "string" && studentId.trim()) || null, name, birthdate || null, department || null, email.trim().toLowerCase(), passwordHash, req.user!.id],
     );
     res.status(201).json(rows[0]);
   } catch (err: any) {

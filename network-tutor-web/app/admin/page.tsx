@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/chat/toast";
+import { loadJson } from "@/components/admin/load-json";
 
 interface QuestionStats {
   byStatus: { status: string; count: number }[];
@@ -15,6 +16,7 @@ interface AuditStats {
 }
 interface StudentRow {
   id: number;
+  role: string;
   question_count: number;
 }
 
@@ -53,11 +55,11 @@ export default function AdminDashboardPage() {
   const [overview, setOverview] = useState<Overview | null>(null);
 
   useEffect(() => {
-    fetch("/api/admin/exam/stats").then((r) => r.json()).then(setQStats);
-    fetch("/api/audit-summary/stats").then((r) => r.json()).then(setAStats);
-    fetch("/api/admin/users").then((r) => r.json()).then(setStudents);
-    fetch("/api/settings/exam-date").then((r) => r.json()).then((d) => setExamDate(d.examDate ?? ""));
-    fetch("/api/admin/analytics/overview").then((r) => r.json()).then(setOverview);
+    loadJson("/api/admin/exam/stats", setQStats);
+    loadJson("/api/audit-summary/stats", setAStats);
+    loadJson("/api/admin/users", setStudents);
+    loadJson<{ examDate?: string | null }>("/api/settings/exam-date", (d) => setExamDate(d.examDate ?? ""));
+    loadJson("/api/admin/analytics/overview", setOverview);
   }, []);
 
   const saveExamDate = async () => {
@@ -84,7 +86,7 @@ export default function AdminDashboardPage() {
     <div className="flex flex-col gap-6">
       <h1 className="font-semibold text-xl">대시보드</h1>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Tile href="/admin/students" label="전체 학생 수" value={students.length} />
+        <Tile href="/admin/students" label="전체 학생 수" value={overview?.studentCount ?? students.filter((s) => s.role !== "admin").length} />
         <Tile href="/admin/questions" label="검수 대기 문제" value={pendingQuestions} />
         <Tile href="/admin/questions" label="승인된 문제" value={approvedQuestions} />
         <Tile href="/admin/audit" label="교사 검수 대기(질의응답)" value={aStats?.pendingReview ?? 0} />

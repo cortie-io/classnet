@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/components/chat/toast";
+import { loadJson } from "@/components/admin/load-json";
 
 const SUBJECTS = [
   "1과목_네트워크_일반",
@@ -92,10 +93,7 @@ export default function QuestionsReviewPage() {
     const q = queryOverride ?? query;
     if (subj) params.set("subject", subj);
     if (q.trim()) params.set("q", q.trim());
-    fetch(`/api/admin/exam/questions?${params.toString()}`)
-      .then((r) => r.json())
-      .then(setQuestions)
-      .finally(() => setLoading(false));
+    loadJson(`/api/admin/exam/questions?${params.toString()}`, setQuestions).finally(() => setLoading(false));
   };
 
   useEffect(() => load(), [status]); // eslint-disable-line react-hooks/exhaustive-deps

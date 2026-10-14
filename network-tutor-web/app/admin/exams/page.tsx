@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/chat/toast";
+import { loadJson } from "@/components/admin/load-json";
 
 const SUBJECTS = [
   "1과목_네트워크_일반",
@@ -138,16 +139,13 @@ export default function ExamsAdminPage() {
     const q = queryOverride ?? pickerQuery;
     if (subj) params.set("subject", subj);
     if (q.trim()) params.set("q", q.trim());
-    fetch(`/api/admin/exam/questions?${params.toString()}`).then((r) => r.json()).then(setApproved);
+    loadJson(`/api/admin/exam/questions?${params.toString()}`, setApproved);
   };
-  const loadSets = () => fetch("/api/admin/exam/sets").then((r) => r.json()).then(setSets);
+  const loadSets = () => loadJson("/api/admin/exam/sets", setSets);
   const loadAttempts = (flaggedOnly: boolean) =>
-    fetch(`/api/admin/exam/attempts${flaggedOnly ? "?flagged=true" : ""}`)
-      .then((r) => r.json())
-      .then(setAttempts);
-  const loadGradingQueue = () => fetch("/api/admin/exam/grading-queue").then((r) => r.json()).then(setGradingQueue);
-  const loadQuestionQuality = () =>
-    fetch("/api/admin/exam/question-quality").then((r) => r.json()).then(setQuestionQuality);
+    loadJson(`/api/admin/exam/attempts${flaggedOnly ? "?flagged=true" : ""}`, setAttempts);
+  const loadGradingQueue = () => loadJson("/api/admin/exam/grading-queue", setGradingQueue);
+  const loadQuestionQuality = () => loadJson("/api/admin/exam/question-quality", setQuestionQuality);
 
   useEffect(() => {
     loadApproved();
@@ -308,8 +306,9 @@ export default function ExamsAdminPage() {
 
   const submitGrade = async (answerId: number, maxScore: number) => {
     const draft = gradeDrafts[answerId];
+    // 빈 칸은 Number("") === 0이라 그대로 두면 0점으로 저장돼 버린다(피드백만 쓰고 저장한 경우 등).
     const score = Number(draft?.score);
-    if (!draft || Number.isNaN(score) || score < 0 || score > maxScore) {
+    if (!draft || String(draft.score ?? "").trim() === "" || Number.isNaN(score) || score < 0 || score > maxScore) {
       toast({ type: "error", description: `0 ~ ${maxScore} 사이 점수를 입력하세요.` });
       return;
     }
