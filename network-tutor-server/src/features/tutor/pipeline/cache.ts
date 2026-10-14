@@ -10,7 +10,7 @@ export function normalizeQuestion(question: string): string {
 // 프롬프트·답변 흐름을 바꿀 때마다 올리는 값. 캐시 키에 들어가므로 올리기만 하면 예전 답변은 더 이상
 // 안 쓰인다(행을 지우지 않고 은퇴시킨다). 2026-10-14: Ollama(Gemma) → OpenAI 전환, 그리고 장애 중에
 // 만들어진 답변(검색 실패·LLM 실패 대체문)을 한꺼번에 은퇴시키려고 처음 넣었다.
-export const PIPELINE_VERSION = "2026-10-14.1";
+export const PIPELINE_VERSION = "2026-10-14.3";
 
 /** 답을 만든 쪽(파이프라인 버전 + 생성 모델 + 검색 임베딩 모델). 하나라도 바뀌면 캐시 키가 달라진다. */
 export function answerSourceSignature(): string {

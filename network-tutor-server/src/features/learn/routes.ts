@@ -19,12 +19,10 @@ import {
 export const learnRouter = Router();
 learnRouter.use("/admin/learn", (_req, res, next) => {
 	if (isArchivePeriod())
-		return res
-			.status(404)
-			.json({
-				error:
-					"이 기능은 2차부터 제공됩니다. 1차 기록은 학생 관리에서 조회해 주세요.",
-			});
+		return res.status(404).json({
+			error:
+				"이 기능은 2차부터 제공됩니다. 1차 기록은 학생 관리에서 조회해 주세요.",
+		});
 	next();
 });
 

@@ -144,12 +144,12 @@ async function drawRandomApprovedIds(
 // 5과목(정보보호개론)은 교재에는 있지만 이 공식 배분표에는 없어 모의고사 자동 구성 대상에서는
 // 제외하고(과목 자체가 없는데 억지로 채우면 실제 시험 구조와 달라짐), 개별 연습에서는 계속 노출한다.
 export const MOCK_EXAM_SUBJECT_DISTRIBUTION: Record<string, number> = {
-	"1과목_네트워크_일반": 10,
-	"2과목_TCP_IP": 17,
+	"1과목_네트워크_일반": 17,
+	"2과목_TCP_IP": 10,
 	"3과목_NOS": 18,
 	"4과목_네트워크_운용기기": 5,
 };
-export const MOCK_EXAM_DURATION_MINUTES = 60;
+export const MOCK_EXAM_DURATION_MINUTES = 50;
 
 export interface AttemptQuestionView {
 	questionId: number;

@@ -15,6 +15,16 @@ interface PastExamRow {
 	source_detail: Record<string, unknown>;
 }
 
+// 기출 시험지는 1~10번이 TCP/IP, 11~27번이 네트워크 일반이다(2026-10-14 내용 확인). 변환 JSON이 문항 위치를
+// 시행처 과목 순서로 옮겨 두 과목 이름을 거꾸로 붙여 왔으므로, 문제 번호(qnum)가 있으면 여기서 바로잡는다.
+function subjectFor(r: PastExamRow): string {
+	const qnum = Number((r.source_detail as { qnum?: unknown }).qnum);
+	if (Number.isInteger(qnum) && qnum >= 1 && qnum <= 10) return "2과목_TCP_IP";
+	if (Number.isInteger(qnum) && qnum >= 11 && qnum <= 27)
+		return "1과목_네트워크_일반";
+	return r.subject;
+}
+
 const JSON_PATH = process.argv[2];
 if (!JSON_PATH) {
 	console.error(
@@ -38,7 +48,7 @@ async function main() {
          VALUES ('past_exam', $1, $2, $3, $4, $5, $6, 'approved', $7, now())`,
 				[
 					JSON.stringify(r.source_detail),
-					r.subject,
+					subjectFor(r),
 					r.stem,
 					JSON.stringify(r.choices),
 					r.correct_index,

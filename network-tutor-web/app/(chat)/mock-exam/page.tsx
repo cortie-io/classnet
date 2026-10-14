@@ -11,8 +11,8 @@ import {
 import { toast } from "@/components/chat/toast";
 
 const SECTIONS = [
-  { no: 1, name: "네트워크 일반", count: 10 },
-  { no: 2, name: "TCP/IP", count: 17 },
+  { no: 1, name: "네트워크 일반", count: 17 },
+  { no: 2, name: "TCP/IP", count: 10 },
   { no: 3, name: "NOS", count: 18 },
   { no: 4, name: "네트워크 운용기기", count: 5 },
 ];
@@ -89,7 +89,7 @@ export default function MockExamPage() {
               제한시간
             </span>
             <span className="font-extrabold text-[22px] text-foreground tracking-tight">
-              60
+              50
             </span>
             <span className="text-[13px] text-muted-foreground">분</span>
           </div>

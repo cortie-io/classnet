@@ -9,10 +9,8 @@ import {
 	weakAreaInstruction,
 	recentTopicsInstruction,
 } from "./personalization.js";
-import {
-	isPracticeRequest,
-	isMultiQuestionPaste,
-} from "../parsing/practiceRequestExtractor.js";
+import { isMultiQuestionPaste } from "../parsing/practiceRequestExtractor.js";
+import { routeQuestion } from "../parsing/intentRouter.js";
 import type { Intent, RequesterContext, AnswerResponse } from "./contracts.js";
 import { runCalc } from "./calculate.js";
 import { runRetrieval } from "./retrieve.js";
@@ -32,7 +30,7 @@ export async function answerQuestion(
 	rawCtx: RequesterContext,
 ): Promise<AnswerResponse> {
 	// 개인화 신호(취약 과목/주제, 최근 관심 주제)는 요청당 한 번만 조회해서 ctx에 채워 넣는다 —
-	// runCalc/runRetrieval/runLookup은 그냥 읽기만 한다. 오답 기록과 최근 질문 이력(채팅방을 넘나드는
+	// runCalc/runRetrieval은 그냥 읽기만 한다. 오답 기록과 최근 질문 이력(채팅방을 넘나드는
 	// audit_log 기반)을 모든 답변에 반영해달라는 요구사항 반영.
 	const [weakAreas, weakTopics, recentTopics] = await Promise.all([
 		getWeakAreas(rawCtx.userId),
@@ -49,8 +47,12 @@ export async function answerQuestion(
 
 	// 매번 새 연습 응시(exam_attempts row)를 만들기 때문에 캐싱하면 안 된다 — 다른 학생/다른 시점에
 	// 캐시된 attemptId를 그대로 돌려주면 남의 응시를 풀게 되는 심각한 버그가 된다.
-	if (!ctx.imageBase64 && isPracticeRequest(question)) {
-		return runPracticeRequest(question, ctx);
+	const route = routeQuestion(question, {
+		history: ctx.history,
+		hasImage: !!ctx.imageBase64,
+	});
+	if (route.route === "practice_request") {
+		return runPracticeRequest(question, ctx, route);
 	}
 
 	// 이미지 질문과 마찬가지로, 이전 대화가 딸린 꼬리질문도 캐싱하지 않는다 — 같은 질문 텍스트라도

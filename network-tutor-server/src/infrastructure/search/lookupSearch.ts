@@ -70,8 +70,14 @@ export interface LookupHit {
 // 아니므로 명시적으로 제외한다.
 const COMMON_TERM_DENYLIST = new Set(["ipv4", "ipv6"]);
 
-function extractSpecificTokens(question: string): string[] {
-	const multiDigitNumbers = question.match(/\d{2,}(?:\.\d+)?/g) ?? [];
+export function extractSpecificTokens(question: string): string[] {
+	// "62점", "30개", "5명"처럼 점수·개수를 말하는 숫자는 표의 행을 가리키는 식별자가 아니다(실사용 중 확인된
+	// 버그: "오늘 필기 시험보고 왔는데 다행히 62점이야"가 SNMP 포트 162 행으로 답이 나갔다).
+	// 뒤에 숫자가 이어지면 안 된다는 조건(?![\d.])이 있어야 "620점"이 "62"로 잘려 잡히지 않는다.
+	const multiDigitNumbers =
+		question.match(
+			/(?<![\d.])\d{2,}(?:\.\d+)?(?![\d.]|\s*(?:점|개|명|대|살|등|위|문제|문항|번째|퍼센트|%))/g,
+		) ?? [];
 	const alphaNumCodes =
 		question.match(/\b[A-Za-z]+\d+[A-Za-z]*\b|\b\d+[A-Za-z]+\b/g) ?? [];
 	// "RAID 5"처럼 단어와 숫자가 띄어써진 복합 식별자도 잡는다("CAT6"처럼 붙여쓴 경우는 위에서 이미
@@ -122,17 +128,27 @@ export async function scanForLookupHit(
 	return null;
 }
 
-function matchBySpecificTokens(
+function escapeRegex(s: string): string {
+	return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** 토큰이 표 칸의 글자 일부가 아니라 "그 값 자체"로 들어 있는지. 예전에는 단순 부분 문자열 비교라
+ * "62"가 "162"에, "21"이 "/21"·"2100"에 걸렸다. 영숫자 경계를 지키고, "CAT 6"처럼 글자와 숫자 사이 공백은
+ * 무시한다. */
+export function tokenInText(token: string, text: string): boolean {
+	const normalized = text.toLowerCase().replace(/([a-z])\s+(\d)/g, "$1$2");
+	const re = new RegExp(
+		`(?<![a-z0-9])${escapeRegex(token.toLowerCase())}(?![a-z0-9])`,
+	);
+	return re.test(normalized);
+}
+
+export function matchBySpecificTokens(
 	rows: LookupRow[],
 	specificTokens: string[],
 ): LookupRow[] {
 	return rows.filter((row) => {
-		const haystack = Object.values(row.rowData).join(" ").toLowerCase();
-		const haystackNoSpace = haystack.replace(/\s+/g, "");
-		// "CAT 6"처럼 원본 표기에 공백이 섞인 경우까지 잡기 위해 공백 제거본에도 대조한다.
-		return specificTokens.some(
-			(t) =>
-				haystack.includes(t) || haystackNoSpace.includes(t.replace(/\s+/g, "")),
-		);
+		const haystack = Object.values(row.rowData).join(" ");
+		return specificTokens.some((t) => tokenInText(t, haystack));
 	});
 }

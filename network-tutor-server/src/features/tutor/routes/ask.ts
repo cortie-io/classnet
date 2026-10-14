@@ -60,12 +60,10 @@ askRouter.post(
 			return res.status(400).json({ error: "question(string)이 필요합니다." });
 		}
 		if (useOwnKey === true && !req.user!.hasOpenaiKey) {
-			return res
-				.status(400)
-				.json({
-					error:
-						"개인 OpenAI 키가 등록되어 있지 않습니다. 학교 제공 AI를 선택하거나 설정에서 키를 등록해 주세요.",
-				});
+			return res.status(400).json({
+				error:
+					"개인 OpenAI 키가 등록되어 있지 않습니다. 학교 제공 AI를 선택하거나 설정에서 키를 등록해 주세요.",
+			});
 		}
 		try {
 			const ctx = await buildRequesterContext(

@@ -26,12 +26,9 @@ export class LearnError extends Error {
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+){0,9}$/;
 // 확인 문제 묶음(웹 curriculum.ts의 quiz.topic) → 문제은행의 subject 값.
-// 문제은행은 기출 1~10번 묶음에 '1과목_네트워크_일반', 11~27번 묶음에 '2과목_TCP_IP'를 붙여 두었는데, 내용은 거꾸로다
-// (2026-10-14 확인: '1과목_네트워크_일반' 문항의 약 77%가 IP·TCP·UDP·서브넷·DNS 같은 TCP/IP 주제이고, 변조·다중화·CRC·HDLC 같은
-// 네트워크 일반 주제는 '2과목_TCP_IP'에 있다). 문제은행 과목 값을 바로잡으면 여기만 고친다.
 export const TOPIC_BUCKET: Record<string, string> = {
-	general: "2과목_TCP_IP",
-	tcpip: "1과목_네트워크_일반",
+	general: "1과목_네트워크_일반",
+	tcpip: "2과목_TCP_IP",
 	nos: "3과목_NOS",
 	devices: "4과목_네트워크_운용기기",
 };

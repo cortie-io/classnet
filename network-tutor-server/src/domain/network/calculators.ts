@@ -106,12 +106,26 @@ export function subnetCalculate(
 // 스스로 올바르게 확장 계산(새 프리픽스·마스크·서브넷별 범위)을 해내도 그 숫자들이 규칙엔진 결과에
 // 없다는 이유로 "근거 없음"으로 판정돼 해설 없는 rule_only로 강등되는 문제가 확인됐다. 이 계산 자체를
 // 규칙엔진이 직접 수행하도록 전용 계산기를 추가한다.
+// 서브넷 목록을 그대로 다 만들기 때문에 개수 상한이 꼭 있어야 한다 — 예전엔 "0.0.0.0/0를 1073741824개로
+// 나누면?" 한 줄로 서버 메모리가 바닥나 프로세스가 죽었다(잡을 수 없는 OOM, 보안 감사에서 재현).
+export const MAX_SUBNET_SPLIT = 256;
+
 export function subnetSplitCalculate(
 	ip: string,
 	originalPrefix: number,
 	subnetCount: number,
 ): CalcResult {
-	if (subnetCount < 2) throw new Error("서브넷 개수는 2개 이상이어야 합니다.");
+	if (!Number.isSafeInteger(subnetCount) || subnetCount < 2)
+		throw new Error("서브넷 개수는 2개 이상이어야 합니다.");
+	if (subnetCount > MAX_SUBNET_SPLIT)
+		throw new Error(`서브넷 개수는 ${MAX_SUBNET_SPLIT}개까지만 계산합니다.`);
+	if (
+		!Number.isInteger(originalPrefix) ||
+		originalPrefix < 0 ||
+		originalPrefix > 32
+	) {
+		throw new Error("프리픽스는 0~32여야 합니다.");
+	}
 	const additionalBits = Math.ceil(Math.log2(subnetCount));
 	const newPrefix = originalPrefix + additionalBits;
 	if (newPrefix > 30) {
@@ -237,43 +251,47 @@ export function classifyIp(ip: string): CalcResult {
 
 // ---------- 진법 변환 ----------
 const HEX_DIGITS = "0123456789ABCDEF";
+export type Radix = 2 | 8 | 10 | 16;
+const BASE_LABEL: Record<Radix, string> = {
+	2: "2진수",
+	8: "8진수",
+	10: "10진수",
+	16: "16진수",
+};
+const DIGIT_RE: Record<Radix, RegExp> = {
+	2: /^[01]+$/,
+	8: /^[0-7]+$/,
+	10: /^\d+$/,
+	16: /^[0-9A-F]+$/,
+};
 
-export function convertBase(
-	value: string,
-	from: 2 | 10 | 16,
-	to: 2 | 10 | 16,
-): CalcResult {
-	const clean = value.trim().toUpperCase().replace(/^0X/, "");
-	let decimalValue: number;
+export function convertBase(value: string, from: Radix, to: Radix): CalcResult {
+	// 앞자리 0은 값에 영향이 없지만 자릿값 전개 문자열을 자릿수만큼 부풀린다("0"×1500만 개로 수백 MB를
+	// 만들던 증폭 공격) — 떼어 내고, 남은 자릿수도 64자로 제한한다.
+	const clean = value
+		.trim()
+		.toUpperCase()
+		.replace(/^0X/, "")
+		.replace(/^0B/, "")
+		.replace(/^0+(?=.)/, "");
+	if (clean.length > 64) throw new Error("값이 너무 깁니다(64자리 이하).");
+	if (!DIGIT_RE[from].test(clean))
+		throw new Error(`${BASE_LABEL[from]} 형식이 아닙니다: ${value}`);
+	const decimalValue = parseInt(clean, from);
+	if (!Number.isSafeInteger(decimalValue))
+		throw new Error(`값이 너무 큽니다: ${value}`);
 	const steps: CalcStep[] = [];
 
 	if (from === 10) {
-		if (!/^\d+$/.test(clean))
-			throw new Error(`10진수 형식이 아닙니다: ${value}`);
-		decimalValue = Number(clean);
 		steps.push({ label: "1. 입력", detail: `10진수 ${decimalValue}` });
-	} else if (from === 2) {
-		if (!/^[01]+$/.test(clean))
-			throw new Error(`2진수 형식이 아닙니다(0,1만 허용): ${value}`);
-		decimalValue = parseInt(clean, 2);
-		const terms = clean
-			.split("")
-			.reverse()
-			.map((bit, i) => `${bit}×2^${i}(${2 ** i})`)
-			.reverse()
-			.join(" + ");
-		steps.push({
-			label: "1. 자릿값 전개",
-			detail: `${clean} = ${terms} = ${decimalValue}(10진수)`,
-		});
 	} else {
-		if (!/^[0-9A-F]+$/.test(clean))
-			throw new Error(`16진수 형식이 아닙니다: ${value}`);
-		decimalValue = parseInt(clean, 16);
 		const terms = clean
 			.split("")
 			.reverse()
-			.map((d, i) => `${d}(${parseInt(d, 16)})×16^${i}(${16 ** i})`)
+			.map(
+				(d, i) =>
+					`${d}${from === 16 ? `(${parseInt(d, 16)})` : ""}×${from}^${i}(${from ** i})`,
+			)
 			.reverse()
 			.join(" + ");
 		steps.push({
@@ -287,57 +305,224 @@ export function convertBase(
 		outputStr = String(decimalValue);
 		if (from !== 10)
 			steps.push({ label: "2. 결과", detail: `10진수 = ${outputStr}` });
-	} else if (to === 2) {
-		const divSteps: string[] = [];
-		let n = decimalValue;
-		if (n === 0) divSteps.push("0 ÷ 2 = 0 나머지 0");
-		while (n > 0) {
-			const rem = n % 2;
-			const q = Math.floor(n / 2);
-			divSteps.push(`${n} ÷ 2 = ${q} 나머지 ${rem}`);
-			n = q;
-		}
-		outputStr = decimalValue.toString(2);
-		steps.push({
-			label: "2. 2로 나눈 나머지를 역순으로",
-			detail: `${divSteps.join("\n")}\n나머지를 아래에서 위로 읽으면 → ${outputStr}`,
-		});
 	} else {
 		const divSteps: string[] = [];
 		let n = decimalValue;
-		if (n === 0) divSteps.push("0 ÷ 16 = 0 나머지 0");
+		if (n === 0) divSteps.push(`0 ÷ ${to} = 0 나머지 0`);
 		while (n > 0) {
-			const rem = n % 16;
-			const q = Math.floor(n / 16);
-			divSteps.push(`${n} ÷ 16 = ${q} 나머지 ${rem}(${HEX_DIGITS[rem]})`);
+			const rem = n % to;
+			const q = Math.floor(n / to);
+			divSteps.push(
+				`${n} ÷ ${to} = ${q} 나머지 ${rem}${to === 16 && rem >= 10 ? `(${HEX_DIGITS[rem]})` : ""}`,
+			);
 			n = q;
 		}
-		outputStr = decimalValue.toString(16).toUpperCase();
+		outputStr = decimalValue.toString(to).toUpperCase();
 		steps.push({
-			label: "2. 16으로 나눈 나머지를 역순으로",
+			label: `2. ${to}로 나눈 나머지를 역순으로`,
 			detail: `${divSteps.join("\n")}\n나머지를 아래에서 위로 읽으면 → ${outputStr}`,
 		});
 	}
 
-	const baseLabel = { 2: "2진수", 10: "10진수", 16: "16진수" } as const;
 	return {
-		summary: `${baseLabel[from]} ${clean} = ${baseLabel[to]} ${outputStr}`,
+		summary: `${BASE_LABEL[from]} ${clean} = ${BASE_LABEL[to]} ${outputStr}`,
 		result: {
 			입력값: clean,
-			입력진법: baseLabel[from],
+			입력진법: BASE_LABEL[from],
 			결과값: outputStr,
-			결과진법: baseLabel[to],
+			결과진법: BASE_LABEL[to],
+		},
+		steps,
+	};
+}
+
+/** "64를 2진수로, 16진수로 각각 바꿔줘"처럼 한 값을 여러 진법으로 — 각 변환 과정을 차례로 붙인다. */
+export function convertBaseMulti(
+	value: string,
+	from: Radix,
+	targets: Radix[],
+): CalcResult {
+	const uniq = Array.from(new Set(targets)).filter((t) => t !== from);
+	if (uniq.length === 0) throw new Error("변환할 대상 진법이 없습니다.");
+	if (uniq.length === 1) return convertBase(value, from, uniq[0]);
+	const parts = uniq.map((t) => ({ to: t, r: convertBase(value, from, t) }));
+	const clean = parts[0].r.result.입력값;
+	return {
+		summary: `${BASE_LABEL[from]} ${clean} = ${parts.map((p) => `${BASE_LABEL[p.to]} ${p.r.result.결과값}`).join(" = ")}`,
+		result: {
+			입력값: clean,
+			입력진법: BASE_LABEL[from],
+			...Object.fromEntries(
+				parts.map((p) => [BASE_LABEL[p.to], p.r.result.결과값]),
+			),
+		},
+		steps: parts.flatMap((p) =>
+			p.r.steps.map((s) => ({
+				label: `[${BASE_LABEL[p.to]}로] ${s.label}`,
+				detail: s.detail,
+			})),
+		),
+	};
+}
+
+// ---------- 프리픽스 정보 (/27 → 마스크·호스트 수) ----------
+export function prefixInfo(prefix: number): CalcResult {
+	if (!Number.isInteger(prefix) || prefix < 0 || prefix > 32)
+		throw new Error(`프리픽스는 0~32여야 합니다: /${prefix}`);
+	const maskInt = prefixToMaskInt(prefix);
+	const hostBits = 32 - prefix;
+	const total = 2 ** hostBits;
+	const usable = prefix >= 31 ? (prefix === 31 ? 2 : 1) : total - 2;
+	// 경계가 걸리는 옥텟의 블록 크기(256 - 그 옥텟의 마스크 값) — 서브넷 시작 주소가 이 간격으로 반복된다.
+	const octetIndex = Math.min(3, Math.floor(prefix / 8));
+	const octetMask = (maskInt >>> (24 - octetIndex * 8)) & 255;
+	const blockSize = prefix === 32 ? 1 : 256 - octetMask;
+	const steps: CalcStep[] = [
+		{
+			label: "1. 네트워크 비트",
+			detail: `/${prefix} → 앞에서부터 1이 ${prefix}개`,
+		},
+		{ label: "2. 2진수 마스크", detail: `${toBinaryOctets(maskInt)}` },
+		{ label: "3. 10진수 마스크", detail: `${intToIp(maskInt)}` },
+		{
+			label: "4. 호스트 비트와 주소 수",
+			detail:
+				`호스트 비트 = 32 - ${prefix} = ${hostBits}bit → 주소 2^${hostBits} = ${total}개` +
+				(prefix <= 30
+					? ` → 네트워크·브로드캐스트 2개 제외 = 사용 가능 호스트 ${usable}개`
+					: ""),
+		},
+		{
+			label: "5. 블록 크기",
+			detail: `${octetIndex + 1}번째 옥텟 마스크 ${octetMask} → 256 - ${octetMask} = ${blockSize}`,
+		},
+	];
+	return {
+		summary: `/${prefix} = 서브넷 마스크 ${intToIp(maskInt)}, 사용 가능 호스트 ${usable}개 (블록 크기 ${blockSize})`,
+		result: {
+			프리픽스: `/${prefix}`,
+			서브넷마스크: intToIp(maskInt),
+			이진마스크: toBinaryOctets(maskInt),
+			와일드카드마스크: intToIp(~maskInt >>> 0),
+			전체주소수: total,
+			사용가능호스트수: usable,
+			블록크기: blockSize,
+		},
+		steps,
+	};
+}
+
+// ---------- 필요한 호스트 수 → 최소 서브넷 ----------
+export function hostsToSubnet(hosts: number): CalcResult {
+	// 상한이 없으면 "호스트 999…9(400자리)개" 같은 값(Infinity)에서 아래 반복이 끝나지 않는다.
+	if (!Number.isSafeInteger(hosts) || hosts < 1 || hosts > 2 ** 30)
+		throw new Error("호스트 수는 1~1073741824 사이여야 합니다.");
+	let hostBits = 2;
+	while (2 ** hostBits - 2 < hosts) hostBits++;
+	if (hostBits > 30)
+		throw new Error(
+			`호스트 ${hosts}개는 IPv4 한 서브넷으로 수용할 수 없습니다.`,
+		);
+	const prefix = 32 - hostBits;
+	const maskInt = prefixToMaskInt(prefix);
+	const usable = 2 ** hostBits - 2;
+	const steps: CalcStep[] = [
+		{
+			label: "1. 필요한 호스트 비트",
+			detail:
+				`2^n - 2 ≥ ${hosts}을 만족하는 최소 n` +
+				`\n2^${hostBits - 1} - 2 = ${2 ** (hostBits - 1) - 2} < ${hosts}, 2^${hostBits} - 2 = ${usable} ≥ ${hosts} → n = ${hostBits}`,
+		},
+		{ label: "2. 프리픽스", detail: `32 - ${hostBits} = /${prefix}` },
+		{
+			label: "3. 서브넷 마스크",
+			detail: `${toBinaryOctets(maskInt)} = ${intToIp(maskInt)}`,
+		},
+		{
+			label: "4. 결과",
+			detail: `한 서브넷의 주소 ${2 ** hostBits}개, 사용 가능 호스트 ${usable}개 (남는 주소 ${usable - hosts}개)`,
+		},
+	];
+	return {
+		summary: `호스트 ${hosts}개가 필요하면 → 호스트 비트 ${hostBits}bit, /${prefix} (서브넷 마스크 ${intToIp(maskInt)}), 사용 가능 호스트 ${usable}개`,
+		result: {
+			필요호스트수: hosts,
+			호스트비트: hostBits,
+			프리픽스: `/${prefix}`,
+			서브넷마스크: intToIp(maskInt),
+			사용가능호스트수: usable,
+		},
+		steps,
+	};
+}
+
+// ---------- 필요한 서브넷 수 → 마스크 (클래스 기준) ----------
+export function subnetsToMask(basePrefix: number, subnets: number): CalcResult {
+	if (!Number.isSafeInteger(subnets) || subnets < 2 || subnets > 2 ** 30)
+		throw new Error("서브넷 개수는 2~1073741824 사이여야 합니다.");
+	const borrowed = Math.ceil(Math.log2(subnets));
+	const prefix = basePrefix + borrowed;
+	if (prefix > 30)
+		throw new Error(
+			`/${basePrefix}에서 서브넷 ${subnets}개를 만들면 호스트 비트가 부족합니다.`,
+		);
+	const maskInt = prefixToMaskInt(prefix);
+	const hostBits = 32 - prefix;
+	const usable = 2 ** hostBits - 2;
+	const steps: CalcStep[] = [
+		{
+			label: "1. 빌려 올 비트",
+			detail: `2^n ≥ ${subnets}을 만족하는 최소 n = ${borrowed} (2^${borrowed} = ${2 ** borrowed}개)`,
+		},
+		{
+			label: "2. 새 프리픽스",
+			detail: `기본 /${basePrefix} + ${borrowed} = /${prefix}`,
+		},
+		{
+			label: "3. 서브넷 마스크",
+			detail: `${toBinaryOctets(maskInt)} = ${intToIp(maskInt)}`,
+		},
+		{
+			label: "4. 서브넷당 호스트",
+			detail: `호스트 비트 ${hostBits}bit → 2^${hostBits} - 2 = ${usable}개`,
+		},
+	];
+	return {
+		summary: `기본 /${basePrefix}에서 서브넷 ${subnets}개가 필요하면 → ${borrowed}bit 빌려 /${prefix} (서브넷 마스크 ${intToIp(maskInt)}), 서브넷당 사용 가능 호스트 ${usable}개`,
+		result: {
+			기본프리픽스: `/${basePrefix}`,
+			필요서브넷수: subnets,
+			빌린비트: borrowed,
+			프리픽스: `/${prefix}`,
+			서브넷마스크: intToIp(maskInt),
+			서브넷당사용가능호스트수: usable,
 		},
 		steps,
 	};
 }
 
 // ---------- 채널 용량 계산 (섀넌/나이키스트) ----------
+function humanBps(bps: number): string {
+	if (bps >= 1e9) return ` (약 ${(bps / 1e9).toFixed(2)} Gbps)`;
+	if (bps >= 1e6) return ` (약 ${(bps / 1e6).toFixed(2)} Mbps)`;
+	if (bps >= 1e3) return ` (약 ${(bps / 1e3).toFixed(2)} kbps)`;
+	return "";
+}
+
 export function shannonCapacity(
 	bandwidthHz: number,
 	snr: number,
 	snrIsDb = false,
 ): CalcResult {
+	if (
+		!Number.isFinite(bandwidthHz) ||
+		bandwidthHz <= 0 ||
+		!Number.isFinite(snr) ||
+		bandwidthHz > 1e15 ||
+		Math.abs(snr) > 1e6
+	) {
+		throw new Error("대역폭·신호 대 잡음비 값이 올바르지 않습니다.");
+	}
 	const steps: CalcStep[] = [];
 	let ratio = snr;
 	if (snrIsDb) {
@@ -365,7 +550,7 @@ export function shannonCapacity(
 		detail: `${bandwidthHz} × ${log2Inner.toFixed(4)} = ${capacity.toFixed(2)} bps`,
 	});
 	return {
-		summary: `섀넌 정리: 대역폭 ${bandwidthHz}Hz, S/N ${snrIsDb ? snr + "dB" : ratio} → 채널 용량 ≈ ${capacity.toFixed(2)} bps`,
+		summary: `섀넌 정리: 대역폭 ${bandwidthHz}Hz, S/N ${snrIsDb ? snr + "dB" : ratio} → 채널 용량 ≈ ${capacity.toFixed(2)} bps${humanBps(capacity)}`,
 		result: {
 			대역폭Hz: bandwidthHz,
 			신호대잡음비: snrIsDb ? `${snr}dB` : ratio,
@@ -379,6 +564,16 @@ export function nyquistCapacity(
 	bandwidthHz: number,
 	levels: number,
 ): CalcResult {
+	if (
+		!Number.isFinite(bandwidthHz) ||
+		bandwidthHz <= 0 ||
+		bandwidthHz > 1e15 ||
+		!Number.isSafeInteger(levels) ||
+		levels < 2 ||
+		levels > 1e6
+	) {
+		throw new Error("대역폭·신호 레벨 값이 올바르지 않습니다.");
+	}
 	const log2Levels = Math.log2(levels);
 	const capacity = 2 * bandwidthHz * log2Levels;
 	const steps: CalcStep[] = [
@@ -393,7 +588,7 @@ export function nyquistCapacity(
 		},
 	];
 	return {
-		summary: `나이키스트 정리: 대역폭 ${bandwidthHz}Hz, 신호 레벨 ${levels} → 채널 용량 = ${capacity.toFixed(2)} bps`,
+		summary: `나이키스트 정리: 대역폭 ${bandwidthHz}Hz, 신호 레벨 ${levels} → 채널 용량 = ${capacity.toFixed(2)} bps${humanBps(capacity)}`,
 		result: {
 			대역폭Hz: bandwidthHz,
 			신호레벨수: levels,

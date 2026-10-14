@@ -24,7 +24,7 @@ export default function NewOfficialExamPage() {
           description: "",
           scheduledStart: toLocalInput(start),
           scheduledEnd: toLocalInput(end),
-          durationMinutes: 60,
+          durationMinutes: 50,
           maxViolations: 3,
           questions: [],
         }}

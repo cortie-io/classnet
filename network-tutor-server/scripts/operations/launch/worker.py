@@ -9,7 +9,7 @@ BACKUPS=pathlib.Path('/var/backups/classnet-phase2-beta')
 COMPOSE='/home/ubuntu/projects/classnet-tutor/docker-compose.yml'
 CLIENT='postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873'
 SERVICES=['network-tutor-server','network-tutor-web']
-KNOWN={'learn_progress','users','concept_nodes','lookup_tables','node_embeddings','concept_embeddings','exam_questions','exam_sets','app_settings','service_launch','audit_log','answer_cache','exam_answers','exam_proctor_events','exam_attempts','student_report_analysis','bookmarks','Vote_v2','Message_v2','Stream','Chat','Suggestion','Document','sessions','request_limits'}
+KNOWN={'data_fixes','learn_progress','users','concept_nodes','lookup_tables','node_embeddings','concept_embeddings','exam_questions','exam_sets','app_settings','service_launch','audit_log','answer_cache','exam_answers','exam_proctor_events','exam_attempts','student_report_analysis','bookmarks','Vote_v2','Message_v2','Stream','Chat','Suggestion','Document','sessions','request_limits'}
 
 def run(args,**kw):
     return subprocess.run(args,check=True,text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=180,**kw).stdout.strip()

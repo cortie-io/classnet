@@ -12,7 +12,6 @@ export type Intent =
 	| "practice_request"
 	| "out_of_scope";
 export type VerificationStatus =
-	| "pending"
 	| "verified"
 	| "flagged"
 	| "cached"
@@ -34,7 +33,7 @@ export interface RequesterContext {
 	// 채팅 UI의 이전 대화(직전 턴들)를 함께 보내 꼬리질문("그거 좀 더 쉽게", "왜 그런데?")을 이해하게 한다.
 	// /problem 같은 단발성 입력에는 없다.
 	history?: HistoryTurn[];
-	// answerQuestion()이 요청당 한 번만 채워 넣는다 — runCalc/runRetrieval/runLookup은 그냥 읽기만 한다.
+	// answerQuestion()이 요청당 한 번만 채워 넣는다 — runCalc/runRetrieval은 그냥 읽기만 한다.
 	weakAreaNote?: string;
 	cacheTag?: string;
 }

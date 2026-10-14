@@ -36,14 +36,13 @@ beforeEach(async () => {
 		const { rows: q } = await pool.query<{ id: number }>(
 			`INSERT INTO exam_questions (source, subject, stem, question_type, choices, correct_index, max_score, explanation, status)
        VALUES ('past_exam', $2, $1, 'multiple_choice', '["A","B","C","D"]', 0, 1, '해설', 'approved') RETURNING id`,
-			[stem, stem.startsWith("ARP") ? "2과목_TCP_IP" : "1과목_네트워크_일반"],
+			[stem, stem.startsWith("ARP") ? "1과목_네트워크_일반" : "2과목_TCP_IP"],
 		);
 		if (stem.includes("서브넷") || stem.includes("서브네팅"))
 			subnetQids.push(q[0].id);
 	}
 });
 
-// 문제은행에서 TCP/IP 내용은 '1과목_네트워크_일반' 값에 들어 있다(learnService의 TOPIC_BUCKET 참고).
 const quizInput = {
 	slug: "tcpip-subnetting",
 	topic: "tcpip",

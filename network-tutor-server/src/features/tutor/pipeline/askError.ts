@@ -56,12 +56,10 @@ export function sendAskError(res: Response, err: unknown, route: string): void {
 	if (res.headersSent) return;
 	if (err instanceof UsageLimitError)
 		res.setHeader("Retry-After", err.retryAfter);
-	res
-		.status(ASK_ERROR_STATUS[code])
-		.json({
-			error: code,
-			message:
-				err instanceof UsageLimitError ? err.message : ASK_ERROR_MESSAGES[code],
-			requestId,
-		});
+	res.status(ASK_ERROR_STATUS[code]).json({
+		error: code,
+		message:
+			err instanceof UsageLimitError ? err.message : ASK_ERROR_MESSAGES[code],
+		requestId,
+	});
 }

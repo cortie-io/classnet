@@ -48,11 +48,9 @@ calcRouter.post("/calc/base-convert", requireAuth, (req, res) => {
 		![2, 10, 16].includes(Number(from)) ||
 		![2, 10, 16].includes(Number(to))
 	) {
-		return res
-			.status(400)
-			.json({
-				error: "value(string), from(2|10|16), to(2|10|16)가 필요합니다.",
-			});
+		return res.status(400).json({
+			error: "value(string), from(2|10|16), to(2|10|16)가 필요합니다.",
+		});
 	}
 	handle(
 		() =>
@@ -69,20 +67,16 @@ calcRouter.post("/calc/channel-capacity", requireAuth, (req, res) => {
 	const { type, bandwidthHz, snr, snrIsDb, levels } = req.body ?? {};
 	if (type === "shannon") {
 		if (typeof bandwidthHz !== "number" || typeof snr !== "number") {
-			return res
-				.status(400)
-				.json({
-					error: "shannon: bandwidthHz(number), snr(number)가 필요합니다.",
-				});
+			return res.status(400).json({
+				error: "shannon: bandwidthHz(number), snr(number)가 필요합니다.",
+			});
 		}
 		handle(() => shannonCapacity(bandwidthHz, snr, !!snrIsDb), res);
 	} else if (type === "nyquist") {
 		if (typeof bandwidthHz !== "number" || typeof levels !== "number") {
-			return res
-				.status(400)
-				.json({
-					error: "nyquist: bandwidthHz(number), levels(number)가 필요합니다.",
-				});
+			return res.status(400).json({
+				error: "nyquist: bandwidthHz(number), levels(number)가 필요합니다.",
+			});
 		}
 		handle(() => nyquistCapacity(bandwidthHz, levels), res);
 	} else {
