@@ -8,3 +8,6 @@ dist/
 .env*
 !.env.example
 *.bak-local
+
+# 운영 데이터 백업(학생 정보 포함)
+backups/

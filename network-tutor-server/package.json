@@ -8,8 +8,8 @@
     "start": "tsx src/server.ts",
     "migrate": "tsx src/db/migrate.ts",
     "seed:admin": "tsx src/db/seedAdmin.ts",
-    "ingest": "tsx src/ingest/ingest.ts",
-    "burn:tokens": "tsx run_token_burn.ts"
+    "purge:token-burn": "tsx src/db/purgeTokenBurn.ts",
+    "ingest": "tsx src/ingest/ingest.ts"
   },
   "dependencies": {
     "cookie": "^1.0.2",
