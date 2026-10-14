@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { TrophyIcon } from "lucide-react";
+import { PageIntro } from "@/components/chat/page-intro";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -135,10 +137,9 @@ export default function RankingPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="font-semibold text-xl">학습 순위</h1>
+      <PageIntro description="학생별 학습량과 정답률 순위예요." icon={TrophyIcon} title="학습 순위">
         <Button onClick={exportCsv} size="sm" variant="outline">CSV 내보내기</Button>
-      </div>
+      </PageIntro>
 
       {data.prePostSummary ? (
         <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-[13px] leading-relaxed">
@@ -180,25 +181,25 @@ export default function RankingPage() {
         <p className="text-muted-foreground">{data.methodology}</p>
       </div>
 
-      <div className="rounded-2xl border border-border bg-card">
+      <div className="surface">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[920px] text-[13px]">
+          <table className="table w-full min-w-[920px] text-[13px]">
             <thead>
-              <tr className="border-border border-b text-muted-foreground">
-                <th className="whitespace-nowrap px-4 py-2 text-left font-medium">순위</th>
-                <th className="whitespace-nowrap px-4 py-2 text-left font-medium">학생</th>
-                <th className="whitespace-nowrap px-4 py-2 text-right font-medium">종합점수</th>
-                <th className="whitespace-nowrap px-4 py-2 text-right font-medium">채팅 질문</th>
-                <th className="whitespace-nowrap px-4 py-2 text-right font-medium">활동 일수</th>
-                <th className="whitespace-nowrap px-4 py-2 text-right font-medium">푼 문제/맞춘시도</th>
-                <th className="whitespace-nowrap px-4 py-2 text-right font-medium">정답률</th>
-                <th className="whitespace-nowrap px-4 py-2 text-right font-medium">사전→사후</th>
-                <th className="whitespace-nowrap px-4 py-2 text-right font-medium">향상률</th>
+              <tr className="border-border border-b bg-muted/50 text-[12px] text-muted-foreground">
+                <th className="whitespace-nowrap px-4 py-2.5 text-left font-semibold">순위</th>
+                <th className="whitespace-nowrap px-4 py-2.5 text-left font-semibold">학생</th>
+                <th className="whitespace-nowrap px-4 py-2.5 text-right font-semibold">종합점수</th>
+                <th className="whitespace-nowrap px-4 py-2.5 text-right font-semibold">채팅 질문</th>
+                <th className="whitespace-nowrap px-4 py-2.5 text-right font-semibold">활동 일수</th>
+                <th className="whitespace-nowrap px-4 py-2.5 text-right font-semibold">푼 문제/맞춘시도</th>
+                <th className="whitespace-nowrap px-4 py-2.5 text-right font-semibold">정답률</th>
+                <th className="whitespace-nowrap px-4 py-2.5 text-right font-semibold">사전→사후</th>
+                <th className="whitespace-nowrap px-4 py-2.5 text-right font-semibold">향상률</th>
               </tr>
             </thead>
             <tbody>
               {data.students.map((s) => (
-                <tr className="border-border border-b last:border-0 hover:bg-accent/40" key={s.id}>
+                <tr className="border-border border-b last:border-0 hover:bg-accent/50" key={s.id}>
                   <td className="px-4 py-2 font-medium">
                     {s.rank <= 3 ? ["🥇", "🥈", "🥉"][s.rank - 1] : s.rank}
                   </td>
@@ -208,7 +209,7 @@ export default function RankingPage() {
                       <span className="ml-1.5 text-muted-foreground text-xs">{s.studentId ?? s.email}</span>
                     </Link>
                   </td>
-                  <td className="px-4 py-2 text-right font-medium">{s.compositeScore}</td>
+                  <td className="px-4 py-2.5 text-right font-semibold">{s.compositeScore}</td>
                   <td className="px-4 py-2 text-right text-muted-foreground">{s.chatCount}</td>
                   <td className="px-4 py-2 text-right text-muted-foreground">{s.activeDays}일</td>
                   <td className="px-4 py-2 text-right text-muted-foreground">
@@ -256,7 +257,7 @@ export default function RankingPage() {
                       })}
                     </div>
                   </td>
-                  <td className="px-4 py-2 text-right font-medium">
+                  <td className="px-4 py-2.5 text-right font-semibold">
                     {s.improvement != null ? (
                       <span className={s.improvement >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"}>
                         {s.improvement > 0 ? "+" : ""}{s.improvement}

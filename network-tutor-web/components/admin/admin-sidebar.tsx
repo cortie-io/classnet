@@ -12,6 +12,7 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { User } from "next-auth";
+import { BrandMark } from "@/components/brand/logo";
 import { SidebarUserNav } from "@/components/chat/sidebar-user-nav";
 import {
   Sidebar,
@@ -42,24 +43,25 @@ export function AdminSidebar({ user }: { user: User }) {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="pb-0 pt-3">
+      <SidebarHeader className="px-3 pt-4 pb-2 group-data-[collapsible=icon]:px-2">
         <SidebarMenu>
           <SidebarMenuItem className="flex flex-row items-center justify-between">
-            <div className="flex min-w-0 items-center gap-2 px-2">
-              {/* biome-ignore lint/performance/noImgElement: 고정 로고 자산, next/image 불필요 */}
-              <img alt="classnet" className="size-7 shrink-0" src="/logo.svg" />
-              <span className="truncate font-semibold text-[13px] text-sidebar-foreground group-data-[collapsible=icon]:hidden">
-                classnet 관리자
+            <Link className="flex min-w-0 items-center gap-2.5 px-0.5" href="/admin">
+              <BrandMark className="size-8 drop-shadow-[0_4px_10px_rgb(67_56_202/0.3)]" title="classnet" />
+              <span className="flex min-w-0 items-center gap-1.5 group-data-[collapsible=icon]:hidden">
+                <span className="truncate font-extrabold text-[17px] text-foreground tracking-[-0.04em]">classnet</span>
+                <span className="rounded-md bg-brand px-1.5 py-0.5 font-bold text-[10px] text-white">관리자</span>
               </span>
-            </div>
-            <SidebarTrigger className="shrink-0 text-sidebar-foreground/60 transition-colors duration-150 hover:text-sidebar-foreground group-data-[collapsible=icon]:hidden" />
+            </Link>
+            <SidebarTrigger className="shrink-0 text-sidebar-foreground/45 transition-colors duration-150 hover:text-sidebar-foreground group-data-[collapsible=icon]:hidden" />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="px-1">
         <SidebarGroup className="pt-1">
+          <SidebarGroupLabel className="h-7 px-2.5">관리 메뉴</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-0.5">
               {NAV_ITEMS.map((item) => {
                 const Icon = item.icon;
                 const active = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href));
@@ -67,8 +69,8 @@ export function AdminSidebar({ user }: { user: User }) {
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton asChild isActive={active} tooltip={item.label}>
                       <Link href={item.href}>
-                        <Icon className="size-4" />
-                        <span className="text-[13px]">{item.label}</span>
+                        <Icon className={active ? "text-primary" : "text-sidebar-foreground/45"} />
+                        <span>{item.label}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -78,14 +80,14 @@ export function AdminSidebar({ user }: { user: User }) {
           </SidebarGroupContent>
         </SidebarGroup>
         <SidebarGroup className="mt-auto">
-          <SidebarGroupLabel className="text-[11px]">학생 화면</SidebarGroupLabel>
+          <SidebarGroupLabel className="h-7 px-2.5">학생 화면</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild tooltip="학생 페이지로 이동">
                   <Link href="/">
-                    <MessageSquareIcon className="size-4" />
-                    <span className="text-[13px]">학생 페이지로</span>
+                    <MessageSquareIcon className="text-sidebar-foreground/45" />
+                    <span>학생 페이지로</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -93,7 +95,7 @@ export function AdminSidebar({ user }: { user: User }) {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="border-t border-sidebar-border pt-2 pb-3">
+      <SidebarFooter className="border-t border-sidebar-border px-3 pt-2.5 pb-3 group-data-[collapsible=icon]:px-2">
         <SidebarUserNav user={user} />
       </SidebarFooter>
       <SidebarRail />

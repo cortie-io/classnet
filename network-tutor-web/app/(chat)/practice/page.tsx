@@ -1,7 +1,10 @@
 "use client";
 
+import { ArrowRightIcon, BookOpenCheckIcon } from "lucide-react";
 import { useEffect, useState } from "react";
+import { PageIntro } from "@/components/chat/page-intro";
 import { Button } from "@/components/ui/button";
+import { ChoiceChip } from "@/components/ui/choice-chip";
 import { ExamRunner, type ExamStartResponse } from "@/components/exam/exam-runner";
 import { toast } from "@/components/chat/toast";
 import { loadJson } from "@/components/load-json";
@@ -43,61 +46,63 @@ export default function PracticePage() {
     return <ExamRunner proctored={false} start={start} />;
   }
 
+  const subjectCount = subject
+    ? meta?.subjects.find((s) => s.subject === subject)?.count
+    : meta?.subjects.reduce((sum, s) => sum + s.count, 0);
+
   return (
-    <div className="mx-auto flex w-full max-w-lg flex-col gap-4 px-4 py-10">
-      <h1 className="font-semibold text-xl">문제 연습</h1>
-      <p className="text-muted-foreground text-sm">
-        과목과 문항 수를 골라 바로 풀어보세요. 모든 문제를 풀고 제출하면 채점 결과와 해설을 한 번에 확인할 수 있습니다.
-      </p>
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-8 sm:py-12">
+      <PageIntro
+        description="과목과 문항 수를 골라 바로 풀어보세요. 모두 풀고 제출하면 채점 결과와 해설을 한 번에 확인할 수 있어요."
+        icon={BookOpenCheckIcon}
+        title="문제 연습"
+      />
 
-      <div className="flex flex-col gap-2">
-        <span className="text-muted-foreground text-xs">과목</span>
-        <div className="flex flex-wrap gap-2">
-          <button
-            className={`rounded-full border px-3 py-1.5 text-[13px] transition-colors ${
-              subject === "" ? "border-ring bg-accent" : "border-border hover:border-ring"
-            }`}
-            onClick={() => setSubject("")}
-            type="button"
-          >
-            전체
-          </button>
-          {meta?.subjects.map((s) => (
-            <button
-              className={`rounded-full border px-3 py-1.5 text-[13px] transition-colors ${
-                subject === s.subject ? "border-ring bg-accent" : "border-border hover:border-ring"
-              }`}
-              key={s.subject}
-              onClick={() => setSubject(s.subject)}
-              type="button"
-            >
-              {s.subject.replace(/^\d과목_/, "")} ({s.count})
-            </button>
-          ))}
+      <div className="surface flex flex-col gap-7 p-5 sm:p-7">
+        <section className="flex flex-col gap-3">
+          <h2 className="font-semibold text-[13px] text-foreground">
+            <span className="mr-1.5 text-primary">01</span>과목 선택
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            <ChoiceChip active={subject === ""} onClick={() => setSubject("")}>
+              전체
+            </ChoiceChip>
+            {meta?.subjects.map((s) => (
+              <ChoiceChip active={subject === s.subject} key={s.subject} onClick={() => setSubject(s.subject)}>
+                {s.subject.replace(/^\d과목_/, "")}
+                <span className={subject === s.subject ? "text-primary-foreground/70" : "text-muted-foreground"}>
+                  {s.count}
+                </span>
+              </ChoiceChip>
+            ))}
+          </div>
+        </section>
+
+        <section className="flex flex-col gap-3">
+          <h2 className="font-semibold text-[13px] text-foreground">
+            <span className="mr-1.5 text-primary">02</span>문항 수
+          </h2>
+          <div className="grid grid-cols-3 gap-2 sm:max-w-sm">
+            {[5, 10, 20].map((n) => (
+              <ChoiceChip active={count === n} className="justify-center rounded-xl" key={n} onClick={() => setCount(n)}>
+                {n}문제
+              </ChoiceChip>
+            ))}
+          </div>
+        </section>
+
+        <div className="flex flex-col gap-3 border-border border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[13px] text-muted-foreground">
+            <b className="font-semibold text-foreground">{subject ? subject.replace(/^\d과목_/, "") : "전체 과목"}</b>
+            {typeof subjectCount === "number" ? ` 문제 ${subjectCount.toLocaleString()}개 중 ` : "에서 "}
+            <b className="font-semibold text-foreground">{count}문제</b>를 무작위로 출제해요
+          </p>
+          <Button className="h-11 gap-1.5 rounded-xl bg-brand px-5 text-[14px]" disabled={loading} onClick={begin}>
+            {loading ? "준비 중..." : "연습 시작"}
+            {loading ? null : <ArrowRightIcon className="size-4" />}
+          </Button>
         </div>
       </div>
-
-      <div className="flex flex-col gap-2">
-        <span className="text-muted-foreground text-xs">문항 수</span>
-        <div className="flex gap-2">
-          {[5, 10, 20].map((n) => (
-            <button
-              className={`rounded-full border px-3 py-1.5 text-[13px] transition-colors ${
-                count === n ? "border-ring bg-accent" : "border-border hover:border-ring"
-              }`}
-              key={n}
-              onClick={() => setCount(n)}
-              type="button"
-            >
-              {n}문제
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <Button className="mt-2" disabled={loading} onClick={begin}>
-        {loading ? "준비 중..." : "연습 시작"}
-      </Button>
     </div>
   );
 }

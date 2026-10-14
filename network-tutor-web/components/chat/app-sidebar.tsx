@@ -1,22 +1,23 @@
 "use client";
 
 import {
-  BarChartIcon,
+  BarChart3Icon,
+  BookOpenCheckIcon,
   CalendarClockIcon,
-  ClockIcon,
   LayersIcon,
-  ListChecksIcon,
-  ListXIcon,
+  type LucideIcon,
+  NotebookPenIcon,
   PanelLeftIcon,
-  PenSquareIcon,
+  PlusIcon,
   ShieldIcon,
-  TrashIcon,
+  TimerIcon,
   TrendingUpIcon,
 } from "lucide-react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { BrandMark, BrandWordmark } from "@/components/brand/logo";
 import { ExamCountdown } from "@/components/chat/exam-countdown";
 import { InstallAppButton } from "@/components/chat/install-app-button";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import type { User } from "next-auth";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
@@ -33,6 +34,7 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -53,8 +55,62 @@ import {
 } from "../ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 
+type NavItem = { href: string; label: string; icon: LucideIcon };
+
+const STUDY_NAV: NavItem[] = [
+  { href: "/practice", label: "문제 연습", icon: BookOpenCheckIcon },
+  { href: "/mock-exam", label: "모의고사", icon: TimerIcon },
+  { href: "/rounds", label: "기출문제 회차별 풀이", icon: CalendarClockIcon },
+  { href: "/flashcards", label: "플래시카드", icon: LayersIcon },
+];
+
+const RECORD_NAV: NavItem[] = [
+  { href: "/wrong-answers", label: "오답노트", icon: NotebookPenIcon },
+  { href: "/my-exams", label: "내 응시 기록", icon: BarChart3Icon },
+  { href: "/my-report", label: "나의 학습 리포트", icon: TrendingUpIcon },
+];
+
+function NavGroup({
+  label,
+  items,
+  pathname,
+  onNavigate,
+}: {
+  label: string;
+  items: NavItem[];
+  pathname: string;
+  onNavigate: () => void;
+}) {
+  return (
+    <SidebarGroup className="py-1">
+      <SidebarGroupLabel className="h-7 px-2.5 font-semibold text-[11px] text-sidebar-foreground/45 tracking-normal normal-case">
+        {label}
+      </SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu className="gap-0.5">
+          {items.map((item) => {
+            const Icon = item.icon;
+            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            return (
+              <SidebarMenuItem key={item.href}>
+                <SidebarMenuButton asChild isActive={active} onClick={onNavigate} tooltip={item.label}>
+                  <Link href={item.href}>
+                    <Icon className={active ? "text-primary" : "text-sidebar-foreground/45"} />
+                    <span>{item.label}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          })}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
+}
+
 export function AppSidebar({ user }: { user: User | undefined }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { setOpenMobile, toggleSidebar } = useSidebar();
   const { mutate } = useSWRConfig();
   const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
@@ -87,27 +143,24 @@ export function AppSidebar({ user }: { user: User | undefined }) {
       method: "DELETE",
     });
 
-    toast.success("All chats deleted");
+    toast.success("모든 대화를 삭제했어요");
   }, [mutate, router]);
 
   return (
     <>
       <Sidebar collapsible="icon">
-        <SidebarHeader className="pb-0 pt-3">
+        <SidebarHeader className="gap-3 px-3 pt-4 pb-2 group-data-[collapsible=icon]:px-2">
           <SidebarMenu>
             <SidebarMenuItem className="flex flex-row items-center justify-between">
               <div className="group/logo relative flex min-w-0 items-center">
                 <SidebarMenuButton
                   asChild
-                  className="!px-0 min-w-0 items-center justify-start gap-2 group-data-[collapsible=icon]:size-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:group-hover/logo:opacity-0"
-                  tooltip="classnet.chat"
+                  className="!px-0.5 h-9 min-w-0 items-center justify-start gap-2.5 hover:bg-transparent group-data-[collapsible=icon]:size-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:group-hover/logo:opacity-0"
+                  tooltip="classnet"
                 >
                   <Link href="/" onClick={closeMobile}>
-                    {/* biome-ignore lint/performance/noImgElement: 고정 로고 자산, next/image 불필요 */}
-                    <img alt="classnet" className="size-8 shrink-0" src="/logo.svg" />
-                    <span className="truncate font-semibold text-sidebar-foreground text-sm group-data-[collapsible=icon]:hidden">
-                      classnet.chat
-                    </span>
+                    <BrandMark className="size-8! drop-shadow-[0_4px_10px_rgb(67_56_202/0.3)]" title="classnet" />
+                    <BrandWordmark className="truncate text-[17px] group-data-[collapsible=icon]:hidden" />
                   </Link>
                 </SidebarMenuButton>
                 <Tooltip>
@@ -120,126 +173,51 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                     </SidebarMenuButton>
                   </TooltipTrigger>
                   <TooltipContent className="hidden md:block" side="right">
-                    Open sidebar
+                    사이드바 열기
                   </TooltipContent>
                 </Tooltip>
               </div>
               <div className="group-data-[collapsible=icon]:hidden">
-                <SidebarTrigger className="text-sidebar-foreground/60 transition-colors duration-150 hover:text-sidebar-foreground" />
+                <SidebarTrigger className="text-sidebar-foreground/45 transition-colors duration-150 hover:text-sidebar-foreground" />
               </div>
             </SidebarMenuItem>
           </SidebarMenu>
-          <div className="mt-1 px-2 group-data-[collapsible=icon]:hidden">
+
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                className="h-10 justify-center gap-1.5 rounded-xl bg-brand font-semibold text-[13.5px] text-white shadow-[var(--shadow-brand)] transition-[filter,transform] duration-150 hover:bg-brand hover:text-white hover:brightness-110 active:scale-[0.98] group-data-[collapsible=icon]:size-9! group-data-[collapsible=icon]:rounded-lg"
+                onClick={handleNewChat}
+                tooltip="새 대화"
+              >
+                <PlusIcon className="size-4" strokeWidth={2.5} />
+                <span>새 대화</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+          <div className="group-data-[collapsible=icon]:hidden empty:hidden">
             <InstallAppButton />
           </div>
         </SidebarHeader>
-        <SidebarContent>
-          <SidebarGroup className="pt-1">
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    className="h-8 rounded-lg border border-sidebar-border text-[13px] text-sidebar-foreground/70 transition-colors duration-150 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                    onClick={handleNewChat}
-                    tooltip="New Chat"
-                  >
-                    <PenSquareIcon className="size-4" />
-                    <span className="font-medium">New chat</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                {user ? (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      className="rounded-lg text-sidebar-foreground/40 transition-colors duration-150 hover:bg-destructive/10 hover:text-destructive"
-                      onClick={handleShowDeleteAllDialog}
-                      tooltip="Delete All Chats"
-                    >
-                      <TrashIcon className="size-4" />
-                      <span className="text-[13px]">Delete all</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ) : null}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-          {user ? (
-            <SidebarGroup className="pt-0">
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild onClick={closeMobile} tooltip="문제 연습">
-                      <Link href="/practice">
-                        <ListChecksIcon className="size-4 text-sidebar-foreground/50" />
-                        <span className="text-[13px]">문제 연습</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild onClick={closeMobile} tooltip="모의고사">
-                      <Link href="/mock-exam">
-                        <ClockIcon className="size-4 text-sidebar-foreground/50" />
-                        <span className="text-[13px]">모의고사</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild onClick={closeMobile} tooltip="기출문제 회차별 풀이">
-                      <Link href="/rounds">
-                        <CalendarClockIcon className="size-4 text-sidebar-foreground/50" />
-                        <span className="text-[13px]">기출문제 회차별 풀이</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild onClick={closeMobile} tooltip="내 응시 기록">
-                      <Link href="/my-exams">
-                        <BarChartIcon className="size-4 text-sidebar-foreground/50" />
-                        <span className="text-[13px]">내 응시 기록</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild onClick={closeMobile} tooltip="오답노트">
-                      <Link href="/wrong-answers">
-                        <ListXIcon className="size-4 text-sidebar-foreground/50" />
-                        <span className="text-[13px]">오답노트</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild onClick={closeMobile} tooltip="나의 학습 리포트">
-                      <Link href="/my-report">
-                        <TrendingUpIcon className="size-4 text-sidebar-foreground/50" />
-                        <span className="text-[13px]">나의 학습 리포트</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild onClick={closeMobile} tooltip="플래시카드">
-                      <Link href="/flashcards">
-                        <LayersIcon className="size-4 text-sidebar-foreground/50" />
-                        <span className="text-[13px]">플래시카드</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  {user.role === "admin" ? (
-                    <SidebarMenuItem>
-                      <SidebarMenuButton asChild onClick={closeMobile} tooltip="관리자">
-                        <Link href="/admin">
-                          <ShieldIcon className="size-4 text-sidebar-foreground/50" />
-                          <span className="text-[13px]">관리자</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ) : null}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          ) : null}
+        <SidebarContent className="gap-0 px-1">
           {user ? <ExamCountdown /> : null}
-          <SidebarHistory user={user} />
+          {user ? (
+            <>
+              <NavGroup items={STUDY_NAV} label="학습하기" onNavigate={closeMobile} pathname={pathname} />
+              <NavGroup items={RECORD_NAV} label="나의 기록" onNavigate={closeMobile} pathname={pathname} />
+              {user.role === "admin" ? (
+                <NavGroup
+                  items={[{ href: "/admin", label: "관리자 콘솔", icon: ShieldIcon }]}
+                  label="관리"
+                  onNavigate={closeMobile}
+                  pathname={pathname}
+                />
+              ) : null}
+            </>
+          ) : null}
+          <SidebarHistory onDeleteAll={user ? handleShowDeleteAllDialog : undefined} user={user} />
         </SidebarContent>
-        <SidebarFooter className="border-t border-sidebar-border pt-2 pb-3">
+        <SidebarFooter className="border-t border-sidebar-border px-3 pt-2.5 pb-3 group-data-[collapsible=icon]:px-2">
           {user ? <SidebarUserNav user={user} /> : null}
         </SidebarFooter>
         <SidebarRail />
@@ -251,16 +229,15 @@ export function AppSidebar({ user }: { user: User | undefined }) {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete all chats?</AlertDialogTitle>
+            <AlertDialogTitle>모든 대화를 삭제할까요?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete all
-              your chats and remove them from our servers.
+              지금까지의 대화 기록이 전부 지워지며, 되돌릴 수 없어요.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>취소</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteAll}>
-              Delete All
+              모두 삭제
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

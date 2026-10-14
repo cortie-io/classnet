@@ -1,6 +1,8 @@
 "use client";
 
 import { use, useEffect, useRef, useState } from "react";
+import { UserRoundIcon } from "lucide-react";
+import { PageIntro } from "@/components/chat/page-intro";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/chat/toast";
@@ -173,32 +175,29 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="font-semibold text-xl">{detail.user.name}</h1>
-        <p className="text-muted-foreground text-sm">{detail.user.email}</p>
-      </div>
+      <PageIntro description={detail.user.email} icon={UserRoundIcon} title={detail.user.name} />
 
       <div className="grid grid-cols-2 gap-3 text-[13px] sm:grid-cols-4">
-        <div className="rounded-xl border border-border bg-card p-3">
+        <div className="rounded-xl border border-border bg-card shadow-[var(--shadow-card)] p-3">
           <p className="text-muted-foreground text-xs">학번</p>
           <p>{detail.user.student_id ?? "-"}</p>
         </div>
-        <div className="rounded-xl border border-border bg-card p-3">
+        <div className="rounded-xl border border-border bg-card shadow-[var(--shadow-card)] p-3">
           <p className="text-muted-foreground text-xs">생년월일</p>
           <p>{detail.user.birthdate ? new Date(detail.user.birthdate).toLocaleDateString("ko-KR") : "-"}</p>
         </div>
-        <div className="rounded-xl border border-border bg-card p-3">
+        <div className="rounded-xl border border-border bg-card shadow-[var(--shadow-card)] p-3">
           <p className="text-muted-foreground text-xs">학습 수준</p>
           <p>{detail.user.level}</p>
         </div>
-        <div className="rounded-xl border border-border bg-card p-3">
+        <div className="rounded-xl border border-border bg-card shadow-[var(--shadow-card)] p-3">
           <p className="text-muted-foreground text-xs">과목별 질문 분포</p>
           <p>{detail.categoryStats.map((c) => `${c.subject.replace(/^\d과목_/, "")}(${c.count})`).join(", ") || "없음"}</p>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border bg-card p-5">
-        <h2 className="mb-1 font-medium text-sm">시험 성적</h2>
+      <div className="surface p-5">
+        <h2 className="mb-1 font-semibold text-[14px]">시험 성적</h2>
         <p className="mb-3 text-muted-foreground text-xs">
           전체 정답률 {detail.examStats.total !== "0" ? `${Math.round((Number(detail.examStats.correct) / Number(detail.examStats.total)) * 1000) / 10}% (${detail.examStats.correct}/${detail.examStats.total})` : "채점 기록 없음"}
         </p>
@@ -282,8 +281,8 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border bg-card p-5">
-        <h2 className="mb-2 font-medium text-sm">비밀번호 초기화</h2>
+      <div className="surface p-5">
+        <h2 className="mb-2 font-semibold text-[14px]">비밀번호 초기화</h2>
         <div className="flex gap-2">
           <Input onChange={(e) => setNewPassword(e.target.value)} placeholder="새 비밀번호(8자 이상)" type="password" value={newPassword} />
           <Button onClick={resetPassword}>초기화</Button>
@@ -291,11 +290,11 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
       </div>
 
       <div>
-        <h2 className="mb-2 font-medium text-sm">질문/채팅 기록 · {history.length} / {historyTotal}건</h2>
+        <h2 className="mb-2 font-semibold text-[14px]">질문/채팅 기록 · {history.length} / {historyTotal}건</h2>
         <div className="flex flex-col gap-2">
           {!historyLoading && !historyError && history.length === 0 && <p className="text-muted-foreground text-sm">기록이 없습니다.</p>}
           {history.map((h) => (
-            <div className="rounded-xl border border-border bg-card p-4 text-[13px]" key={h.id}>
+            <div className="rounded-xl border border-border bg-card shadow-[var(--shadow-card)] p-4 text-[13px]" key={h.id}>
               <div className="mb-1 flex items-center gap-2 text-muted-foreground text-xs">
                 <span
                   className={`rounded-full px-2 py-0.5 ${

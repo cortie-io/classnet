@@ -3,6 +3,8 @@ import type { UseChatHelpers } from "@ai-sdk/react";
 import { useCallback } from "react";
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
+import { BookMarkedIcon } from "lucide-react";
+import { BrandMark } from "@/components/brand/logo";
 import { cn, sanitizeText } from "@/lib/utils";
 import { MessageContent, MessageResponse } from "../ai-elements/message";
 import { Shimmer } from "../ai-elements/shimmer";
@@ -16,7 +18,6 @@ import {
 import { useDataStream } from "./data-stream-provider";
 import { DocumentToolResult } from "./document";
 import { DocumentPreview } from "./document-preview";
-import { SparklesIcon } from "./icons";
 import { InlinePracticeQuestions, type PracticeAttempt } from "./inline-practice-questions";
 import { MessageActions } from "./message-actions";
 import { MessageReasoning } from "./message-reasoning";
@@ -47,19 +48,22 @@ function splitPracticeAttempt(text: string): { main: string; attempt: PracticeAt
 
 function SourceFootnoteDetails({ source }: { source: string }) {
   return (
-    <details className="mt-2 text-muted-foreground text-xs">
-      <summary className="cursor-pointer select-none hover:text-foreground">출처 보기</summary>
-      <div className="mt-1.5 whitespace-pre-wrap leading-relaxed">{source}</div>
+    <details className="group/source mt-1 text-muted-foreground text-xs">
+      <summary className="inline-flex cursor-pointer select-none list-none items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 font-medium text-[11.5px] transition-colors hover:border-primary/30 hover:text-primary group-open/source:border-primary/30 group-open/source:text-primary [&::-webkit-details-marker]:hidden">
+        <BookMarkedIcon className="size-3.5" />
+        출처 보기
+      </summary>
+      <div className="mt-2 whitespace-pre-wrap rounded-xl bg-muted/70 px-3.5 py-2.5 leading-relaxed">{source}</div>
     </details>
   );
 }
 
 function WaitingText() {
   const { waitingStatus } = useDataStream();
-  const waitingText = waitingStatus?.message ?? "Waiting...";
+  const waitingText = waitingStatus?.message ?? "답변을 준비하고 있어요…";
 
   return (
-    <div className="flex min-h-[calc(13px*1.65)] min-w-0 items-center text-[13px] leading-[1.65]">
+    <div className="flex min-h-7 min-w-0 items-center text-[14px] leading-[1.75]">
       <Shimmer
         as="span"
         className="font-medium whitespace-normal break-words"
@@ -219,8 +223,8 @@ const PurePreviewMessage = ({
       }
       return (
         <MessageContent
-          className={cn("text-[13px] leading-[1.65]", {
-            "w-fit max-w-[min(80%,56ch)] overflow-hidden break-words rounded-2xl rounded-br-lg border border-border/30 bg-gradient-to-br from-secondary to-muted px-3.5 py-2 shadow-[var(--shadow-card)]":
+          className={cn("text-[14px] leading-[1.75]", {
+            "w-fit max-w-[min(85%,56ch)] overflow-hidden break-words rounded-[20px] rounded-br-md bg-brand px-4 py-2.5 text-white shadow-[var(--shadow-brand)] [&_a]:text-white [&_code]:bg-white/15 [&_code]:text-white":
               message.role === "user",
           })}
           data-testid="message-content"
@@ -422,10 +426,8 @@ const PurePreviewMessage = ({
         )}
       >
         {isAssistant && (
-          <div className="flex h-[calc(13px*1.65)] shrink-0 items-center">
-            <div className="flex size-7 items-center justify-center rounded-lg bg-muted/60 text-muted-foreground ring-1 ring-border/50">
-              <SparklesIcon size={13} />
-            </div>
+          <div className="flex h-7 shrink-0 items-center">
+            <BrandMark className="size-7 drop-shadow-[0_3px_8px_rgb(67_56_202/0.25)]" />
           </div>
         )}
         {isAssistant ? (
@@ -447,10 +449,8 @@ export const ThinkingMessage = () => (
     data-testid="message-assistant-loading"
   >
     <div className="flex items-start gap-3">
-      <div className="flex h-[calc(13px*1.65)] shrink-0 items-center">
-        <div className="flex size-7 items-center justify-center rounded-lg bg-muted/60 text-muted-foreground ring-1 ring-border/50">
-          <SparklesIcon size={13} />
-        </div>
+      <div className="flex h-7 shrink-0 items-center">
+        <BrandMark className="size-7 drop-shadow-[0_3px_8px_rgb(67_56_202/0.25)]" />
       </div>
 
       <WaitingText />

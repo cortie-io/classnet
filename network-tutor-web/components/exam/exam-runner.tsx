@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ChevronLeftIcon, ChevronRightIcon, SendIcon, ShieldAlertIcon, TimerIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -310,31 +311,48 @@ export function ExamRunner({ start, proctored }: { start: ExamStartResponse; pro
   const minutes = remainingSec !== null ? Math.floor(remainingSec / 60) : null;
   const seconds = remainingSec !== null ? remainingSec % 60 : null;
   const answered = isAnswered(current);
+  const answeredCount = questions.length - unansweredCount;
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-3 py-6 sm:px-4 sm:py-8">
-      <div className="flex flex-wrap items-center justify-between gap-2 text-muted-foreground text-sm">
-        <span>
-          {index + 1} / {questions.length}
-        </span>
-        {remainingSec !== null && (
-          <span className={remainingSec < 60 ? "font-semibold text-destructive" : ""}>
-            남은 시간 {minutes}:{String(seconds).padStart(2, "0")}
-          </span>
-        )}
-      </div>
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-6 sm:py-10">
+      <div className="surface flex flex-col gap-4 p-4 sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-baseline gap-2">
+            <span className="font-extrabold text-[20px] text-foreground tabular-nums tracking-tight">
+              {index + 1}
+              <span className="font-medium text-[14px] text-muted-foreground"> / {questions.length}</span>
+            </span>
+            <span className="text-[12.5px] text-muted-foreground">· {answeredCount}문제 답함</span>
+          </div>
+          {remainingSec !== null && (
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-bold text-[13px] tabular-nums ${
+                remainingSec < 60 ? "animate-pulse bg-destructive/10 text-destructive" : "bg-accent text-primary"
+              }`}
+            >
+              <TimerIcon className="size-4" />
+              {minutes}:{String(seconds).padStart(2, "0")}
+            </span>
+          )}
+        </div>
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-brand transition-[width] duration-300"
+            style={{ width: `${(answeredCount / questions.length) * 100}%` }}
+          />
+        </div>
       <div className="flex flex-wrap gap-1.5" aria-label="문항 이동">
         {questions.map((q, i) => {
           const done = isAnswered(q);
           const failed = saveFailed[q.questionId];
-          const base = "h-7 min-w-7 rounded-md border px-1.5 text-[12px] tabular-nums transition-colors";
+          const base = "h-8 min-w-8 rounded-lg border px-1.5 font-medium text-[12.5px] tabular-nums transition-all duration-150";
           const tone = failed
-            ? "border-destructive text-destructive"
+            ? "border-destructive bg-destructive/10 text-destructive"
             : i === index
-              ? "border-ring bg-accent font-semibold"
+              ? "border-primary bg-primary font-bold text-primary-foreground shadow-[var(--shadow-brand)]"
               : done
-                ? "border-border bg-muted text-foreground"
-                : "border-border/60 text-muted-foreground";
+                ? "border-primary/20 bg-accent text-primary"
+                : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-primary";
           return (
             <button
               aria-current={i === index ? "step" : undefined}
@@ -349,45 +367,52 @@ export function ExamRunner({ start, proctored }: { start: ExamStartResponse; pro
           );
         })}
       </div>
+      </div>
       {proctored && (
-        <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-muted-foreground text-xs">
+        <p className="flex gap-2.5 rounded-2xl border border-warning/40 bg-warning/10 px-4 py-3 text-[12.5px] text-foreground/75 leading-relaxed">
+          <ShieldAlertIcon className="mt-0.5 size-4 shrink-0 text-amber-600" />
           {PROCTORED_EVENTS_HELP}
         </p>
       )}
-      <div
-        className={`rounded-2xl border border-border/50 bg-card p-4 shadow-[var(--shadow-card)] sm:p-5 ${proctored ? "select-none" : ""}`}
-      >
-        {!isMC && (
-          <div className="mb-2 flex items-center gap-2">
-            <Badge variant="secondary">{QUESTION_TYPE_LABEL[current.questionType]}</Badge>
-            <span className="text-muted-foreground text-xs">배점 {current.maxScore}점</span>
-          </div>
-        )}
-        <p className="whitespace-pre-wrap font-medium text-[15px] leading-relaxed">{current.stem}</p>
+      <div className={`surface p-5 sm:p-7 ${proctored ? "select-none" : ""}`}>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="rounded-lg bg-brand px-2.5 py-1 font-bold text-[12px] text-white">Q{index + 1}</span>
+          {!isMC && <Badge variant="secondary">{QUESTION_TYPE_LABEL[current.questionType]}</Badge>}
+          {!isMC && <span className="text-muted-foreground text-xs">배점 {current.maxScore}점</span>}
+        </div>
+        <p className="whitespace-pre-wrap font-semibold text-[16px] text-foreground leading-[1.7] tracking-[-0.02em]">{current.stem}</p>
         {current.stemImageUrl ? (
           // biome-ignore lint/performance/noImgElement: 문제 지문 이미지는 public/exam-images의 고정 자산
           <img
             src={current.stemImageUrl}
             alt="문제 지문 이미지"
-            className="mt-3 max-h-80 w-fit max-w-full rounded-lg border"
+            className="mt-4 max-h-80 w-fit max-w-full rounded-xl border"
           />
         ) : null}
 
         {isMC && (
-          <div className="mt-4 flex flex-col gap-2">
+          <div className="mt-5 flex flex-col gap-2.5">
             {current.choices.map((choice, i) => {
               const isSelected = selected[current.questionId] === i;
               const stateClass = isSelected
-                ? "border-ring bg-accent shadow-[var(--shadow-card)]"
-                : "border-border/60 hover:border-ring hover:shadow-[var(--shadow-card)]";
+                ? "border-primary bg-accent text-foreground ring-2 ring-primary/15"
+                : "border-border bg-card text-foreground/85 hover:border-primary/40 hover:bg-accent/40";
               return (
                 <button
-                  className={`rounded-xl border px-4 py-3 text-left text-[14px] transition-all duration-150 ${stateClass}`}
+                  aria-pressed={isSelected}
+                  className={`flex items-start gap-3 rounded-2xl border px-4 py-3.5 text-left text-[14.5px] leading-relaxed transition-all duration-150 active:scale-[0.995] ${stateClass}`}
                   key={i}
                   onClick={() => handleSelect(i)}
                   type="button"
                 >
-                  {String.fromCharCode(9312 + i)} {choice}
+                  <span
+                    className={`flex size-6 shrink-0 items-center justify-center rounded-full font-bold text-[12px] transition-colors ${
+                      isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {i + 1}
+                  </span>
+                  <span className="pt-px">{choice}</span>
                 </button>
               );
             })}
@@ -443,7 +468,7 @@ export function ExamRunner({ start, proctored }: { start: ExamStartResponse; pro
         )}
       </div>
       {confirmingSubmit && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-warning/50 bg-warning/10 px-4 py-3 font-medium text-sm">
           <span>답하지 않은 문제가 {unansweredCount}개 있습니다. 그대로 제출할까요?</span>
           <div className="flex gap-2">
             <Button onClick={() => setConfirmingSubmit(false)} size="sm" type="button" variant="outline">
@@ -456,19 +481,22 @@ export function ExamRunner({ start, proctored }: { start: ExamStartResponse; pro
         </div>
       )}
       <div className="flex items-center justify-between gap-2">
-        <Button disabled={submitting || index === 0} onClick={() => goTo(index - 1)} type="button" variant="outline">
-          이전 문제
+        <Button className="h-11 rounded-xl" disabled={submitting || index === 0} onClick={() => goTo(index - 1)} type="button" variant="outline">
+          <ChevronLeftIcon className="size-4" />
+          이전
         </Button>
         <div className="flex items-center gap-2">
           {!answered && (
-            <span className="text-muted-foreground text-xs">{isMC ? "건너뛰고 나중에 풀 수 있어요" : "답을 입력하고 저장하세요"}</span>
+            <span className="hidden text-muted-foreground text-xs sm:inline">{isMC ? "건너뛰고 나중에 풀 수 있어요" : "답을 입력하고 저장하세요"}</span>
           )}
           {index < questions.length - 1 && (
-            <Button disabled={submitting} onClick={goNext} type="button">
-              다음 문제
+            <Button className="h-11 rounded-xl bg-brand px-5" disabled={submitting} onClick={goNext} type="button">
+              다음
+              <ChevronRightIcon className="size-4" />
             </Button>
           )}
           <Button
+            className={`h-11 rounded-xl ${index < questions.length - 1 ? "" : "bg-brand px-5"}`}
             disabled={submitting}
             onClick={async () => {
               if (!isMC && (answerTexts[current.questionId] ?? "").trim() && !saved[current.questionId]) await submitTextAnswer();
@@ -477,6 +505,7 @@ export function ExamRunner({ start, proctored }: { start: ExamStartResponse; pro
             type="button"
             variant={index < questions.length - 1 ? "outline" : "default"}
           >
+            {index < questions.length - 1 ? null : <SendIcon className="size-4" />}
             {submitting ? "제출 중…" : "제출하기"}
           </Button>
         </div>

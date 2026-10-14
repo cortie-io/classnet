@@ -1,6 +1,8 @@
 "use client";
 
+import { CheckIcon, ClockIcon, MessageCircleQuestionIcon, SparklesIcon, XIcon } from "lucide-react";
 import { use, useEffect, useState } from "react";
+import { PageLoading, PageNotice } from "@/components/chat/page-intro";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -120,20 +122,26 @@ export default function ExamResultPage({ params }: { params: Promise<{ id: strin
     loadJson(`/api/exam/attempts/${id}`, setData, { quiet: true }).finally(() => setLoading(false));
   }, [id]);
 
-  if (loading) return <div className="px-4 py-10 text-center text-muted-foreground">불러오는 중...</div>;
-  if (!data) return <div className="px-4 py-10 text-center text-muted-foreground">응시 기록을 찾을 수 없습니다.</div>;
+  if (loading) return <PageLoading />;
+  if (!data)
+    return (
+      <div className="mx-auto w-full max-w-2xl px-4 py-12">
+        <PageNotice title="응시 기록을 찾을 수 없어요" />
+      </div>
+    );
 
   if (data.status === "in_progress") {
     return (
-      <div className="mx-auto flex w-full max-w-lg flex-col items-center gap-3 px-4 py-16 text-center">
-        <p className="font-medium">아직 진행 중인 응시입니다.</p>
-        <p className="text-muted-foreground text-sm">
-          연습/모의고사를 시작했던 탭에서 계속 진행해 주세요. 새로고침으로 이 화면에 왔다면, 안타깝게도 문제
-          화면은 다시 불러올 수 없어 처음부터 다시 시작해야 합니다.
-        </p>
-        <Link href="/my-exams">
-          <Button variant="outline">내 응시 기록으로 이동</Button>
-        </Link>
+      <div className="mx-auto w-full max-w-2xl px-4 py-12">
+        <PageNotice
+          description="연습/모의고사를 시작했던 탭에서 계속 진행해 주세요. 새로고침으로 이 화면에 왔다면, 안타깝게도 문제 화면은 다시 불러올 수 없어 처음부터 다시 시작해야 해요."
+          icon={ClockIcon}
+          title="아직 진행 중인 응시예요"
+        >
+          <Button asChild variant="outline">
+            <Link href="/my-exams">내 응시 기록으로 이동</Link>
+          </Button>
+        </PageNotice>
       </div>
     );
   }
@@ -172,50 +180,91 @@ export default function ExamResultPage({ params }: { params: Promise<{ id: strin
     router.push("/");
   };
 
+  // 서버 점수는 이미 100점 만점 환산값이다(examService.buildResultItems).
+  const pct = Math.max(0, Math.min(100, data.score ?? 0));
+  const passed = (data.score ?? 0) >= 60;
+
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-3 py-6 sm:px-4 sm:py-8">
-      <div className="rounded-2xl border border-border/50 bg-card p-6 text-center shadow-[var(--shadow-card)]">
-        <p className="text-muted-foreground text-sm">
-          {data.status === "auto_submitted" ? "시간 초과로 자동 제출됨" : "제출 완료"}
-        </p>
-        {isSingleQuestion && gradedCount === 1 ? (
-          <p className={`mt-1 font-bold text-3xl ${correctCount === 1 ? "text-emerald-500" : "text-destructive"}`}>
-            {correctCount === 1 ? "정답입니다" : "오답입니다"}
-          </p>
-        ) : (
-          <>
-            <p className="mt-1 font-bold text-3xl">{data.score}점</p>
-            <p className="text-muted-foreground text-sm">
-              {correctCount} / {gradedCount} 정답{gradedCount < data.total ? ` (자동채점 대상만)` : ""}
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-8 sm:py-12">
+      <div className="surface relative overflow-hidden p-6 text-center sm:p-8">
+        <div className="pointer-events-none absolute inset-0 bg-brand-soft opacity-70" />
+        <div className="pointer-events-none absolute inset-0 bg-dots opacity-50 [mask-image:radial-gradient(closest-side,black,transparent)]" />
+        <div className="relative flex flex-col items-center">
+          <span className="rounded-full bg-white/80 px-3 py-1 font-semibold text-[12px] text-muted-foreground shadow-[var(--shadow-card)]">
+            {data.status === "auto_submitted" ? "시간 초과로 자동 제출됨" : "제출 완료"}
+          </span>
+          {isSingleQuestion && gradedCount === 1 ? (
+            <div className="mt-4 flex flex-col items-center gap-2">
+              <span
+                className={`flex size-14 items-center justify-center rounded-full text-white ${correctCount === 1 ? "bg-emerald-500" : "bg-destructive"}`}
+              >
+                {correctCount === 1 ? <CheckIcon className="size-7" strokeWidth={3} /> : <XIcon className="size-7" strokeWidth={3} />}
+              </span>
+              <p className={`font-extrabold text-[28px] tracking-tight ${correctCount === 1 ? "text-emerald-600" : "text-destructive"}`}>
+                {correctCount === 1 ? "정답입니다" : "오답입니다"}
+              </p>
+            </div>
+          ) : (
+            <>
+              <div
+                className="mt-5 flex size-36 items-center justify-center rounded-full"
+                style={{
+                  background: `conic-gradient(var(--primary) ${pct * 3.6}deg, oklch(0.92 0.02 277) 0deg)`,
+                }}
+              >
+                <div className="flex size-[124px] flex-col items-center justify-center rounded-full bg-card">
+                  <span className="font-extrabold text-[40px] text-foreground tabular-nums leading-none tracking-tight">{data.score}</span>
+                  <span className="mt-1 text-[12px] text-muted-foreground">점</span>
+                </div>
+              </div>
+              <p className="mt-4 text-[14px] text-muted-foreground">
+                <b className="font-bold text-foreground">{correctCount}</b> / {gradedCount} 정답
+                {gradedCount < data.total ? " (자동채점 대상만)" : ""}
+              </p>
+              {!data.gradingPending && (
+                <p className={`mt-1 font-semibold text-[13px] ${passed ? "text-primary" : "text-amber-600"}`}>
+                  {passed ? "합격선(60점)을 넘었어요 🎉" : "합격선(60점)까지 조금만 더!"}
+                </p>
+              )}
+            </>
+          )}
+          {data.gradingPending && (
+            <p className="mt-3 rounded-xl bg-warning/15 px-3.5 py-2 text-[12.5px] text-amber-700">
+              주관식·서술형 일부가 아직 채점 전이에요 — 교사 채점이 끝나면 점수가 반영돼요.
             </p>
-          </>
-        )}
-        {data.gradingPending && (
-          <p className="mt-2 rounded-lg bg-amber-500/10 px-3 py-1.5 text-amber-600 text-xs">
-            주관식·서술형 일부가 아직 채점 전입니다 — 교사 채점이 끝나면 점수가 반영됩니다.
-          </p>
-        )}
-        <div className="mt-3 flex flex-wrap justify-center gap-2">
-          {!isSingleQuestion && (
-            <Button onClick={askAnalysisInChat} size="sm" variant="outline">
-              이번 시험 종합 분석 받기
-            </Button>
           )}
-          {wrongItems.length > 1 && (
-            <Button onClick={askWrongInChat} size="sm" variant="outline">
-              틀린 문제 {wrongItems.length}개 한 번에 채팅으로 해설받기
-            </Button>
-          )}
+          <div className="mt-5 flex flex-wrap justify-center gap-2">
+            {!isSingleQuestion && (
+              <Button className="rounded-xl bg-brand" onClick={askAnalysisInChat}>
+                <SparklesIcon className="size-4" />
+                이번 시험 종합 분석 받기
+              </Button>
+            )}
+            {wrongItems.length > 1 && (
+              <Button className="rounded-xl" onClick={askWrongInChat} variant="outline">
+                틀린 문제 {wrongItems.length}개 한 번에 해설받기
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
-      <h2 className="mt-2 font-semibold text-lg">문제별 해설</h2>
+      <h2 className="mt-3 px-1 font-bold text-[17px] text-foreground tracking-tight">문제별 해설</h2>
       {data.items.map((item, i) => (
-        <div
-          className="rounded-2xl border border-border/50 bg-card p-4 shadow-[var(--shadow-card)] sm:p-5"
-          key={item.questionId}
-        >
-          <div className="mb-2 flex flex-wrap items-center gap-2">
+        <div className="surface p-5 sm:p-6" key={item.questionId}>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <span
+              className={`flex items-center gap-1 rounded-lg px-2.5 py-1 font-bold text-[12px] ${
+                item.isCorrect === true
+                  ? "bg-emerald-500/12 text-emerald-700"
+                  : item.isCorrect === false
+                    ? "bg-destructive/10 text-destructive"
+                    : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {item.isCorrect === true ? <CheckIcon className="size-3.5" strokeWidth={3} /> : item.isCorrect === false ? <XIcon className="size-3.5" strokeWidth={3} /> : null}
+              Q{i + 1}
+            </span>
             {item.questionType !== "multiple_choice" && (
               <Badge variant="secondary">{QUESTION_TYPE_LABEL[item.questionType]}</Badge>
             )}
@@ -223,38 +272,45 @@ export default function ExamResultPage({ params }: { params: Promise<{ id: strin
               {item.score !== null ? `${item.score} / ${item.maxScore}점` : `채점 대기 (${item.maxScore}점 만점)`}
             </span>
           </div>
-          <p className="mb-3 whitespace-pre-wrap font-medium text-[14px]">
-            {i + 1}. {item.stem}
-          </p>
+          <p className="mb-4 whitespace-pre-wrap font-semibold text-[14.5px] text-foreground leading-relaxed">{item.stem}</p>
           {item.stemImageUrl ? (
             // biome-ignore lint/performance/noImgElement: 문제 지문 이미지는 public/exam-images의 고정 자산
             <img
               src={item.stemImageUrl}
               alt="문제 지문 이미지"
-              className="mb-3 max-h-80 w-fit max-w-full rounded-lg border"
+              className="mb-4 max-h-80 w-fit max-w-full rounded-xl border"
             />
           ) : null}
 
           {item.questionType === "multiple_choice" ? (
             <div className="flex flex-col gap-1.5">
               {item.choices.map((choice, ci) => {
-                let stateClass = "border-border text-muted-foreground";
-                if (ci === item.correctIndex) stateClass = "border-emerald-500 bg-emerald-500/10";
-                else if (ci === item.selectedIndex) stateClass = "border-destructive bg-destructive/10";
+                let stateClass = "border-border/70 text-muted-foreground";
+                let mark: string | null = null;
+                if (ci === item.correctIndex) {
+                  stateClass = "border-emerald-500/50 bg-emerald-500/8 font-medium text-emerald-900";
+                  mark = ci === item.selectedIndex ? "정답 · 내 답" : "정답";
+                } else if (ci === item.selectedIndex) {
+                  stateClass = "border-destructive/40 bg-destructive/6 text-destructive";
+                  mark = "내 답";
+                }
                 return (
-                  <div className={`rounded-lg border px-3 py-2 text-[13px] ${stateClass}`} key={ci}>
-                    {String.fromCharCode(9312 + ci)} {choice}
+                  <div className={`flex items-center justify-between gap-2 rounded-xl border px-3.5 py-2.5 text-[13.5px] ${stateClass}`} key={ci}>
+                    <span>
+                      {String.fromCharCode(9312 + ci)} {choice}
+                    </span>
+                    {mark ? <span className="shrink-0 font-semibold text-[11px]">{mark}</span> : null}
                   </div>
                 );
               })}
             </div>
           ) : (
             <div
-              className={`whitespace-pre-wrap rounded-lg border px-3 py-2 text-[13px] ${
+              className={`whitespace-pre-wrap rounded-xl border px-3.5 py-2.5 text-[13.5px] ${
                 item.isCorrect === true
-                  ? "border-emerald-500 bg-emerald-500/10"
+                  ? "border-emerald-500/50 bg-emerald-500/8"
                   : item.isCorrect === false
-                    ? "border-destructive bg-destructive/10"
+                    ? "border-destructive/40 bg-destructive/6"
                     : "border-border"
               }`}
             >
@@ -263,23 +319,26 @@ export default function ExamResultPage({ params }: { params: Promise<{ id: strin
           )}
 
           {item.graderFeedback && (
-            <p className="mt-2 whitespace-pre-wrap rounded-lg bg-muted/30 p-2 text-[12px] text-muted-foreground">
-              <span className="font-medium">교사 피드백: </span>{item.graderFeedback}
+            <p className="mt-3 whitespace-pre-wrap rounded-xl border border-primary/15 bg-accent/60 p-3 text-[12.5px] text-foreground/80">
+              <span className="font-semibold text-primary">교사 피드백 · </span>
+              {item.graderFeedback}
             </p>
           )}
 
-          <p className="mt-3 whitespace-pre-wrap rounded-lg bg-muted/50 p-3 text-[12px] text-muted-foreground leading-relaxed">
-            {item.explanation}
-          </p>
+          <div className="mt-4 rounded-xl bg-muted/70 p-3.5">
+            <p className="mb-1 font-semibold text-[12px] text-foreground">해설</p>
+            <p className="whitespace-pre-wrap text-[13px] text-muted-foreground leading-relaxed">{item.explanation}</p>
+          </div>
           <Button
-            className="mt-2"
+            className="mt-3"
             onClick={() => {
               sessionStorage.setItem("classnet:queuedQueries", JSON.stringify([composeQuestionPrompt(item, i)]));
               router.push("/");
             }}
             size="sm"
-            variant="outline"
+            variant="ghost"
           >
+            <MessageCircleQuestionIcon className="size-4" />
             채팅에서 더 물어보기
           </Button>
         </div>

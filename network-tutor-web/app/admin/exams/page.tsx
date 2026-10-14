@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { TimerIcon } from "lucide-react";
+import { PageIntro } from "@/components/chat/page-intro";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -328,10 +330,10 @@ export default function ExamsAdminPage() {
 
   return (
     <div className="flex w-full flex-col gap-6 overflow-x-hidden">
-      <h1 className="font-semibold text-xl">시험 관리</h1>
+      <PageIntro description="문제를 직접 작성하고, 지정 시험을 만들어 학생에게 배정해요." icon={TimerIcon} title="시험 관리" />
 
-      <div className="rounded-2xl border border-border bg-card p-4 sm:p-5">
-        <h2 className="mb-3 font-medium text-sm">문제 직접 작성</h2>
+      <div className="surface p-4 sm:p-5">
+        <h2 className="mb-3 font-semibold text-[14px]">문제 직접 작성</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label>과목</Label>
@@ -445,8 +447,8 @@ export default function ExamsAdminPage() {
         </Button>
       </div>
 
-      <div className="rounded-2xl border border-border bg-card p-4 sm:p-5">
-        <h2 className="mb-3 font-medium text-sm">새 시험 만들기</h2>
+      <div className="surface p-4 sm:p-5">
+        <h2 className="mb-3 font-semibold text-[14px]">새 시험 만들기</h2>
         <div className="mb-3 flex flex-col gap-2 sm:flex-row">
           <Input onChange={(e) => setTitle(e.target.value)} placeholder="시험 제목(예: 1차 지필평가)" value={title} />
           <Input
@@ -491,7 +493,7 @@ export default function ExamsAdminPage() {
         </div>
         <div className="flex max-h-72 flex-col gap-1 overflow-auto rounded-lg border border-border p-2">
           {approved.map((q) => (
-            <label className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 text-[13px] hover:bg-accent/40" key={q.id}>
+            <label className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 text-[13px] hover:bg-accent/50" key={q.id}>
               <input checked={selected.has(q.id)} onChange={() => toggle(q.id)} type="checkbox" />
               <span className="min-w-0">
                 <span className="mr-2 text-muted-foreground">[{q.subject.replace(/^\d과목_/, "")}]</span>
@@ -504,18 +506,18 @@ export default function ExamsAdminPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border bg-card">
+      <div className="surface">
         <h2 className="p-4 pb-0 font-medium text-sm">생성된 시험</h2>
         <div className="overflow-x-auto">
-          <table className="mt-2 w-full min-w-[720px] text-[13px]">
+          <table className="table mt-2 w-full min-w-[720px] text-[13px]">
             <thead>
-              <tr className="border-border border-b text-muted-foreground">
-                <th className="px-4 py-2 text-left font-medium">제목</th>
-                <th className="px-4 py-2 text-left font-medium">문항수</th>
-                <th className="px-4 py-2 text-left font-medium">제한시간</th>
-                <th className="px-4 py-2 text-left font-medium">응시 가능 기간</th>
-                <th className="px-4 py-2 text-left font-medium">응시 수</th>
-                <th className="px-4 py-2 text-left font-medium">공개 상태</th>
+              <tr className="border-border border-b bg-muted/50 text-[12px] text-muted-foreground">
+                <th className="px-4 py-2.5 text-left font-semibold">제목</th>
+                <th className="px-4 py-2.5 text-left font-semibold">문항수</th>
+                <th className="px-4 py-2.5 text-left font-semibold">제한시간</th>
+                <th className="px-4 py-2.5 text-left font-semibold">응시 가능 기간</th>
+                <th className="px-4 py-2.5 text-left font-semibold">응시 수</th>
+                <th className="px-4 py-2.5 text-left font-semibold">공개 상태</th>
                 <th className="px-4 py-2" />
               </tr>
             </thead>
@@ -571,8 +573,8 @@ export default function ExamsAdminPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border bg-card p-4 sm:p-5">
-        <h2 className="mb-1 font-medium text-sm">문제 품질 점검</h2>
+      <div className="surface p-4 sm:p-5">
+        <h2 className="mb-1 font-semibold text-[14px]">문제 품질 점검</h2>
         <p className="mb-3 text-muted-foreground text-xs">
           5회 이상 응답된 문제 중 정답률이 낮은 순 — 지문이 모호하거나 정답 태깅이 잘못됐을 가능성을 점검하세요.
         </p>
@@ -596,8 +598,8 @@ export default function ExamsAdminPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border bg-card p-4 sm:p-5">
-        <h2 className="mb-3 font-medium text-sm">채점 대기 (주관식·서술형)</h2>
+      <div className="surface p-4 sm:p-5">
+        <h2 className="mb-3 font-semibold text-[14px]">채점 대기 (주관식·서술형)</h2>
         <div className="flex flex-col gap-3">
           {gradingQueue.length === 0 && <p className="text-muted-foreground text-xs">채점을 기다리는 답안이 없습니다.</p>}
           {gradingQueue.map((g) => {
@@ -649,7 +651,7 @@ export default function ExamsAdminPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border bg-card p-4 sm:p-5">
+      <div className="surface p-4 sm:p-5">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-medium text-sm">응시 현황 / 부정행위 검토</h2>
           <div className="flex items-center gap-3">

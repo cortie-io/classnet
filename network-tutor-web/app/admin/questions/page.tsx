@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ClipboardListIcon } from "lucide-react";
+import { PageIntro } from "@/components/chat/page-intro";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -171,18 +173,17 @@ export default function QuestionsReviewPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="font-semibold text-xl">문제 검수</h1>
-        <p className="text-muted-foreground text-sm">
-          AI 생성 문제의 검수(승인/반려)뿐 아니라, 문제은행 전체를 검색해서 직접 수정하거나 삭제할 수 있습니다.
-        </p>
-      </div>
+      <PageIntro
+        description="AI 생성 문제의 검수(승인/반려)뿐 아니라, 문제은행 전체를 검색해서 직접 수정하거나 삭제할 수 있어요."
+        icon={ClipboardListIcon}
+        title="문제 검수"
+      />
 
       <div className="flex flex-wrap gap-2">
         {STATUS_TABS.map((t) => (
           <button
             className={`rounded-full border px-3 py-1.5 text-[13px] transition-colors ${
-              status === t.value ? "border-ring bg-accent" : "border-border hover:border-ring"
+              status === t.value ? "border-primary bg-accent text-primary" : "border-border hover:border-primary/40"
             }`}
             key={t.value}
             onClick={() => setStatus(t.value)}
@@ -219,7 +220,7 @@ export default function QuestionsReviewPage() {
         {questions.map((q) => {
           const isEditing = editingId === q.id;
           return (
-            <div className="rounded-2xl border border-border bg-card p-5" key={q.id}>
+            <div className="surface p-5" key={q.id}>
               <div className="mb-2 flex items-center gap-2 text-muted-foreground text-xs">
                 <span className="rounded-full bg-muted px-2 py-0.5">{q.subject.replace(/^\d과목_/, "")}</span>
                 <span>{q.source === "ai_generated" ? "AI 생성" : q.source === "admin_authored" ? "관리자 작성" : "기출"}</span>

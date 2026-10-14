@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ScrollTextIcon } from "lucide-react";
+import { PageIntro } from "@/components/chat/page-intro";
 import { Button } from "@/components/ui/button";
 
 interface AuditRow {
@@ -58,7 +60,7 @@ export default function AuditPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="font-semibold text-xl">질의응답 감사로그</h1>
+      <PageIntro description="학생 질문과 AI 답변, 검증 결과를 확인하고 검수해요." icon={ScrollTextIcon} title="질의응답 감사로그" />
       {stats && (
         <p className="text-muted-foreground text-sm">
           상태별: {stats.byStatus.map((s) => `${s.verification_status}=${s.count}`).join(", ")} · 검수 대기(flagged &
@@ -89,23 +91,23 @@ export default function AuditPage() {
         </select>
       </div>
 
-      <div className="rounded-2xl border border-border bg-card">
+      <div className="surface">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-[13px]">
+          <table className="table w-full min-w-[640px] text-[13px]">
             <thead>
-              <tr className="border-border border-b text-muted-foreground">
-                <th className="px-4 py-2 text-left font-medium">학생</th>
-                <th className="px-4 py-2 text-left font-medium">질문</th>
-                <th className="px-4 py-2 text-left font-medium">의도</th>
-                <th className="px-4 py-2 text-left font-medium">상태</th>
-                <th className="px-4 py-2 text-left font-medium">검수</th>
-                <th className="px-4 py-2 text-left font-medium">시각</th>
+              <tr className="border-border border-b bg-muted/50 text-[12px] text-muted-foreground">
+                <th className="px-4 py-2.5 text-left font-semibold">학생</th>
+                <th className="px-4 py-2.5 text-left font-semibold">질문</th>
+                <th className="px-4 py-2.5 text-left font-semibold">의도</th>
+                <th className="px-4 py-2.5 text-left font-semibold">상태</th>
+                <th className="px-4 py-2.5 text-left font-semibold">검수</th>
+                <th className="px-4 py-2.5 text-left font-semibold">시각</th>
               </tr>
             </thead>
             <tbody>
               {items.map((row) => (
                 <tr
-                  className="cursor-pointer border-border border-b last:border-0 hover:bg-accent/40"
+                  className="cursor-pointer border-border border-b last:border-0 hover:bg-accent/50"
                   key={row.id}
                   onClick={() => openDetail(row.id)}
                 >
@@ -124,8 +126,8 @@ export default function AuditPage() {
       </div>
 
       {detail && (
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <h2 className="mb-2 font-medium text-sm">#{detail.id} — {detail.question}</h2>
+        <div className="surface p-5">
+          <h2 className="mb-2 font-semibold text-[14px]">#{detail.id} — {detail.question}</h2>
           <pre className="max-h-96 overflow-auto whitespace-pre-wrap rounded-lg bg-muted/50 p-3 text-xs">
             {JSON.stringify(
               detail,

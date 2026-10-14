@@ -459,13 +459,13 @@ function PureMultimodalInput({
     <div className={cn("relative flex w-full flex-col gap-4", className)}>
       {editingMessage && onCancelEdit ? (
         <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
-          <span>Editing message</span>
+          <span>메시지 수정 중</span>
           <button
             className="rounded px-1.5 py-0.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
             onMouseDown={handleCancelEditMouseDown}
             type="button"
           >
-            Cancel
+            취소
           </button>
         </div>
       ) : null}
@@ -503,7 +503,7 @@ function PureMultimodalInput({
       </div>
 
       <PromptInput
-        className="[&>div]:rounded-2xl [&>div]:border [&>div]:border-border/30 [&>div]:bg-card/70 [&>div]:shadow-[var(--shadow-composer)] [&>div]:transition-shadow [&>div]:duration-300 [&>div]:focus-within:shadow-[var(--shadow-composer-focus)]"
+        className="[&>div]:rounded-[22px] [&>div]:border [&>div]:border-border [&>div]:bg-card [&>div]:shadow-[var(--shadow-composer)] [&>div]:transition-[box-shadow,border-color] [&>div]:duration-300 [&>div]:focus-within:border-primary/40 [&>div]:focus-within:shadow-[var(--shadow-composer-focus)]"
         onSubmit={handlePromptSubmit}
       >
         {(attachments.length > 0 || uploadQueue.length > 0) && (
@@ -534,18 +534,18 @@ function PureMultimodalInput({
           </div>
         )}
         <PromptInputTextarea
-          className="min-h-24 text-[13px] leading-relaxed px-4 pt-3.5 pb-1.5 placeholder:text-muted-foreground/35"
+          className="min-h-24 px-4 pt-4 pb-1.5 text-[14px] leading-relaxed placeholder:text-muted-foreground/60"
           data-testid="multimodal-input"
           onChange={handleInput}
           onKeyDown={handleTextareaKeyDown}
           placeholder={
-            editingMessage ? "Edit your message..." : "Ask anything..."
+            editingMessage ? "수정할 내용을 입력하세요" : "네트워크관리사 2급, 무엇이든 물어보세요"
           }
           ref={textareaRef}
           value={input}
         />
         <PromptInputFooter className="px-3 pb-3">
-          <PromptInputTools>
+          <PromptInputTools className="gap-1.5">
             <AttachmentsButton
               fileInputRef={fileInputRef}
               selectedModelId={selectedModelId}
@@ -563,10 +563,10 @@ function PureMultimodalInput({
           ) : (
             <PromptInputSubmit
               className={cn(
-                "h-7 w-7 rounded-xl transition-all duration-200",
+                "size-8 rounded-full transition-all duration-200",
                 input.trim()
-                  ? "bg-foreground text-background hover:opacity-85 active:scale-95"
-                  : "bg-muted text-muted-foreground/25 cursor-not-allowed"
+                  ? "bg-brand text-white shadow-[var(--shadow-brand)] hover:brightness-110 active:scale-95"
+                  : "bg-muted text-muted-foreground/40 cursor-not-allowed"
               )}
               data-testid="send-button"
               disabled={!input.trim() || uploadQueue.length > 0}
@@ -666,9 +666,9 @@ function PureAttachmentsButton({
   return (
     <Button
       className={cn(
-        "h-7 w-7 rounded-lg border border-border/40 p-1 transition-colors",
+        "size-8 rounded-full border border-border/80 p-1 transition-colors",
         hasVision
-          ? "text-foreground hover:border-border hover:text-foreground"
+          ? "text-muted-foreground hover:border-primary/40 hover:bg-accent hover:text-primary"
           : "text-muted-foreground/30 cursor-not-allowed"
       )}
       data-testid="attachments-button"
@@ -814,7 +814,7 @@ function PureModelSelectorCompact({
     <ModelSelector onOpenChange={setOpen} open={open}>
       <ModelSelectorTrigger asChild>
         <Button
-          className="h-7 max-w-[200px] justify-between gap-1.5 rounded-lg px-2 text-[12px] text-muted-foreground transition-colors hover:text-foreground"
+          className="h-8 max-w-[200px] justify-between gap-1.5 rounded-full px-2.5 text-[12px] text-muted-foreground transition-colors hover:bg-accent hover:text-primary"
           data-testid="model-selector"
           variant="ghost"
         >
@@ -932,7 +932,7 @@ function PureStopButton({
 
   return (
     <Button
-      className="h-7 w-7 rounded-xl bg-foreground p-1 text-background transition-all duration-200 hover:opacity-85 active:scale-95 disabled:bg-muted disabled:text-muted-foreground/25 disabled:cursor-not-allowed"
+      className="size-8 rounded-full bg-brand p-1 text-white shadow-[var(--shadow-brand)] transition-all duration-200 hover:brightness-110 active:scale-95 disabled:bg-muted disabled:text-muted-foreground/25 disabled:cursor-not-allowed"
       data-testid="stop-button"
       onClick={handleClick}
     >

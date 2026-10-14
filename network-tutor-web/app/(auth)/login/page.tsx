@@ -60,16 +60,18 @@ export default function Page() {
 
   return (
     <>
-      <h1 className="text-2xl font-semibold tracking-tight">classnet</h1>
-      <p className="text-sm text-muted-foreground">
-        네트워크관리사 2급 필기시험 대비 AI 튜터 ·{" "}
-        {mode === "admin" ? "관리자 이메일과 비밀번호로 로그인하세요" : "학번과 비밀번호로 로그인하세요"}
+      <h1 className="font-bold text-[28px] text-foreground tracking-[-0.04em]">
+        {mode === "admin" ? "관리자 로그인" : "반가워요! 👋"}
+      </h1>
+      <p className="mb-6 text-[14px] text-muted-foreground leading-relaxed">
+        {mode === "admin"
+          ? "관리자 이메일과 비밀번호로 로그인하세요."
+          : "학번과 비밀번호로 로그인하고 오늘의 공부를 시작하세요."}
       </p>
       <AuthForm action={handleSubmit} defaultValue={identifier} mode={mode}>
         <SubmitButton isSuccessful={isSuccessful}>로그인</SubmitButton>
-        <p className="text-center text-[13px] text-muted-foreground">
-          계정이 없으신가요? 회원가입은 지원하지 않으며, 학교 관리자가 발급한
-          계정으로만 로그인할 수 있습니다.
+        <p className="mt-2 rounded-xl bg-muted/70 px-4 py-3 text-[12.5px] text-muted-foreground leading-relaxed">
+          계정이 없으신가요? 회원가입은 지원하지 않으며, 학교 관리자가 발급한 계정으로만 로그인할 수 있어요.
         </p>
       </AuthForm>
     </>

@@ -33,16 +33,16 @@ const visibilities: Array<{
   icon: ReactNode;
 }> = [
   {
-    description: "Only you can access this chat",
+    description: "나만 볼 수 있는 대화예요",
     icon: <LockIcon />,
     id: "private",
-    label: "Private",
+    label: "나만 보기",
   },
   {
-    description: "Anyone with the link can access this chat",
+    description: "링크가 있으면 누구나 볼 수 있어요",
     icon: <GlobeIcon />,
     id: "public",
-    label: "Public",
+    label: "링크 공개",
   },
 ];
 
@@ -114,7 +114,7 @@ export function VisibilitySelector({
         )}
       >
         <Button
-          className="gap-1.5 rounded-lg border-border/50 text-muted-foreground shadow-none transition-colors hover:text-foreground focus-visible:ring-0 focus-visible:border-border/50 active:translate-y-0"
+          className="gap-1.5 rounded-full border-border bg-card text-muted-foreground shadow-none transition-colors hover:text-primary focus-visible:ring-0 focus-visible:border-border active:translate-y-0"
           data-testid="visibility-selector"
           size="sm"
           variant="outline"

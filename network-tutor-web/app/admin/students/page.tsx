@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { UsersIcon } from "lucide-react";
+import { PageIntro } from "@/components/chat/page-intro";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,10 +79,10 @@ export default function StudentsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="font-semibold text-xl">학생 관리</h1>
+      <PageIntro description="학생 계정을 만들고, 학생별 학습 현황을 확인해요." icon={UsersIcon} title="학생 관리" />
 
-      <div className="rounded-2xl border border-border bg-card p-5">
-        <h2 className="mb-3 font-medium text-sm">계정 추가</h2>
+      <div className="surface p-5">
+        <h2 className="mb-3 font-semibold text-[14px]">계정 추가</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <Input onChange={(e) => setForm({ ...form, studentId: e.target.value })} placeholder="학번" value={form.studentId} />
           <Input onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="이름" value={form.name} />
@@ -97,8 +99,8 @@ export default function StudentsPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border bg-card p-5">
-        <h2 className="mb-1 font-medium text-sm">CSV 일괄 등록</h2>
+      <div className="surface p-5">
+        <h2 className="mb-1 font-semibold text-[14px]">CSV 일괄 등록</h2>
         <p className="mb-3 text-muted-foreground text-xs">컬럼: 학번,이름,생년월일,메일,비밀번호 (헤더 필수)</p>
         <input
           accept=".csv,text/csv"
@@ -119,17 +121,17 @@ export default function StudentsPage() {
         )}
       </div>
 
-      <div className="rounded-2xl border border-border bg-card">
+      <div className="surface">
         <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px] text-[13px]">
+        <table className="table w-full min-w-[640px] text-[13px]">
           <thead>
-            <tr className="border-border border-b text-muted-foreground">
-              <th className="px-4 py-2 text-left font-medium">학번</th>
-              <th className="px-4 py-2 text-left font-medium">이름</th>
-              <th className="px-4 py-2 text-left font-medium">이메일</th>
-              <th className="px-4 py-2 text-left font-medium">수준</th>
-              <th className="px-4 py-2 text-left font-medium">질문 수</th>
-              <th className="px-4 py-2 text-left font-medium">최근 활동</th>
+            <tr className="border-border border-b bg-muted/50 text-[12px] text-muted-foreground">
+              <th className="px-4 py-2.5 text-left font-semibold">학번</th>
+              <th className="px-4 py-2.5 text-left font-semibold">이름</th>
+              <th className="px-4 py-2.5 text-left font-semibold">이메일</th>
+              <th className="px-4 py-2.5 text-left font-semibold">수준</th>
+              <th className="px-4 py-2.5 text-left font-semibold">질문 수</th>
+              <th className="px-4 py-2.5 text-left font-semibold">최근 활동</th>
             </tr>
           </thead>
           <tbody>
@@ -148,7 +150,7 @@ export default function StudentsPage() {
               </tr>
             )}
             {students.map((s) => (
-              <tr className="border-border border-b last:border-0 hover:bg-accent/40" key={s.id}>
+              <tr className="border-border border-b last:border-0 hover:bg-accent/50" key={s.id}>
                 <td className="px-4 py-2">
                   <Link className="block" href={`/admin/students/${s.id}`}>
                     {s.student_id ?? "-"}

@@ -1,6 +1,7 @@
 "use client";
 
 import { PanelLeftIcon } from "lucide-react";
+import { BrandMark } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/components/ui/sidebar";
 
@@ -33,12 +34,13 @@ export function PageHeader({ pathname }: { pathname: string }) {
   const title = pageTitleFor(pathname);
 
   return (
-    <header className="sticky top-0 z-10 flex h-12 items-center gap-2 border-border/60 border-b bg-background px-3 md:hidden">
+    <header className="sticky top-0 z-10 flex h-14 items-center gap-2.5 border-border/70 border-b bg-card/90 px-3 backdrop-blur-lg md:hidden">
       <Button className="shrink-0" onClick={toggleSidebar} size="icon-sm" variant="ghost">
         <PanelLeftIcon className="size-4" />
         <span className="sr-only">사이드바 열기</span>
       </Button>
-      {title && <span className="truncate font-medium text-sm">{title}</span>}
+      <BrandMark className="size-6" />
+      {title && <span className="truncate font-semibold text-[15px]">{title}</span>}
     </header>
   );
 }
