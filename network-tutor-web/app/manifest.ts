@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "네트워크관리사 2급 필기시험 대비 AI 튜터",
     start_url: "/",
     display: "standalone",
-    background_color: "#ffffff",
-    theme_color: "#0F62FF",
+    background_color: "#F7F8FC",
+    theme_color: "#FFFFFF",
     icons: [
       { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
       { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },

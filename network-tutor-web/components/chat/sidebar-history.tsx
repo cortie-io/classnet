@@ -2,6 +2,7 @@
 
 import { isToday, isYesterday, subMonths, subWeeks } from "date-fns";
 import { motion } from "framer-motion";
+import { Trash2Icon } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import type { User } from "next-auth";
 import { useCallback, useState } from "react";
@@ -19,6 +20,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   SidebarGroup,
+  SidebarGroupAction,
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
@@ -98,7 +100,13 @@ export function getChatHistoryPaginationKey(
   return `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/history?ending_before=${firstChatFromPage.id}&limit=${PAGE_SIZE}`;
 }
 
-export function SidebarHistory({ user }: { user: User | undefined }) {
+export function SidebarHistory({
+  user,
+  onDeleteAll,
+}: {
+  user: User | undefined;
+  onDeleteAll?: () => void;
+}) {
   const { setOpenMobile } = useSidebar();
   const pathname = usePathname();
   const id = pathname?.startsWith("/chat/") ? pathname.split("/")[2] : null;
@@ -151,7 +159,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
       { method: "DELETE" }
     );
 
-    toast.success("Chat deleted");
+    toast.success("대화를 삭제했어요");
   }, [deleteId, mutate, pathname, router]);
 
   const handleShowDeleteDialog = useCallback((chatId: string) => {
@@ -167,10 +175,10 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
 
   if (!user) {
     return (
-      <SidebarGroup className="group-data-[collapsible=icon]:hidden">
+      <SidebarGroup className="mt-1 group-data-[collapsible=icon]:hidden">
         <SidebarGroupContent>
-          <div className="flex w-full flex-row items-center justify-center gap-2 px-2 text-[13px] text-sidebar-foreground/60">
-            Login to save and revisit previous chats!
+          <div className="flex w-full flex-row items-center gap-2 px-2 text-[12.5px] text-sidebar-foreground/50 leading-relaxed">
+            로그인하면 대화 기록이 저장돼요.
           </div>
         </SidebarGroupContent>
       </SidebarGroup>
@@ -179,9 +187,9 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
 
   if (isLoading) {
     return (
-      <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-        <SidebarGroupLabel className="text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/70">
-          History
+      <SidebarGroup className="mt-1 group-data-[collapsible=icon]:hidden">
+        <SidebarGroupLabel className="px-2 text-[11px] font-semibold text-sidebar-foreground/45 tracking-normal normal-case">
+          대화 기록
         </SidebarGroupLabel>
         <SidebarGroupContent>
           <div className="flex flex-col gap-0.5 px-1">
@@ -208,13 +216,13 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
 
   if (hasEmptyChatHistory) {
     return (
-      <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-        <SidebarGroupLabel className="text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/70">
-          History
+      <SidebarGroup className="mt-1 group-data-[collapsible=icon]:hidden">
+        <SidebarGroupLabel className="px-2 text-[11px] font-semibold text-sidebar-foreground/45 tracking-normal normal-case">
+          대화 기록
         </SidebarGroupLabel>
         <SidebarGroupContent>
-          <div className="flex w-full flex-row items-center justify-center gap-2 px-2 text-[13px] text-sidebar-foreground/60">
-            Your conversations will appear here once you start chatting!
+          <div className="flex w-full flex-row items-center gap-2 px-2 text-[12.5px] text-sidebar-foreground/50 leading-relaxed">
+            아직 대화가 없어요. 궁금한 걸 물어보면 여기에 차곡차곡 쌓여요.
           </div>
         </SidebarGroupContent>
       </SidebarGroup>
@@ -223,10 +231,20 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
 
   return (
     <>
-      <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-        <SidebarGroupLabel className="text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/70">
-          History
+      <SidebarGroup className="mt-1 group-data-[collapsible=icon]:hidden">
+        <SidebarGroupLabel className="px-2 text-[11px] font-semibold text-sidebar-foreground/45 tracking-normal normal-case">
+          대화 기록
         </SidebarGroupLabel>
+        {onDeleteAll ? (
+          <SidebarGroupAction
+            className="text-sidebar-foreground/35 hover:bg-destructive/10 hover:text-destructive"
+            onClick={onDeleteAll}
+            title="대화 기록 모두 삭제"
+          >
+            <Trash2Icon />
+            <span className="sr-only">대화 기록 모두 삭제</span>
+          </SidebarGroupAction>
+        ) : null}
         <SidebarGroupContent>
           <SidebarMenu>
             {paginatedChatHistories
@@ -241,8 +259,8 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
                     <div className="flex flex-col gap-4">
                       {groupedChats.today.length > 0 && (
                         <div>
-                          <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/70">
-                            Today
+                          <div className="px-2 pt-1 pb-1.5 text-[11px] font-medium text-sidebar-foreground/40">
+                            오늘
                           </div>
                           {groupedChats.today.map((chat) => (
                             <ChatItem
@@ -258,8 +276,8 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
 
                       {groupedChats.yesterday.length > 0 && (
                         <div>
-                          <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/70">
-                            Yesterday
+                          <div className="px-2 pt-1 pb-1.5 text-[11px] font-medium text-sidebar-foreground/40">
+                            어제
                           </div>
                           {groupedChats.yesterday.map((chat) => (
                             <ChatItem
@@ -275,8 +293,8 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
 
                       {groupedChats.lastWeek.length > 0 && (
                         <div>
-                          <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/70">
-                            Last 7 days
+                          <div className="px-2 pt-1 pb-1.5 text-[11px] font-medium text-sidebar-foreground/40">
+                            지난 7일
                           </div>
                           {groupedChats.lastWeek.map((chat) => (
                             <ChatItem
@@ -292,8 +310,8 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
 
                       {groupedChats.lastMonth.length > 0 && (
                         <div>
-                          <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/70">
-                            Last 30 days
+                          <div className="px-2 pt-1 pb-1.5 text-[11px] font-medium text-sidebar-foreground/40">
+                            지난 30일
                           </div>
                           {groupedChats.lastMonth.map((chat) => (
                             <ChatItem
@@ -309,8 +327,8 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
 
                       {groupedChats.older.length > 0 && (
                         <div>
-                          <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/70">
-                            Older
+                          <div className="px-2 pt-1 pb-1.5 text-[11px] font-medium text-sidebar-foreground/40">
+                            이전
                           </div>
                           {groupedChats.older.map((chat) => (
                             <ChatItem
@@ -336,7 +354,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
               <div className="animate-spin">
                 <LoaderIcon />
               </div>
-              <div className="text-[11px]">Loading...</div>
+              <div className="text-[11px]">불러오는 중…</div>
             </div>
           )}
         </SidebarGroupContent>
@@ -345,16 +363,15 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
       <AlertDialog onOpenChange={setShowDeleteDialog} open={showDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogTitle>이 대화를 삭제할까요?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete your
-              chat and remove it from our servers.
+              삭제한 대화는 다시 되돌릴 수 없어요.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>취소</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete}>
-              Continue
+              삭제
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -10,7 +10,10 @@ import { SessionProvider } from "next-auth/react";
 export const metadata: Metadata = {
   description: "네트워크관리사 2급 필기시험 대비 AI 튜터",
   metadataBase: new URL("https://classnet.chat"),
-  title: "classnet",
+  title: {
+    default: "classnet — 네트워크관리사 2급 AI 튜터",
+    template: "%s · classnet",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -21,6 +24,7 @@ export const metadata: Metadata = {
 
 export const viewport = {
   maximumScale: 1,
+  themeColor: "#ffffff",
 };
 
 const geist = Geist({
@@ -35,26 +39,6 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
 });
 
-const LIGHT_THEME_COLOR = "hsl(0 0% 100%)";
-const DARK_THEME_COLOR = "hsl(240deg 10% 3.92%)";
-const THEME_COLOR_SCRIPT = `\
-(function() {
-  var html = document.documentElement;
-  var meta = document.querySelector('meta[name="theme-color"]');
-  if (!meta) {
-    meta = document.createElement('meta');
-    meta.setAttribute('name', 'theme-color');
-    document.head.appendChild(meta);
-  }
-  function updateThemeColor() {
-    var isDark = html.classList.contains('dark');
-    meta.setAttribute('content', isDark ? '${DARK_THEME_COLOR}' : '${LIGHT_THEME_COLOR}');
-  }
-  var observer = new MutationObserver(updateThemeColor);
-  observer.observe(html, { attributes: true, attributeFilter: ['class'] });
-  updateThemeColor();
-})();`;
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -63,23 +47,25 @@ export default function RootLayout({
   return (
     <html
       className={`${geist.variable} ${geistMono.variable}`}
-      lang="en"
+      lang="ko"
       suppressHydrationWarning
     >
       <head>
-        <script
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: "Required"
-          dangerouslySetInnerHTML={{
-            __html: THEME_COLOR_SCRIPT,
-          }}
+        {/* 한글 UI 글꼴. 사용하는 글자 범위만 나눠 받는 dynamic-subset 판이라 첫 로딩이 가볍다. */}
+        <link
+          crossOrigin="anonymous"
+          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+          rel="stylesheet"
         />
       </head>
       <body className="antialiased">
+        {/* 서비스 배경은 항상 밝은 톤으로 고정한다 — 기기가 다크 모드여도 다크 테마로 바꾸지 않는다. */}
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
+          defaultTheme="light"
           disableTransitionOnChange
-          enableSystem
+          enableSystem={false}
+          forcedTheme="light"
         >
           <SessionProvider
             basePath={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/auth`}
@@ -90,7 +76,7 @@ export default function RootLayout({
               렌더링이 안 되는 버그가 있었다(실측 확인됨) — 앱 전체를 덮는 루트 레이아웃에 하나만 둔다. */}
           <Toaster
             position="top-center"
-            theme="system"
+            theme="light"
             toastOptions={{
               className:
                 "!bg-card !text-foreground !border-border/50 !shadow-[var(--shadow-float)]",

@@ -11,7 +11,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { StarIcon } from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon, LayersIcon, RotateCwIcon, StarIcon } from "lucide-react";
+import { PageIntro, PageLoading, PageNotice } from "@/components/chat/page-intro";
 import { MessageResponse } from "@/components/ai-elements/message";
 import { ExamRunner, type ExamStartResponse } from "@/components/exam/exam-runner";
 import { toast } from "@/components/chat/toast";
@@ -142,16 +143,13 @@ export default function FlashcardsPage() {
     return <ExamRunner proctored={false} start={practiceStart} />;
   }
 
-  if (!tree) return <div className="px-4 py-10 text-center text-muted-foreground">불러오는 중...</div>;
+  if (!tree) return <PageLoading />;
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-3 py-6 sm:px-4 sm:py-8">
-      <div>
-        <h1 className="font-semibold text-xl">플래시카드</h1>
-        <p className="text-muted-foreground text-sm">카드를 눌러 뒤집으면 정의를 확인할 수 있습니다.</p>
-      </div>
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:py-12">
+      <PageIntro description="카드를 눌러 뒤집으면 개념의 정의를 확인할 수 있어요." icon={LayersIcon} title="플래시카드" />
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <div className="surface flex flex-col gap-2 p-3 sm:flex-row sm:items-center">
         <Input
           className="sm:w-56"
           onChange={(e) => setSearch(e.target.value)}
@@ -167,8 +165,9 @@ export default function FlashcardsPage() {
             ))}
           </SelectContent>
         </Select>
-        <label className="flex items-center gap-1.5 text-[13px]">
+        <label className="flex items-center gap-1.5 px-1 font-medium text-[13px] sm:ml-auto">
           <input
+            className="size-4 accent-primary"
             checked={showBookmarkedOnly}
             onChange={(e) => setShowBookmarkedOnly(e.target.checked)}
             type="checkbox"
@@ -178,39 +177,59 @@ export default function FlashcardsPage() {
       </div>
 
       {cards.length === 0 ? (
-        <p className="text-muted-foreground text-sm">해당하는 카드가 없습니다.</p>
+        <PageNotice icon={LayersIcon} title="해당하는 카드가 없어요" />
       ) : (
         <>
-          <div className="flex items-center justify-between text-muted-foreground text-sm">
-            <span>{index + 1} / {cards.length}</span>
-            <button onClick={toggleBookmark} type="button">
-              <StarIcon className={`size-5 ${bookmarked.has(current.id) ? "fill-amber-400 text-amber-400" : "text-muted-foreground"}`} />
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-1 items-center gap-3">
+              <span className="font-semibold text-[13px] text-foreground tabular-nums">
+                {index + 1}
+                <span className="font-normal text-muted-foreground"> / {cards.length}</span>
+              </span>
+              <div className="h-1.5 max-w-60 flex-1 overflow-hidden rounded-full bg-muted">
+                <div className="h-full rounded-full bg-brand transition-[width] duration-300" style={{ width: `${((index + 1) / cards.length) * 100}%` }} />
+              </div>
+            </div>
+            <button
+              aria-label={bookmarked.has(current.id) ? "북마크 해제" : "북마크"}
+              className="flex size-9 items-center justify-center rounded-full border border-border bg-card shadow-[var(--shadow-card)] transition-colors hover:border-amber-300"
+              onClick={toggleBookmark}
+              type="button"
+            >
+              <StarIcon className={`size-[18px] ${bookmarked.has(current.id) ? "fill-amber-400 text-amber-400" : "text-muted-foreground"}`} />
             </button>
           </div>
 
-          <div className="min-h-64 overflow-hidden rounded-2xl border border-border/50 bg-card shadow-[var(--shadow-card)] transition-shadow duration-200 hover:shadow-[var(--shadow-float)]">
+          <div className={`min-h-72 overflow-hidden rounded-[1.5rem] border shadow-[var(--shadow-card)] transition-shadow duration-200 hover:shadow-[var(--shadow-float)] ${flipped ? "border-border bg-card" : "border-primary/15 bg-brand-soft"}`}>
             {!flipped ? (
               <button
-                className="flex h-full min-h-64 w-full flex-col items-center justify-center gap-2 p-6 text-center transition-colors hover:border-ring"
+                className="relative flex h-full min-h-72 w-full flex-col items-center justify-center gap-3 p-8 text-center"
                 onClick={() => setFlipped(true)}
                 type="button"
               >
-                <span className="text-muted-foreground text-xs">{current.subject.replace(/^\d과목_/, "")} · {current.topic}</span>
-                <span className="font-semibold text-lg">{current.title}</span>
-                <span className="mt-4 text-muted-foreground text-xs">눌러서 정의 보기</span>
+                <span className="absolute inset-0 bg-dots opacity-60 [mask-image:radial-gradient(closest-side,transparent_40%,black)]" />
+                <span className="relative rounded-full bg-white/80 px-3 py-1 font-medium text-[12px] text-primary shadow-[var(--shadow-card)]">
+                  {current.subject.replace(/^\d과목_/, "")} · {current.topic}
+                </span>
+                <span className="relative font-bold text-[26px] text-foreground tracking-[-0.03em]">{current.title}</span>
+                <span className="relative mt-3 inline-flex items-center gap-1.5 text-[12.5px] text-muted-foreground">
+                  <RotateCwIcon className="size-3.5" />
+                  눌러서 정의 보기
+                </span>
               </button>
             ) : (
-              <div className="flex flex-col gap-3 p-6">
-                <div className="overflow-x-auto">
+              <div className="flex flex-col gap-4 p-6 sm:p-8">
+                <span className="w-fit rounded-full bg-accent px-3 py-1 font-semibold text-[12px] text-primary">{current.title}</span>
+                <div className="overflow-x-auto text-[14px] leading-[1.75]">
                   {bodyMd === null ? (
                     <p className="text-muted-foreground text-sm">불러오는 중...</p>
                   ) : (
                     <MessageResponse>{bodyMd}</MessageResponse>
                   )}
                 </div>
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center justify-between gap-2 border-border border-t pt-4">
                   <button
-                    className="text-muted-foreground text-xs transition-colors hover:text-foreground"
+                    className="rounded-full px-2 py-1 text-[12.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-primary"
                     onClick={() => setFlipped(false)}
                     type="button"
                   >
@@ -226,17 +245,21 @@ export default function FlashcardsPage() {
 
           <div className="flex justify-between gap-2">
             <Button
+              className="h-11 rounded-xl px-5"
               disabled={index === 0}
               onClick={() => setIndex((i) => Math.max(0, i - 1))}
               variant="outline"
             >
+              <ChevronLeftIcon className="size-4" />
               이전
             </Button>
             <Button
+              className="h-11 rounded-xl bg-brand px-5"
               disabled={index === cards.length - 1}
               onClick={() => setIndex((i) => Math.min(cards.length - 1, i + 1))}
             >
               다음
+              <ChevronRightIcon className="size-4" />
             </Button>
           </div>
         </>

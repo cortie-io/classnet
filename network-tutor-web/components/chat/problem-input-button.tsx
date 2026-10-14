@@ -42,7 +42,7 @@ export function ProblemInputButton({ setInput }: { setInput: Dispatch<SetStateAc
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            className="h-8 gap-1.5 rounded-full text-muted-foreground"
+            className="size-8 rounded-full border border-border/80 p-0 text-muted-foreground hover:border-primary/40 hover:bg-accent hover:text-primary"
             onClick={() => setOpen(true)}
             size="sm"
             type="button"

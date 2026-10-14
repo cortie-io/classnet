@@ -35,12 +35,12 @@ export function PureMessageActions({
 
   const handleCopy = useCallback(async () => {
     if (!textFromParts) {
-      toast.error("복사할 내용이 없습니다.");
+      toast.error("복사할 내용이 없어요.");
       return;
     }
 
     await copyToClipboard(textFromParts);
-    toast.success("복사했습니다.");
+    toast.success("클립보드에 복사했어요.");
   }, [copyToClipboard, textFromParts]);
 
   const handleUpvote = useCallback(() => {
@@ -61,8 +61,8 @@ export function PureMessageActions({
     });
 
     toast.promise(upvote, {
-      error: "평가를 저장하지 못했습니다.",
-      loading: "평가를 저장하는 중...",
+      error: "평가를 저장하지 못했어요.",
+      loading: "평가를 저장하는 중…",
       success: () => {
         mutate<Vote[]>(
           `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/vote?chatId=${chatId}`,
@@ -87,7 +87,7 @@ export function PureMessageActions({
           { revalidate: false }
         );
 
-        return "평가를 저장했습니다.";
+        return "피드백 고마워요!";
       },
     });
   }, [chatId, message.id, mutate]);
@@ -110,8 +110,8 @@ export function PureMessageActions({
     });
 
     toast.promise(downvote, {
-      error: "평가를 저장하지 못했습니다.",
-      loading: "평가를 저장하는 중...",
+      error: "평가를 저장하지 못했어요.",
+      loading: "평가를 저장하는 중…",
       success: () => {
         mutate<Vote[]>(
           `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/vote?chatId=${chatId}`,
@@ -136,7 +136,7 @@ export function PureMessageActions({
           { revalidate: false }
         );
 
-        return "평가를 저장했습니다.";
+        return "피드백 고마워요. 더 나아질게요!";
       },
     });
   }, [chatId, message.id, mutate]);
@@ -154,7 +154,7 @@ export function PureMessageActions({
               className="size-7 text-muted-foreground/50 hover:text-foreground"
               data-testid="message-edit-button"
               onClick={onEdit}
-              tooltip="Edit"
+              tooltip="수정"
             >
               <PencilEditIcon />
             </Action>
@@ -162,7 +162,7 @@ export function PureMessageActions({
           <Action
             className="size-7 text-muted-foreground/50 hover:text-foreground"
             onClick={handleCopy}
-            tooltip="Copy"
+            tooltip="복사"
           >
             <CopyIcon />
           </Action>
@@ -174,29 +174,29 @@ export function PureMessageActions({
   return (
     <Actions className="-ml-0.5 opacity-0 transition-opacity duration-150 group-hover/message:opacity-100">
       <Action
-        className="text-muted-foreground/50 hover:text-foreground"
+        className="text-muted-foreground/60 hover:bg-accent hover:text-primary"
         onClick={handleCopy}
-        tooltip="Copy"
+        tooltip="복사"
       >
         <CopyIcon />
       </Action>
 
       <Action
-        className="text-muted-foreground/50 hover:text-foreground"
+        className="text-muted-foreground/60 hover:bg-accent hover:text-primary"
         data-testid="message-upvote"
         disabled={vote?.isUpvoted}
         onClick={handleUpvote}
-        tooltip="Upvote Response"
+        tooltip="도움이 됐어요"
       >
         <ThumbUpIcon />
       </Action>
 
       <Action
-        className="text-muted-foreground/50 hover:text-foreground"
+        className="text-muted-foreground/60 hover:bg-accent hover:text-primary"
         data-testid="message-downvote"
         disabled={vote && !vote.isUpvoted}
         onClick={handleDownvote}
-        tooltip="Downvote Response"
+        tooltip="아쉬워요"
       >
         <ThumbDownIcon />
       </Action>

@@ -2,3 +2,7 @@
 # local reference data, not for the repo (may include sensitive/copyrighted exam material)
 /docs/
 .pnpm-store/
+
+# Local runtime links in integration worktrees
+**/node_modules
+._*

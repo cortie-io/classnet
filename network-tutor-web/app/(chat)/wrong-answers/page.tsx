@@ -1,6 +1,9 @@
 "use client";
 
+import { BookOpenIcon, NotebookPenIcon, PartyPopperIcon, RotateCcwIcon, SparklesIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { PageIntro, PageLoading, PageNotice } from "@/components/chat/page-intro";
+import { ChoiceChip } from "@/components/ui/choice-chip";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -177,49 +180,40 @@ export default function WrongAnswersPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-3 py-6 sm:px-4 sm:py-8">
-      <div>
-        <h1 className="font-semibold text-xl">오답노트</h1>
-        <p className="text-muted-foreground text-sm">지금까지 연습·모의고사·기출·시험에서 틀린 문제를 모아 보여줍니다.</p>
-      </div>
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-8 sm:py-12">
+      <PageIntro
+        description="연습·모의고사·기출·시험에서 틀린 문제를 모았어요. 해설을 받고 다시 풀어보며 약점을 채워보세요."
+        icon={NotebookPenIcon}
+        title="오답노트"
+      />
 
       {items === null ? (
-        <p className="text-muted-foreground text-sm">불러오는 중...</p>
+        <PageLoading />
       ) : items.length === 0 ? (
-        <p className="text-muted-foreground text-sm">아직 틀린 문제가 없습니다. 잘하고 있어요!</p>
+        <PageNotice icon={PartyPopperIcon} title="아직 틀린 문제가 없어요. 잘하고 있어요!" />
       ) : (
         <>
           {subjects.length > 1 && (
             <div className="flex flex-wrap gap-2">
-              <button
-                className={`rounded-full border px-3 py-1.5 text-[13px] transition-colors ${
-                  subject === "all" ? "border-ring bg-accent" : "border-border hover:border-ring"
-                }`}
-                onClick={() => setSubject("all")}
-                type="button"
-              >
-                전체 ({items.length})
-              </button>
+              <ChoiceChip active={subject === "all"} onClick={() => setSubject("all")}>
+                전체 <span className={subject === "all" ? "text-primary-foreground/70" : "text-muted-foreground"}>{items.length}</span>
+              </ChoiceChip>
               {subjects.map((s) => (
-                <button
-                  className={`rounded-full border px-3 py-1.5 text-[13px] transition-colors ${
-                    subject === s ? "border-ring bg-accent" : "border-border hover:border-ring"
-                  }`}
-                  key={s}
-                  onClick={() => setSubject(s)}
-                  type="button"
-                >
-                  {s.replace(/^\d과목_/, "")} ({items.filter((i) => i.subject === s).length})
-                </button>
+                <ChoiceChip active={subject === s} key={s} onClick={() => setSubject(s)}>
+                  {s.replace(/^\d과목_/, "")}{" "}
+                  <span className={subject === s ? "text-primary-foreground/70" : "text-muted-foreground"}>
+                    {items.filter((i) => i.subject === s).length}
+                  </span>
+                </ChoiceChip>
               ))}
             </div>
           )}
 
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/50 bg-card px-3.5 py-2.5 shadow-[var(--shadow-card)]">
-            <label className="flex items-center gap-2 text-[13px]">
+          <div className="surface sticky top-16 z-[5] flex flex-wrap items-center justify-between gap-2 px-4 py-3 md:top-3">
+            <label className="flex items-center gap-2 font-medium text-[13px]">
               <input
                 checked={filtered.length > 0 && filtered.every((i) => selected.has(i.answerId))}
-                className="size-4"
+                className="size-4 accent-primary"
                 onChange={toggleSelectAll}
                 type="checkbox"
               />
@@ -227,12 +221,14 @@ export default function WrongAnswersPage() {
             </label>
             <div className="flex flex-wrap gap-2">
               <Button disabled={selected.size === 0} onClick={askSelectedInChat} size="sm" variant="outline">
+                <SparklesIcon className="size-3.5" />
                 선택한 문제 해설 생성
               </Button>
               <Button onClick={askAllInChat} size="sm" variant="outline">
                 전체 해설 생성
               </Button>
-              <Button disabled={retryingAll} onClick={retryAll} size="sm">
+              <Button className="bg-brand" disabled={retryingAll} onClick={retryAll} size="sm">
+                <RotateCcwIcon className="size-3.5" />
                 {retryingAll ? "준비 중..." : "오답 전체 복습하기"}
               </Button>
             </div>
@@ -241,13 +237,13 @@ export default function WrongAnswersPage() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {filtered.map((item) => (
               <div
-                className="flex flex-col rounded-2xl border border-border/50 bg-card p-4 shadow-[var(--shadow-card)] sm:p-5"
+                className={`surface flex flex-col p-4 transition-colors sm:p-5 ${selected.has(item.answerId) ? "border-primary/40 ring-2 ring-primary/10" : ""}`}
                 key={item.answerId}
               >
-                <div className="mb-2 flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
+                <div className="mb-3 flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
                   <input
                     checked={selected.has(item.answerId)}
-                    className="size-4"
+                    className="size-4 accent-primary"
                     onChange={() => toggleSelected(item.answerId)}
                     type="checkbox"
                   />
@@ -257,29 +253,39 @@ export default function WrongAnswersPage() {
                   )}
                   <span>{new Date(item.answeredAt).toLocaleDateString("ko-KR")}</span>
                 </div>
-                <p className="mb-3 whitespace-pre-wrap font-medium text-[14px]">{item.stem}</p>
+                <p className="mb-3 whitespace-pre-wrap font-semibold text-[14px] text-foreground leading-relaxed">{item.stem}</p>
 
                 {item.questionType === "multiple_choice" && item.choices ? (
                   <div className="flex flex-col gap-1.5">
                     {item.choices.map((c, i) => {
-                      let stateClass = "border-border text-muted-foreground";
-                      if (i === item.correctIndex) stateClass = "border-emerald-500 bg-emerald-500/10";
-                      else if (i === item.selectedIndex) stateClass = "border-destructive bg-destructive/10";
+                      let stateClass = "border-border/70 text-muted-foreground";
+                      let mark: string | null = null;
+                      if (i === item.correctIndex) {
+                        stateClass = "border-emerald-500/50 bg-emerald-500/8 text-emerald-900 font-medium";
+                        mark = "정답";
+                      } else if (i === item.selectedIndex) {
+                        stateClass = "border-destructive/40 bg-destructive/6 text-destructive";
+                        mark = "내 답";
+                      }
                       return (
-                        <div className={`rounded-lg border px-3 py-2 text-[13px] ${stateClass}`} key={i}>
-                          {String.fromCharCode(9312 + i)} {c}
+                        <div className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-[13px] ${stateClass}`} key={i}>
+                          <span>
+                            {String.fromCharCode(9312 + i)} {c}
+                          </span>
+                          {mark ? <span className="shrink-0 font-semibold text-[11px]">{mark}</span> : null}
                         </div>
                       );
                     })}
                   </div>
                 ) : (
-                  <div className="rounded-lg border border-destructive bg-destructive/10 px-3 py-2 text-[13px]">
+                  <div className="rounded-xl border border-destructive/40 bg-destructive/6 px-3 py-2 text-[13px] text-destructive">
                     내 답: {item.answerText || "(미응답)"}
                   </div>
                 )}
 
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="mt-auto flex flex-wrap gap-1.5 pt-4">
                   <Button onClick={() => askInChat(item)} size="sm" variant="outline">
+                    <SparklesIcon className="size-3.5" />
                     해설 생성
                   </Button>
                   <Button
@@ -292,7 +298,10 @@ export default function WrongAnswersPage() {
                   </Button>
                   {item.conceptNodeId !== null && (
                     <Button asChild size="sm" variant="ghost">
-                      <Link href={`/flashcards?nodeId=${item.conceptNodeId}`}>개념 복습</Link>
+                      <Link href={`/flashcards?nodeId=${item.conceptNodeId}`}>
+                        <BookOpenIcon className="size-3.5" />
+                        개념 복습
+                      </Link>
                     </Button>
                   )}
                 </div>

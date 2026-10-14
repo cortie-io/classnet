@@ -1,5 +1,7 @@
 "use client";
 
+import { LibraryIcon, SearchIcon, SearchXIcon } from "lucide-react";
+import { PageIntro, PageLoading, PageNotice } from "@/components/chat/page-intro";
 import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -109,13 +111,10 @@ export default function QuestionBankPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-3 py-6 sm:px-4 sm:py-8">
-      <div>
-        <h1 className="font-semibold text-xl">문제은행</h1>
-        <p className="text-muted-foreground text-sm">승인된 문제를 직접 검색하고 골라서 풀어볼 수 있습니다.</p>
-      </div>
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:py-12">
+      <PageIntro description="승인된 문제를 직접 검색하고 골라서 풀어볼 수 있어요." icon={LibraryIcon} title="문제은행" />
 
-      <div className="flex flex-col gap-2 sm:flex-row">
+      <div className="surface flex flex-col gap-2 p-3 sm:flex-row">
         <Select onValueChange={(v) => { setSubject(v); setPage(0); }} value={subject}>
           <SelectTrigger className="w-full sm:w-52"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -136,38 +135,44 @@ export default function QuestionBankPage() {
           </SelectContent>
         </Select>
         <div className="flex flex-1 gap-2">
-          <Input
-            onChange={(e) => setKeyword(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && search()}
-            placeholder="문제 내용 검색"
-            value={keyword}
-          />
-          <Button onClick={search} variant="outline">검색</Button>
+          <div className="relative flex-1">
+            <SearchIcon className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              onChange={(e) => setKeyword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && search()}
+              placeholder="문제 내용 검색"
+              value={keyword}
+            />
+          </div>
+          <Button className="rounded-xl" onClick={search}>검색</Button>
         </div>
       </div>
 
-      <p className="text-muted-foreground text-xs">총 {total}개</p>
+      <p className="-mb-3 px-1 text-[12.5px] text-muted-foreground">
+        총 <b className="font-semibold text-foreground">{total.toLocaleString()}</b>개
+      </p>
 
       {loading ? (
-        <p className="text-muted-foreground text-sm">불러오는 중...</p>
+        <PageLoading />
       ) : items.length === 0 ? (
-        <p className="text-muted-foreground text-sm">조건에 맞는 문제가 없습니다.</p>
+        <PageNotice description="과목·유형을 바꾸거나 다른 검색어로 찾아보세요." icon={SearchXIcon} title="조건에 맞는 문제가 없어요" />
       ) : (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2.5">
           {items.map((item) => (
             <div
-              className="flex items-start justify-between gap-3 rounded-xl border border-border/50 bg-card p-3.5 shadow-[var(--shadow-card)] transition-shadow duration-200 hover:shadow-[var(--shadow-float)]"
+              className="surface surface-hover flex items-center justify-between gap-4 p-4"
               key={item.id}
             >
               <div className="min-w-0">
-                <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+                <div className="mb-2 flex flex-wrap items-center gap-1.5">
                   <Badge variant="secondary">{item.subject.replace(/^\d과목_/, "")}</Badge>
                   <Badge variant="outline">{QUESTION_TYPE_LABEL[item.question_type] ?? item.question_type}</Badge>
                   <span className="text-muted-foreground text-xs">{SOURCE_LABEL[item.source] ?? item.source}</span>
                 </div>
-                <p className="line-clamp-2 whitespace-pre-wrap text-[13px]">{item.stem}</p>
+                <p className="line-clamp-2 whitespace-pre-wrap font-medium text-[13.5px] text-foreground leading-relaxed">{item.stem}</p>
               </div>
-              <Button disabled={startingId === item.id} onClick={() => solve(item.id)} size="sm">
+              <Button className="shrink-0 rounded-lg" disabled={startingId === item.id} onClick={() => solve(item.id)} size="sm">
                 {startingId === item.id ? "시작 중..." : "풀어보기"}
               </Button>
             </div>
