@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import Script from "next/script";
 import { Suspense } from "react";
+import { ServiceLaunchNotice } from "@/components/chat/service-launch-notice";
 import { AppSidebar } from "@/components/chat/app-sidebar";
 import { ChatShellGate } from "@/components/chat/chat-shell-gate";
 import { DataStreamProvider } from "@/components/chat/data-stream-provider";
@@ -31,6 +32,7 @@ async function SidebarShell({ children }: { children: React.ReactNode }) {
     <SidebarProvider defaultOpen={!isCollapsed}>
       <AppSidebar user={session?.user} />
       <SidebarInset>
+        <ServiceLaunchNotice />
         <Suspense fallback={<div className="flex h-dvh" />}>
           <ChatShellGate />
         </Suspense>

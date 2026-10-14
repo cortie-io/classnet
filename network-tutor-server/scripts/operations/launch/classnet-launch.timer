@@ -1,0 +1,8 @@
+[Unit]
+Description=Check for administrator-requested Classnet official launch
+[Timer]
+OnBootSec=15s
+OnUnitInactiveSec=5s
+Unit=classnet-launch.service
+[Install]
+WantedBy=timers.target

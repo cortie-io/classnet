@@ -32,7 +32,10 @@ export default function Page() {
     // (실측 확인됨). useActionState가 매 제출마다 새 객체를 반환하는 걸 이용해 state 전체를 봐야 한다.
     if (state.status === "failed") {
       toast({
-        description: mode === "admin" ? "이메일 또는 비밀번호가 올바르지 않습니다." : "학번 또는 비밀번호가 올바르지 않습니다.",
+        description:
+          mode === "admin"
+            ? "이메일 또는 비밀번호가 올바르지 않습니다."
+            : "학번 또는 비밀번호가 올바르지 않습니다.",
         type: "error",
       });
     } else if (state.status === "invalid_data") {
@@ -44,12 +47,23 @@ export default function Page() {
       setIsSuccessful(true);
       // The login page stays reachable for stale sessions, so successful sign-in
       // must navigate explicitly. A full navigation reads the newly issued cookie.
+      try {
+        for (const storage of [localStorage, sessionStorage]) {
+          for (const key of Object.keys(storage)) {
+            if (key.startsWith("classnet:phase2:")) storage.removeItem(key);
+          }
+        }
+      } catch {
+        /* Storage may be disabled; authentication must still work. */
+      }
       window.location.replace(mode === "admin" ? "/admin" : "/");
     }
   }, [state, mode]);
 
   const handleSubmit = (formData: FormData) => {
-    setIdentifier((formData.get(mode === "admin" ? "email" : "studentId") as string) ?? "");
+    setIdentifier(
+      (formData.get(mode === "admin" ? "email" : "studentId") as string) ?? ""
+    );
     formAction(formData);
   };
 
@@ -66,7 +80,8 @@ export default function Page() {
       <AuthForm action={handleSubmit} defaultValue={identifier} mode={mode}>
         <SubmitButton isSuccessful={isSuccessful}>로그인</SubmitButton>
         <p className="mt-2 rounded-xl bg-muted/70 px-4 py-3 text-[12.5px] text-muted-foreground leading-relaxed">
-          계정이 없으신가요? 회원가입은 지원하지 않으며, 학교 관리자가 발급한 계정으로만 로그인할 수 있어요.
+          계정이 없으신가요? 회원가입은 지원하지 않으며, 학교 관리자가 발급한
+          계정으로만 로그인할 수 있어요.
         </p>
       </AuthForm>
     </>

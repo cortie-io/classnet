@@ -18,6 +18,7 @@ import { auditRouter } from "./features/audit/routes.js";
 import { examRouter } from "./features/exams/routes.js";
 import { adminExamRouter } from "./features/exams/adminRoutes.js";
 import { bookmarksRouter } from "./features/bookmarks/routes.js";
+import { launchRouter } from "./features/settings/launch.js";
 import { settingsRouter } from "./features/settings/routes.js";
 import { readyHandler } from "./infrastructure/health/ready.js";
 
@@ -55,6 +56,7 @@ export function createApp() {
 	app.use("/api", adminExamRouter);
 	app.use("/api", bookmarksRouter);
 	app.use("/api", settingsRouter);
+	app.use("/api", launchRouter);
 
 	// express-async-errors가 async 핸들러에서 던진/reject된 에러를 여기로 넘겨준다(Express 4는 기본적으로
 	// async 에러를 못 잡아서 이 미들웨어 없이는 라우트 하나의 에러가 프로세스 전체를 죽인다 — 실제로 겪은 버그).

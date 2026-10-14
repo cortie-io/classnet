@@ -1,4 +1,5 @@
 "use client";
+import { ServiceLaunchPanel } from "@/components/admin/service-launch";
 import { PeriodButton } from "@/components/admin/service-period";
 import { adminFetch } from "@/lib/admin-period";
 
@@ -145,6 +146,7 @@ export default function AdminDashboardPage() {
         icon={LayoutDashboardIcon}
         title="대시보드"
       />
+      <ServiceLaunchPanel />
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <Tile
           href="/admin/students"

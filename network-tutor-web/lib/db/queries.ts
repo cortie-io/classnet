@@ -685,3 +685,13 @@ export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
     throw new ChatbotError("bad_request:database", { cause: error });
   }
 }
+
+export async function getServiceLaunchStage(): Promise<
+  "beta" | "starting" | "official"
+> {
+  const rows = await client<
+    { stage: "beta" | "starting" | "official" }[]
+  >`SELECT stage FROM service_launch WHERE id=1`;
+  if (!rows[0]) throw Error("운영 상태를 확인할 수 없습니다.");
+  return rows[0].stage;
+}

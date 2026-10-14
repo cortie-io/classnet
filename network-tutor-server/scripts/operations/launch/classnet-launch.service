@@ -1,0 +1,9 @@
+[Unit]
+Description=Classnet phase2 official launch worker
+After=docker.service network-online.target
+Requires=docker.service
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /var/lib/classnet-launch/worker.py
+TimeoutStartSec=480
+UMask=0077
