@@ -162,6 +162,8 @@ export default function RankingPage() {
       "순위",
       "학번",
       "이름",
+      "반",
+      "학년",
       "이메일",
       "종합점수",
       "채팅 질문 수",
@@ -178,6 +180,8 @@ export default function RankingPage() {
         s.rank,
         s.studentId,
         s.name,
+        s.classCode ?? "",
+        s.grade ?? "",
         s.email,
         s.compositeScore,
         s.chatCount,
@@ -216,7 +220,11 @@ export default function RankingPage() {
   return (
     <div className="flex flex-col gap-4">
       <PageIntro
-        description="학생별 학습량과 정답률 순위예요."
+        description={
+          readOnly
+            ? "1차 종료 시점에 보관한 학생 순위예요."
+            : "첫 유효 평가의 문항별 획득 점수로 계산한 순위예요."
+        }
         icon={TrophyIcon}
         title="학습 순위"
       >
