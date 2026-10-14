@@ -643,11 +643,15 @@ export async function logProctorEvent(
 ): Promise<{ flagged: boolean; autoSubmit: boolean }> {
   const attempt = await getAttempt(attemptId);
   if (!attempt || attempt.user_id !== userId) throw new Error("응시 기록을 찾을 수 없습니다.");
+  // 끝난 응시에는 더 쌓지 않는다(결과 화면을 보는 중의 탭 전환 등이 기록돼 교사 화면을 어지럽혔다).
+  if (attempt.status !== "in_progress") return { flagged: attempt.flagged_for_review ?? false, autoSubmit: false };
 
+  // 요청 본문 상한(15MB)까지 detail을 그대로 받아 저장하던 것을 막는다 — 정상 이벤트의 detail은 수십 바이트다.
+  const detailJson = JSON.stringify(detail ?? {});
   await pool.query("INSERT INTO exam_proctor_events (attempt_id, event_type, detail) VALUES ($1,$2,$3)", [
     attemptId,
-    eventType,
-    JSON.stringify(detail ?? {}),
+    eventType.slice(0, 40),
+    detailJson.length <= 2000 ? detailJson : JSON.stringify({ truncated: true, length: detailJson.length }),
   ]);
 
   if (!SUSPICIOUS_EVENT_TYPES.has(eventType)) return { flagged: attempt.flagged_for_review ?? false, autoSubmit: false };
@@ -661,7 +665,17 @@ export async function logProctorEvent(
   if (flagged) {
     await pool.query("UPDATE exam_attempts SET flagged_for_review = true WHERE id = $1", [attemptId]);
   }
-  return { flagged, autoSubmit: suspiciousCount >= AUTO_SUBMIT_THRESHOLD && attempt.status === "in_progress" };
+  const autoSubmit = suspiciousCount >= AUTO_SUBMIT_THRESHOLD;
+  if (autoSubmit) {
+    // 예전엔 "자동 제출하라"고 답만 하고 실제 제출은 화면에 맡겨서, 화면을 고치면 그냥 무시할 수 있었다.
+    // 서버가 그 자리에서 채점까지 해서 닫는다(화면은 이어서 결과 화면으로 넘어간다).
+    const { score } = await buildResultItems(attempt);
+    await pool.query(
+      "UPDATE exam_attempts SET status = 'auto_submitted', submitted_at = now(), score = $1 WHERE id = $2 AND status = 'in_progress'",
+      [score, attemptId],
+    );
+  }
+  return { flagged, autoSubmit };
 }
 
 /** 제한 시간이 지난 in_progress 응시를 자동 제출 처리한다 — GET으로 상태를 조회할 때마다 확인한다. */
