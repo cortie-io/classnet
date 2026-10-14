@@ -1,4 +1,5 @@
 import { pool } from "../db/pool.js";
+import { embedModelId } from "../llm/embedding.js";
 
 export interface ConceptNode {
   id: number;
@@ -34,8 +35,10 @@ export async function loadCorpus(): Promise<void> {
     `SELECT n.id, n.subject, n.category, n.topic, n.tag_path, n.section_no, n.title,
             n.body_md, n.body_text, n.order_index, e.embedding
      FROM concept_nodes n
-     LEFT JOIN node_embeddings e ON e.node_id = n.id
+     -- 지금 임베딩 모델로 만든 벡터만 쓴다(차원이 다른 모델 벡터와 섞이면 코사인 유사도가 엉터리가 됨)
+     LEFT JOIN node_embeddings e ON e.node_id = n.id AND e.model = $1
      ORDER BY n.order_index`,
+    [embedModelId],
   );
   corpus = rows.map((r) => ({
     id: r.id,

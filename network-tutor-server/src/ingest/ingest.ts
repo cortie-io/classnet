@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { pool } from "../db/pool.js";
-import { embed } from "../llm/ollama.js";
+import { embed, embedModelId, nodeEmbedInput } from "../llm/embedding.js";
 import { parseReferenceDoc } from "./parseDoc.js";
 
 const REF_DIR = "/home/ubuntu/ref";
@@ -73,15 +73,14 @@ async function main() {
   const { rows } = await pool.query<{ id: number; title: string; topic: string; subject: string; body_text: string }>(
     "SELECT id, title, topic, subject, body_text FROM concept_nodes ORDER BY id",
   );
-  console.log(`embedding ${rows.length} nodes via bge-m3...`);
+  console.log(`embedding ${rows.length} nodes via ${embedModelId}...`);
   let done = 0;
   for (const row of rows) {
-    const embedInput = `${row.subject} > ${row.topic} > ${row.title}\n${row.body_text}`.slice(0, 6000);
-    const vector = await embed(embedInput);
+    const vector = await embed(nodeEmbedInput(row));
     await pool.query(
       `INSERT INTO node_embeddings (node_id, model, embedding) VALUES ($1,$2,$3)
        ON CONFLICT (node_id) DO UPDATE SET model = EXCLUDED.model, embedding = EXCLUDED.embedding`,
-      [row.id, "bge-m3:latest", JSON.stringify(vector)],
+      [row.id, embedModelId, JSON.stringify(vector)],
     );
     done++;
     if (done % 10 === 0) console.log(`  ${done}/${rows.length}`);

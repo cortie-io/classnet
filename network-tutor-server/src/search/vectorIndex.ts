@@ -1,4 +1,4 @@
-import { embed } from "../llm/ollama.js";
+import { embed } from "../llm/embedding.js";
 import { getCorpus } from "./corpus.js";
 
 function cosineSim(a: number[], b: number[]): number {
