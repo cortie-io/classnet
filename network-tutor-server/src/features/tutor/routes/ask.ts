@@ -9,7 +9,11 @@ import { decryptSecret } from "../../auth/crypto.js";
 import type { ProviderChoice } from "../../../infrastructure/llm/provider.js";
 import { sendAskError } from "../pipeline/askError.js";
 
-import { requireUsage } from "../../auth/limits.js";
+import {
+	limitPerUser,
+	llmLimiter,
+	oneInFlightPerUser,
+} from "../../auth/rateLimit.js";
 
 export const askRouter = Router();
 
@@ -23,7 +27,10 @@ function parseHistory(raw: unknown): RequesterContext["history"] {
 				typeof t.content === "string" &&
 				t.content.trim().length > 0,
 		)
-		.map((t) => ({ role: t.role as "user" | "assistant", content: t.content }));
+		.map((t) => ({
+			role: t.role as "user" | "assistant",
+			content: t.content.slice(0, 4000),
+		}));
 	if (turns.length === 0) return undefined;
 	// 프롬프트가 무한정 길어지지 않게 최근 6턴(3왕복)까지만 보낸다 — 꼬리질문은 보통 직전 맥락이면 충분하다.
 	return turns.slice(-6);
@@ -52,13 +59,28 @@ async function buildRequesterContext(
 askRouter.post(
 	"/ask",
 	requireAuth,
-	requireUsage("ai-answer"),
+	limitPerUser(
+		llmLimiter,
+		"질문을 너무 자주 보내고 있어요. 잠시 후 다시 시도해 주세요.",
+	),
+	oneInFlightPerUser(
+		"이전 질문의 답을 만드는 중이에요. 답이 나온 뒤에 다시 보내 주세요.",
+	),
 	async (req, res) => {
 		const { question, imageBase64, imageMime, useOwnKey, history } =
 			req.body ?? {};
 		if (typeof question !== "string" || question.trim().length === 0) {
 			return res.status(400).json({ error: "question(string)이 필요합니다." });
 		}
+		if (
+			question.length > 6000 ||
+			(typeof imageBase64 === "string" && imageBase64.length > 8000000)
+		)
+			return res
+				.status(400)
+				.json({
+					error: "질문은 6000자, 이미지는 약 6MB 이내로 입력해 주세요.",
+				});
 		if (useOwnKey === true && !req.user!.hasOpenaiKey) {
 			return res.status(400).json({
 				error:

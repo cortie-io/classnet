@@ -18,8 +18,8 @@ interface HistoryTurn {
 }
 
 interface BackendAskResponse {
-  answer: string;
   auditLogId?: number;
+  answer: string;
   intent: string;
   verificationStatus: string;
   confidence: number | null;
@@ -38,6 +38,16 @@ function appendPracticeMarker(
 ): string {
   if (!practiceAttempt) return text;
   return `${text}\n\n<!--PRACTICE_ATTEMPT:${JSON.stringify(practiceAttempt)}-->`;
+}
+
+/** 학생에게 그대로 보여 줘도 되는 오류(백엔드가 일부러 만든 안내 문구)만 담는다 — 원시 응답 본문은 감춘다. */
+class BackendAnswerError extends Error {
+  constructor(
+    readonly userMessage: string | null,
+    detail: string
+  ) {
+    super(detail);
+  }
 }
 
 async function callBackend(
@@ -61,7 +71,23 @@ async function callBackend(
     method: "POST",
   });
   if (!res.ok) {
-    throw new Error("지금 답변을 만들지 못했어요. 잠시 후 다시 시도해 주세요.");
+    const raw = await res.text();
+    let message: string | null = null;
+    try {
+      const parsed = JSON.parse(raw) as { error?: unknown };
+      // 400(입력 오류)·423(시험 중 잠금)·429(요청 제한)는 백엔드가 학생용으로 쓴 문구다.
+      if (
+        [400, 423, 429].includes(res.status) &&
+        typeof parsed.error === "string"
+      )
+        message = parsed.error.slice(0, 300);
+    } catch {
+      /* JSON이 아닌 응답 — 학생에게는 일반 문구만 */
+    }
+    throw new BackendAnswerError(
+      message,
+      `network-tutor-server 응답 오류 (${res.status})`
+    );
   }
   const data = (await res.json()) as BackendAskResponse;
   const answer = data.auditLogId
@@ -113,6 +139,7 @@ function humanizeHistoryText(text: string): string {
   const before = text.slice(0, match.index).replace(SOURCE_FOOTNOTE_RE, "");
   try {
     const attempt = JSON.parse(match[1]) as {
+      attemptId?: number;
       questions?: Array<{ stem?: string; choices?: string[] }>;
     };
     const listed = (attempt.questions ?? [])
@@ -123,8 +150,13 @@ function humanizeHistoryText(text: string): string {
         return `${i + 1}번 문제: ${q.stem ?? ""}${choicesText}`;
       })
       .join("\n\n");
+    // 응시 번호도 남긴다 — 백엔드가 "다른 문제 줘"에서 방금 보여 준 문제를 빼는 데 쓴다(practiceTopic.ts).
+    const attemptTag =
+      typeof attempt.attemptId === "number"
+        ? ` · 연습 #${attempt.attemptId}`
+        : "";
     return listed
-      ? `${before}\n\n[문제은행에서 찾아준 문제 목록]\n${listed}`
+      ? `${before}\n\n[문제은행에서 찾아준 문제 목록${attemptTag}]\n${listed}`
       : before;
   } catch {
     return before;
@@ -204,7 +236,16 @@ export const networkTutorModel: LanguageModel = {
   async doGenerate({ prompt, providerOptions }: CallOptions) {
     const opts = requireOptions(providerOptions);
     const { question, imageBase64, history } = extractRequest(prompt);
-    const text = await callBackend(question, imageBase64, history, opts);
+    let text: string;
+    try {
+      text = await callBackend(question, imageBase64, history, opts);
+    } catch (err) {
+      console.error("[network-tutor-model]", err);
+      text =
+        err instanceof BackendAnswerError && err.userMessage
+          ? err.userMessage
+          : "죄송합니다, 지금은 답변을 만들지 못했어요. 잠시 후 다시 시도해 주세요.";
+    }
     return {
       content: [{ text, type: "text" }],
       finishReason: "stop",
@@ -228,8 +269,12 @@ export const networkTutorModel: LanguageModel = {
             );
             controller.enqueue({ delta: text, id: "t1", type: "text-delta" });
           } catch (err) {
+            console.error("[network-tutor-model]", err);
             controller.enqueue({
-              delta: "지금 답변을 만들지 못했어요. 잠시 후 다시 시도해 주세요.",
+              delta:
+                err instanceof BackendAnswerError && err.userMessage
+                  ? err.userMessage
+                  : "죄송합니다, 지금은 답변을 만들지 못했어요. 잠시 후 다시 시도해 주세요.",
               id: "t1",
               type: "text-delta",
             });

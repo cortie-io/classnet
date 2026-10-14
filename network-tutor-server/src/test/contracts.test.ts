@@ -482,3 +482,23 @@ test("student learning endpoints stay accessible while admin audit endpoints rem
 		403,
 	);
 });
+
+test("oversized paid-model requests are rejected before generating an answer", async () => {
+	const ask = await call("/api/ask", {
+		method: "POST",
+		user: 2,
+		body: { question: "x".repeat(6001) },
+	});
+	assert.equal(ask.status, 400);
+	const problem = await call("/api/problem/explain", {
+		method: "POST",
+		user: 2,
+		body: { stem: "x".repeat(3001) },
+	});
+	assert.equal(problem.status, 400);
+	assert.equal(
+		(await pool.query("SELECT count(*)::int AS count FROM audit_log")).rows[0]
+			.count,
+		0,
+	);
+});

@@ -9,7 +9,11 @@ import { decryptSecret } from "../../auth/crypto.js";
 import type { ProviderChoice } from "../../../infrastructure/llm/provider.js";
 import { sendAskError } from "../pipeline/askError.js";
 
-import { requireUsage } from "../../auth/limits.js";
+import {
+	limitPerUser,
+	llmLimiter,
+	oneInFlightPerUser,
+} from "../../auth/rateLimit.js";
 
 export const problemRouter = Router();
 
@@ -18,13 +22,33 @@ const CHOICE_MARKS = ["①", "②", "③", "④", "⑤"];
 problemRouter.post(
 	"/problem/explain",
 	requireAuth,
-	requireUsage("ai-answer"),
+	limitPerUser(
+		llmLimiter,
+		"질문을 너무 자주 보내고 있어요. 잠시 후 다시 시도해 주세요.",
+	),
+	oneInFlightPerUser(
+		"이전 질문의 답을 만드는 중이에요. 답이 나온 뒤에 다시 보내 주세요.",
+	),
 	async (req, res) => {
 		const { stem, choices, extraQuestion, imageBase64, imageMime, useOwnKey } =
 			req.body ?? {};
 		if (typeof stem !== "string" || stem.trim().length === 0) {
 			return res.status(400).json({ error: "stem(문제 지문)이 필요합니다." });
 		}
+		if (
+			stem.length > 3000 ||
+			(Array.isArray(choices) &&
+				(choices.length > 6 ||
+					choices.some((c: unknown) => String(c).length > 500))) ||
+			(typeof extraQuestion === "string" && extraQuestion.length > 500) ||
+			(typeof imageBase64 === "string" && imageBase64.length > 8000000)
+		)
+			return res
+				.status(400)
+				.json({
+					error:
+						"입력이 너무 깁니다(지문 3000자, 보기 6개·각 500자, 추가 질문 500자, 이미지 약 6MB 이하).",
+				});
 		const choiceLines =
 			Array.isArray(choices) && choices.length > 0
 				? choices

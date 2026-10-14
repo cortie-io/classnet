@@ -17,11 +17,23 @@ const filePartSchema = z.object({
 
 const partSchema = z.union([textPartSchema, filePartSchema]);
 
-const userMessageSchema = z.object({
-  id: z.uuid(),
-  parts: z.array(partSchema).min(1).max(8),
-  role: z.enum(["user"]),
-});
+const userMessageSchema = z
+  .object({
+    id: z.uuid(),
+    parts: z.array(partSchema).min(1).max(6),
+    role: z.enum(["user"]),
+  })
+  .refine((m) => m.parts.filter((p) => p.type === "file").length <= 1, {
+    message: "이미지는 하나만 첨부할 수 있어요.",
+  })
+  .refine(
+    (m) =>
+      m.parts.reduce(
+        (n, p) => n + (p.type === "text" ? p.text.length : 0),
+        0
+      ) <= 6000,
+    { message: "질문이 너무 길어요." }
+  );
 
 export const postRequestBodySchema = z.object({
   id: z.uuid(),
