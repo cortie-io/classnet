@@ -27,7 +27,7 @@ def verify_inventory():
     if actual-KNOWN:raise RuntimeError('Unreviewed schema: review reset policy before launching')
 def make_backup(request_id):
     target='phase2-beta-'+str(uuid.UUID(request_id))+'.dump'
-    run(pg_args()+['-v',str(BACKUPS)+':/backup',CLIENT,'pg_dump','--format=custom','--no-owner','--no-acl','--file=/backup/'+target])
+    run(pg_args()+['-v',str(BACKUPS)+':/backup',CLIENT,'pg_dump','--schema=public','--format=custom','--no-owner','--no-acl','--file=/backup/'+target])
     path=BACKUPS/target
     if not path.is_file() or path.stat().st_size<100:raise RuntimeError('Backup missing or empty')
     path.chmod(0o600)

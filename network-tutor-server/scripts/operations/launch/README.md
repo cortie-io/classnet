@@ -15,12 +15,13 @@ The worker uses the pinned official postgres client image, never executes user-s
 commands, and does not expose Docker or backup permissions to either application.
 
 A requested launch stops BOTH production application containers, creates a full private
-phase2 custom-format backup in `/var/backups/classnet-phase2-beta`, and verifies it with
+phase2 public application-schema custom-format backup in `/var/backups/classnet-phase2-beta`, and verifies it with
 pg_restore before executing reset.sql. The reset and official timestamp commit together.
 Accounts, credentials, profile/class assignments, curriculum, embeddings, question bank,
 exam definitions and settings remain intact. Learning/activity/cache/session rows and
 manual student scores are cleared. Auth versions increment for everyone, requiring login.
-Sequences are intentionally monotonic, preventing old links from resolving to a new exam.
+The untouched drizzle migration ledger is excluded from the application backup; no extra
+migration-schema permissions are granted to the runtime account. Sequences are intentionally monotonic, preventing old links from resolving to a new exam.
 The login page clears browser-only pending drafts after successful sign-in.
 
 An inventory guard refuses unreviewed new public tables (update policy when integrating
