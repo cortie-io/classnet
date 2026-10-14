@@ -25,7 +25,8 @@ export async function proxy(request: NextRequest) {
   // __Secure- 접두어 쿠키를 못 찾는다(실측 확인됨: /api/auth/session은 되는데 미들웨어만 실패).
   // nginx가 명시적으로 보내주는 x-forwarded-proto를 직접 읽어 판단해야 한다.
   const forwardedProto = request.headers.get("x-forwarded-proto");
-  const secureCookie = forwardedProto === "https" || request.nextUrl.protocol === "https:";
+  const secureCookie =
+    forwardedProto === "https" || request.nextUrl.protocol === "https:";
 
   const token = await getToken({
     req: request,
@@ -37,7 +38,9 @@ export async function proxy(request: NextRequest) {
 
   if ((!token || token.servicePeriod !== "2") && pathname !== "/login") {
     const redirectUrl = encodeURIComponent(new URL(request.url).pathname);
-    return NextResponse.redirect(new URL(`${base}/login?redirectUrl=${redirectUrl}`, request.url));
+    return NextResponse.redirect(
+      new URL(`${base}/login?redirectUrl=${redirectUrl}`, request.url)
+    );
   }
 
   // Login must stay reachable for revoked/deleted/stale JWTs. Server authentication

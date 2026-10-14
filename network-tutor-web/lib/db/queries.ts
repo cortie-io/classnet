@@ -1,5 +1,5 @@
 import "server-only";
-import {existsSync,readFileSync} from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import {
@@ -31,11 +31,29 @@ import {
   vote,
 } from "./schema";
 
-const databaseUrl=process.env.DATABASE_URL ?? process.env.POSTGRES_URL ?? "";
-const databaseHost=(()=>{try{return new URL(databaseUrl).hostname;}catch{return "localhost";}})();
-const remoteDatabase=!["localhost","127.0.0.1","[::1]","::1",""].includes(databaseHost);
-const caFile=path.join(process.cwd(),"certs/rds-global-bundle.pem");
-const client=postgres(databaseUrl,remoteDatabase?{ssl:{rejectUnauthorized:true,...(existsSync(caFile)?{ca:readFileSync(caFile,"utf8")}: {})}}:{});
+const databaseUrl = process.env.DATABASE_URL ?? process.env.POSTGRES_URL ?? "";
+const databaseHost = (() => {
+  try {
+    return new URL(databaseUrl).hostname;
+  } catch {
+    return "localhost";
+  }
+})();
+const remoteDatabase = !["localhost", "127.0.0.1", "[::1]", "::1", ""].includes(
+  databaseHost
+);
+const caFile = path.join(process.cwd(), "certs/rds-global-bundle.pem");
+const client = postgres(
+  databaseUrl,
+  remoteDatabase
+    ? {
+        ssl: {
+          rejectUnauthorized: true,
+          ...(existsSync(caFile) ? { ca: readFileSync(caFile, "utf8") } : {}),
+        },
+      }
+    : {}
+);
 const db = drizzle(client);
 
 // 회원가입 없음, 게스트 없음: 계정은 network-tutor-server의 실제 `users` 테이블(정수 id)이
@@ -85,7 +103,9 @@ export async function getUserByEmail(email: string): Promise<AppUser | null> {
   }
 }
 
-export async function getUserByStudentId(studentId: string): Promise<AppUser | null> {
+export async function getUserByStudentId(
+  studentId: string
+): Promise<AppUser | null> {
   try {
     const rows = await client<
       {
@@ -119,15 +139,22 @@ export async function getUserByStudentId(studentId: string): Promise<AppUser | n
 }
 
 export async function getAuthState(id: number) {
-  const rows = await client<{auth_version: number; role: "admin" | "student"; level: "beginner" | "intermediate" | "advanced"}[]>
-    `SELECT auth_version, role, level FROM users WHERE id = ${id}`;
+  const rows = await client<
+    {
+      auth_version: number;
+      role: "admin" | "student";
+      level: "beginner" | "intermediate" | "advanced";
+    }[]
+  >`SELECT auth_version, role, level FROM users WHERE id = ${id}`;
   return rows[0] ?? null;
 }
 
 export async function admitLogin(identifier: string): Promise<boolean> {
   const { createHash } = await import("node:crypto");
-  const key = "login:" + createHash("sha256").update(identifier.trim().toLowerCase()).digest("hex");
-  const rows = await client<{key: string}[]>`
+  const key =
+    "login:" +
+    createHash("sha256").update(identifier.trim().toLowerCase()).digest("hex");
+  const rows = await client<{ key: string }[]>`
     INSERT INTO request_limits (key, bucket, count)
     VALUES (${key}, floor(extract(epoch FROM now()) / 900)::bigint, 1)
     ON CONFLICT (key) DO UPDATE

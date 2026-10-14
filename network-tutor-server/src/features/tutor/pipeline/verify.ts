@@ -1,11 +1,14 @@
-import { generateChat, type ProviderChoice } from "../../../infrastructure/llm/provider.js";
+import {
+	generateChat,
+	type ProviderChoice,
+} from "../../../infrastructure/llm/provider.js";
 import type { CalcResult } from "../../../domain/network/calculators.js";
 import { describeLlmError } from "../../../infrastructure/llm/http.js";
 
 export interface VerificationResult {
-  grounded: boolean;
-  confidence: number; // 0..1
-  detail: Record<string, unknown>;
+	grounded: boolean;
+	confidence: number; // 0..1
+	detail: Record<string, unknown>;
 }
 
 // "192.168.1.0" 같은 점표기 전체를 하나로 잡은 뒤, 옥텟 하나씩("192","168","1","0")도 함께 반환한다.
@@ -14,18 +17,18 @@ export interface VerificationResult {
 // 처럼 옥텟 하나만 따로 언급하는 경우가 흔해서 완전히 같은 숫자인데도 다른 토큰 취급되어 오탐이 났다
 // (실제로 서브넷 계산 정답이 이 이유만으로 반려된 사례가 있었다).
 function extractNumbers(text: string): string[] {
-  const whole = text.match(/\d+(?:\.\d+)*/g) ?? [];
-  const out: string[] = [];
-  for (const token of whole) {
-    out.push(token);
-    if (token.includes(".")) out.push(...token.split("."));
-  }
-  return out;
+	const whole = text.match(/\d+(?:\.\d+)*/g) ?? [];
+	const out: string[] = [];
+	for (const token of whole) {
+		out.push(token);
+		if (token.includes(".")) out.push(...token.split("."));
+	}
+	return out;
 }
 
 // 마크다운 번호 목록("1. ", "**2.** " 등)은 LLM이 임의로 매긴 문단 번호일 뿐 계산값이 아니므로 검증 대상에서 제외한다.
 function stripListMarkers(text: string): string {
-  return text.replace(/(^|\n)\s*\*{0,2}\d{1,2}\.\*{0,2}\s+/g, "$1");
+	return text.replace(/(^|\n)\s*\*{0,2}\d{1,2}\.\*{0,2}\s+/g, "$1");
 }
 
 // "000000", "111111"처럼 같은 숫자가 반복되는 토큰은 거의 항상 2진수 비트 패턴을 설명하는 예시일 뿐
@@ -33,7 +36,7 @@ function stripListMarkers(text: string): string {
 // 대조해서 정확한 설명을 통째로 폐기하는 오탐이 실제로 있었다(예: 서브넷 계산 정답을 규칙엔진 표시로
 // 강등시킴). 대조 대상에서 제외한다.
 function isRepeatedDigit(token: string): boolean {
-  return /^(\d)\1*$/.test(token);
+	return /^(\d)\1*$/.test(token);
 }
 
 /** 계산형: LLM이 서술한 숫자가 규칙엔진이 산출한 숫자 집합(결과값+계산 단계 전체) 안에 있는지 대조.
@@ -41,51 +44,82 @@ function isRepeatedDigit(token: string): boolean {
  *  실제 계산 오류 신호로 보기 어려워 대조 대상에서 제외하고, 두 자리 이상 숫자(옥텟·호스트 수·비트 수 등
  *  실제 오류가 나면 드러나는 값)만 엄격히 대조한다. 다만 한두 개의 부수적 숫자(예: 비트 패턴 예시)까지
  *  트집 잡으면 정확한 설명이 자주 폐기되므로, 소량의 불일치는 감점만 하고 통과시킨다. */
-export function verifyCalcAnswer(calcResult: CalcResult, llmText: string): VerificationResult {
-  const trustedText = [calcResult.summary, JSON.stringify(calcResult.result), ...calcResult.steps.map((s) => `${s.label} ${s.detail}`)].join(
-    " ",
-  );
-  const trustedNumbers = new Set(extractNumbers(trustedText));
-  const claimedNumbers = extractNumbers(stripListMarkers(llmText))
-    .filter((n) => !/^\d$/.test(n))
-    .filter((n) => !isRepeatedDigit(n));
-  const unsupported = claimedNumbers.filter((n) => !trustedNumbers.has(n));
-  // 실서비스 정책: 학생에게는 규칙엔진 값 그대로보다 자세한 설명이 더 도움이 된다. "옥텟은 0~255 범위라
-  // 256-192=64"처럼 계산과 무관한 배경 설명 숫자가 한두 개 섞이는 것은 정상이므로, 소수의 불일치는
-  // 통과시키고 다수(=답변 대부분이 근거 없는 숫자로 채워진 경우)일 때만 실제 계산 오류로 본다.
-  const grounded = unsupported.length <= 2 || unsupported.length / Math.max(claimedNumbers.length, 1) < 0.3;
-  return {
-    grounded,
-    confidence: grounded ? 1 : Math.max(0, 1 - unsupported.length / Math.max(claimedNumbers.length, 1)),
-    detail: { unsupportedNumbers: unsupported, trustedNumberCount: trustedNumbers.size },
-  };
+export function verifyCalcAnswer(
+	calcResult: CalcResult,
+	llmText: string,
+): VerificationResult {
+	const trustedText = [
+		calcResult.summary,
+		JSON.stringify(calcResult.result),
+		...calcResult.steps.map((s) => `${s.label} ${s.detail}`),
+	].join(" ");
+	const trustedNumbers = new Set(extractNumbers(trustedText));
+	const claimedNumbers = extractNumbers(stripListMarkers(llmText))
+		.filter((n) => !/^\d$/.test(n))
+		.filter((n) => !isRepeatedDigit(n));
+	const unsupported = claimedNumbers.filter((n) => !trustedNumbers.has(n));
+	// 실서비스 정책: 학생에게는 규칙엔진 값 그대로보다 자세한 설명이 더 도움이 된다. "옥텟은 0~255 범위라
+	// 256-192=64"처럼 계산과 무관한 배경 설명 숫자가 한두 개 섞이는 것은 정상이므로, 소수의 불일치는
+	// 통과시키고 다수(=답변 대부분이 근거 없는 숫자로 채워진 경우)일 때만 실제 계산 오류로 본다.
+	const grounded =
+		unsupported.length <= 2 ||
+		unsupported.length / Math.max(claimedNumbers.length, 1) < 0.3;
+	return {
+		grounded,
+		confidence: grounded
+			? 1
+			: Math.max(
+					0,
+					1 - unsupported.length / Math.max(claimedNumbers.length, 1),
+				),
+		detail: {
+			unsupportedNumbers: unsupported,
+			trustedNumberCount: trustedNumbers.size,
+		},
+	};
 }
 
 /** 조회형: 매칭된 표 행(row_data)의 값만을 신뢰 데이터로 두고, LLM 서술의 숫자·영문 약어가 그 안에 있는지 대조.
  *  계산형 검증과 동일한 원리를 구조화 조회 데이터에 적용한 버전이다. 실서비스 정책(AI 배경지식 허용)에
  *  맞춰, 표에 없는 내용을 조금 더 곁들여 설명하는 것 자체는 문제 삼지 않고 다수가 근거 없을 때만 반려한다. */
-export function verifyStructuredAnswer(trustedFacts: string, llmText: string): VerificationResult {
-  const cleaned = stripListMarkers(llmText);
-  const claimedNumbers = extractNumbers(cleaned)
-    .filter((n) => !/^\d$/.test(n))
-    .filter((n) => !isRepeatedDigit(n));
-  // 약어는 실제 표기 관례대로 전부 대문자인 것만 잡는다("NAT", "VLAN" 등) — 소문자 섞인 일반 영단어까지
-  // 잡으면("Network", "Address", "Translation"처럼 NAT를 풀어 설명하는 흔한 문장까지) 오탐이 난다.
-  const claimedAcronyms = cleaned.match(/\b[A-Z]{2,}[0-9]*\b/g) ?? [];
-  const checkTokens = [...claimedNumbers, ...claimedAcronyms];
-  if (checkTokens.length === 0) {
-    return { grounded: true, confidence: 0.6, detail: { method: "structured_no_checkable_tokens" } };
-  }
-  const lowerTrusted = trustedFacts.toLowerCase();
-  const unsupported = checkTokens.filter((t) => !lowerTrusted.includes(t.toLowerCase()));
-  // 표 밖 배경지식을 곁들이는 것 자체는 정책상 허용이므로, 소수 토큰의 불일치만으로 통째로 반려하지
-  // 않는다 — 근거 없는 토큰 비중이 절반을 넘어갈 때만(=답변 대부분이 표와 무관) 반려한다.
-  const grounded = unsupported.length <= 1 || unsupported.length / checkTokens.length < 0.5;
-  return {
-    grounded,
-    confidence: grounded ? 1 : Math.max(0, 1 - unsupported.length / checkTokens.length),
-    detail: { method: "structured_containment", unsupported, checkedCount: checkTokens.length },
-  };
+export function verifyStructuredAnswer(
+	trustedFacts: string,
+	llmText: string,
+): VerificationResult {
+	const cleaned = stripListMarkers(llmText);
+	const claimedNumbers = extractNumbers(cleaned)
+		.filter((n) => !/^\d$/.test(n))
+		.filter((n) => !isRepeatedDigit(n));
+	// 약어는 실제 표기 관례대로 전부 대문자인 것만 잡는다("NAT", "VLAN" 등) — 소문자 섞인 일반 영단어까지
+	// 잡으면("Network", "Address", "Translation"처럼 NAT를 풀어 설명하는 흔한 문장까지) 오탐이 난다.
+	const claimedAcronyms = cleaned.match(/\b[A-Z]{2,}[0-9]*\b/g) ?? [];
+	const checkTokens = [...claimedNumbers, ...claimedAcronyms];
+	if (checkTokens.length === 0) {
+		return {
+			grounded: true,
+			confidence: 0.6,
+			detail: { method: "structured_no_checkable_tokens" },
+		};
+	}
+	const lowerTrusted = trustedFacts.toLowerCase();
+	const unsupported = checkTokens.filter(
+		(t) => !lowerTrusted.includes(t.toLowerCase()),
+	);
+	// 표 밖 배경지식을 곁들이는 것 자체는 정책상 허용이므로, 소수 토큰의 불일치만으로 통째로 반려하지
+	// 않는다 — 근거 없는 토큰 비중이 절반을 넘어갈 때만(=답변 대부분이 표와 무관) 반려한다.
+	const grounded =
+		unsupported.length <= 1 || unsupported.length / checkTokens.length < 0.5;
+	return {
+		grounded,
+		confidence: grounded
+			? 1
+			: Math.max(0, 1 - unsupported.length / checkTokens.length),
+		detail: {
+			method: "structured_containment",
+			unsupported,
+			checkedCount: checkTokens.length,
+		},
+	};
 }
 
 /**
@@ -95,13 +129,13 @@ export function verifyStructuredAnswer(trustedFacts: string, llmText: string): V
  * 검증을 완료하지 못하면 통과로 간주하지 않고 교사 확인 대상으로 남긴다.
  */
 export async function verifyGroundedness(
-  context: string,
-  question: string,
-  answer: string,
-  provider: ProviderChoice,
+	context: string,
+	question: string,
+	answer: string,
+	provider: ProviderChoice,
 ): Promise<VerificationResult> {
-  try {
-    const verifierPrompt = `당신은 네트워크관리사 2급(네트워크·보안·리눅스) 도메인의 엄격한 팩트체커입니다.
+	try {
+		const verifierPrompt = `당신은 네트워크관리사 2급(네트워크·보안·리눅스) 도메인의 엄격한 팩트체커입니다.
 [답변]이 [질문]에 대해 명백히 틀린 기술적 사실, 존재하지 않는 프로토콜/수치/용어, 또는 위험할 정도로
 오도하는 내용을 담고 있는지만 판단하세요. [컨텍스트]는 참고 자료일 뿐이며, [답변]이 컨텍스트에 없는
 내용을 다룬다는 사실 자체는 문제가 아닙니다(실제 서비스는 AI의 배경지식 사용을 허용합니다).
@@ -117,26 +151,40 @@ ${question}
 
 [답변]
 ${answer}`;
-    // 팩트체크 검증은 정확도가 제일 중요한 단계라 항상 상위 모델(accurate)을 쓴다(2026-08-18 결정).
-    const { text: raw } = await generateChat(
-      [
-        { role: "system", content: "You are a strict domain fact-checker. Respond with JSON only." },
-        { role: "user", content: verifierPrompt },
-      ],
-      provider,
-      { temperature: 0, tier: "accurate" },
-    );
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]) as { grounded: boolean; reason?: string };
-      return {
-        grounded: parsed.grounded === true,
-        confidence: parsed.grounded === true ? 0.9 : 0.35,
-        detail: { method: "llm_factcheck", reason: parsed.reason ?? null },
-      };
-    }
-    throw new Error("verifier response had no parseable JSON");
-  } catch (err) {
-    return { grounded:false, confidence:0, detail:{method:"verification_unavailable",reason:describeLlmError(err)} };
-  }
+		// 팩트체크 검증은 정확도가 제일 중요한 단계라 항상 상위 모델(accurate)을 쓴다(2026-08-18 결정).
+		const { text: raw } = await generateChat(
+			[
+				{
+					role: "system",
+					content:
+						"You are a strict domain fact-checker. Respond with JSON only.",
+				},
+				{ role: "user", content: verifierPrompt },
+			],
+			provider,
+			{ temperature: 0, tier: "accurate" },
+		);
+		const jsonMatch = raw.match(/\{[\s\S]*\}/);
+		if (jsonMatch) {
+			const parsed = JSON.parse(jsonMatch[0]) as {
+				grounded: boolean;
+				reason?: string;
+			};
+			return {
+				grounded: parsed.grounded === true,
+				confidence: parsed.grounded === true ? 0.9 : 0.35,
+				detail: { method: "llm_factcheck", reason: parsed.reason ?? null },
+			};
+		}
+		throw new Error("verifier response had no parseable JSON");
+	} catch (err) {
+		return {
+			grounded: false,
+			confidence: 0,
+			detail: {
+				method: "verification_unavailable",
+				reason: describeLlmError(err),
+			},
+		};
+	}
 }

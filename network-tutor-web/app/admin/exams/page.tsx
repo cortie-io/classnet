@@ -113,14 +113,20 @@ export default function ExamsAdminPage() {
   const [scheduledStart, setScheduledStart] = useState("");
   const [scheduledEnd, setScheduledEnd] = useState("");
   const [sets, setSets] = useState<ExamSetRow[]>([]);
-  const [editingScheduleId, setEditingScheduleId] = useState<number | null>(null);
+  const [editingScheduleId, setEditingScheduleId] = useState<number | null>(
+    null
+  );
   const [editStart, setEditStart] = useState("");
   const [editEnd, setEditEnd] = useState("");
   const [attempts, setAttempts] = useState<AttemptRow[]>([]);
   const [showFlaggedOnly, setShowFlaggedOnly] = useState(false);
   const [gradingQueue, setGradingQueue] = useState<GradingItem[]>([]);
-  const [gradeDrafts, setGradeDrafts] = useState<Record<number, { score: string; feedback: string }>>({});
-  const [questionQuality, setQuestionQuality] = useState<QuestionQualityRow[]>([]);
+  const [gradeDrafts, setGradeDrafts] = useState<
+    Record<number, { score: string; feedback: string }>
+  >({});
+  const [questionQuality, setQuestionQuality] = useState<QuestionQualityRow[]>(
+    []
+  );
 
   // 문제 직접 작성 폼 상태
   const [qSubject, setQSubject] = useState(SUBJECTS[0]);
@@ -138,7 +144,10 @@ export default function ExamsAdminPage() {
 
   const loadApproved = (subjectOverride?: string, queryOverride?: string) => {
     // 새 시험 만들기 문제 선택 목록은 관리자가 직접 만들어 등록한 문제만 보여준다(기출/AI 생성 문제 제외).
-    const params = new URLSearchParams({ status: "approved", source: "admin_authored" });
+    const params = new URLSearchParams({
+      status: "approved",
+      source: "admin_authored",
+    });
     const subj = subjectOverride ?? pickerSubject;
     const q = queryOverride ?? pickerQuery;
     if (subj) params.set("subject", subj);
@@ -147,9 +156,14 @@ export default function ExamsAdminPage() {
   };
   const loadSets = () => loadJson("/api/admin/exam/sets", setSets);
   const loadAttempts = (flaggedOnly: boolean) =>
-    loadJson(`/api/admin/exam/attempts${flaggedOnly ? "?flagged=true" : ""}`, setAttempts);
-  const loadGradingQueue = () => loadJson("/api/admin/exam/grading-queue", setGradingQueue);
-  const loadQuestionQuality = () => loadJson("/api/admin/exam/question-quality", setQuestionQuality);
+    loadJson(
+      `/api/admin/exam/attempts${flaggedOnly ? "?flagged=true" : ""}`,
+      setAttempts
+    );
+  const loadGradingQueue = () =>
+    loadJson("/api/admin/exam/grading-queue", setGradingQueue);
+  const loadQuestionQuality = () =>
+    loadJson("/api/admin/exam/question-quality", setQuestionQuality);
 
   useEffect(() => {
     loadApproved();
@@ -198,9 +212,15 @@ export default function ExamsAdminPage() {
       body.choices = cleaned;
       body.correctIndex = Math.min(qCorrectIndex, cleaned.length - 1);
     } else if (qType === "short_answer") {
-      const accepted = qAcceptedAnswers.split(",").map((s) => s.trim()).filter(Boolean);
+      const accepted = qAcceptedAnswers
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
       if (accepted.length === 0) {
-        toast({ type: "error", description: "정답으로 인정할 답을 1개 이상 입력하세요(쉼표로 구분)." });
+        toast({
+          type: "error",
+          description: "정답으로 인정할 답을 1개 이상 입력하세요(쉼표로 구분).",
+        });
         return;
       }
       body.acceptedAnswers = accepted;
@@ -218,12 +238,20 @@ export default function ExamsAdminPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "문제 생성 실패");
-      toast({ type: "success", description: "문제가 추가되었습니다. 아래 목록에서 시험에 포함시킬 수 있습니다." });
+      toast({
+        type: "success",
+        description:
+          "문제가 추가되었습니다. 아래 목록에서 시험에 포함시킬 수 있습니다.",
+      });
       resetQuestionForm();
       await loadApproved();
       setSelected((prev) => new Set(prev).add(data.id));
     } catch (err) {
-      toast({ type: "error", description: err instanceof Error ? err.message : "오류가 발생했습니다." });
+      toast({
+        type: "error",
+        description:
+          err instanceof Error ? err.message : "오류가 발생했습니다.",
+      });
     } finally {
       setCreatingQuestion(false);
     }
@@ -242,13 +270,20 @@ export default function ExamsAdminPage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      toast({ type: "error", description: err instanceof Error ? err.message : "오류가 발생했습니다." });
+      toast({
+        type: "error",
+        description:
+          err instanceof Error ? err.message : "오류가 발생했습니다.",
+      });
     }
   };
 
   const createSet = async () => {
     if (!title || selected.size === 0) {
-      toast({ type: "error", description: "제목과 문제를 1개 이상 선택하세요." });
+      toast({
+        type: "error",
+        description: "제목과 문제를 1개 이상 선택하세요.",
+      });
       return;
     }
     const res = await adminFetch("/api/admin/exam/sets", {
@@ -267,7 +302,10 @@ export default function ExamsAdminPage() {
       toast({ type: "error", description: data.error ?? "생성 실패" });
       return;
     }
-    toast({ type: "success", description: "시험이 생성되었습니다. 아래에서 공개하세요." });
+    toast({
+      type: "success",
+      description: "시험이 생성되었습니다. 아래에서 공개하세요.",
+    });
     setTitle("");
     setScheduledStart("");
     setScheduledEnd("");
@@ -276,7 +314,10 @@ export default function ExamsAdminPage() {
   };
 
   const togglePublish = async (id: number, publish: boolean) => {
-    await adminFetch(`/api/admin/exam/sets/${id}/${publish ? "publish" : "unpublish"}`, { method: "POST" });
+    await adminFetch(
+      `/api/admin/exam/sets/${id}/${publish ? "publish" : "unpublish"}`,
+      { method: "POST" }
+    );
     loadSets();
   };
 
@@ -289,8 +330,15 @@ export default function ExamsAdminPage() {
   const saveSchedule = async (id: number) => {
     const startIso = localInputToIso(editStart);
     const endIso = localInputToIso(editEnd);
-    if (startIso && endIso && new Date(startIso).getTime() >= new Date(endIso).getTime()) {
-      toast({ type: "error", description: "응시 시작 시각은 마감 시각보다 이전이어야 합니다." });
+    if (
+      startIso &&
+      endIso &&
+      new Date(startIso).getTime() >= new Date(endIso).getTime()
+    ) {
+      toast({
+        type: "error",
+        description: "응시 시작 시각은 마감 시각보다 이전이어야 합니다.",
+      });
       return;
     }
     const res = await adminFetch(`/api/admin/exam/sets/${id}`, {
@@ -312,8 +360,17 @@ export default function ExamsAdminPage() {
     const draft = gradeDrafts[answerId];
     // 빈 칸은 Number("") === 0이라 그대로 두면 0점으로 저장돼 버린다(피드백만 쓰고 저장한 경우 등).
     const score = Number(draft?.score);
-    if (!draft || String(draft.score ?? "").trim() === "" || Number.isNaN(score) || score < 0 || score > maxScore) {
-      toast({ type: "error", description: `0 ~ ${maxScore} 사이 점수를 입력하세요.` });
+    if (
+      !draft ||
+      String(draft.score ?? "").trim() === "" ||
+      Number.isNaN(score) ||
+      score < 0 ||
+      score > maxScore
+    ) {
+      toast({
+        type: "error",
+        description: `0 ~ ${maxScore} 사이 점수를 입력하세요.`,
+      });
       return;
     }
     const res = await adminFetch(`/api/admin/exam/answers/${answerId}/grade`, {
@@ -332,7 +389,11 @@ export default function ExamsAdminPage() {
 
   return (
     <div className="flex w-full flex-col gap-6 overflow-x-hidden">
-      <PageIntro description="문제를 직접 작성하고, 지정 시험을 만들어 학생에게 배정해요." icon={TimerIcon} title="시험 관리" />
+      <PageIntro
+        description="문제를 직접 작성하고, 지정 시험을 만들어 학생에게 배정해요."
+        icon={TimerIcon}
+        title="시험 관리"
+      />
 
       <div className="surface p-4 sm:p-5">
         <h2 className="mb-3 font-semibold text-[14px]">문제 직접 작성</h2>
@@ -340,10 +401,14 @@ export default function ExamsAdminPage() {
           <div className="flex flex-col gap-1.5">
             <Label>과목</Label>
             <Select onValueChange={setQSubject} value={qSubject}>
-              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 {SUBJECTS.map((s) => (
-                  <SelectItem key={s} value={s}>{s.replace(/^\d과목_/, "")}</SelectItem>
+                  <SelectItem key={s} value={s}>
+                    {s.replace(/^\d과목_/, "")}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -351,7 +416,9 @@ export default function ExamsAdminPage() {
           <div className="flex flex-col gap-1.5">
             <Label>출제 형태</Label>
             <Select onValueChange={setQType} value={qType}>
-              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="multiple_choice">객관식</SelectItem>
                 <SelectItem value="short_answer">단답식</SelectItem>
@@ -364,7 +431,12 @@ export default function ExamsAdminPage() {
 
         <div className="mt-3 flex flex-col gap-1.5">
           <Label>문제 지문</Label>
-          <Textarea onChange={(e) => setQStem(e.target.value)} placeholder="문제 내용을 입력하세요" rows={3} value={qStem} />
+          <Textarea
+            onChange={(e) => setQStem(e.target.value)}
+            placeholder="문제 내용을 입력하세요"
+            rows={3}
+            value={qStem}
+          />
         </div>
 
         {qType === "multiple_choice" && (
@@ -390,7 +462,12 @@ export default function ExamsAdminPage() {
               </div>
             ))}
             <div className="flex gap-2">
-              <PeriodButton onClick={() => setQChoices((p) => [...p, ""])} size="sm" type="button" variant="outline">
+              <PeriodButton
+                onClick={() => setQChoices((p) => [...p, ""])}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
                 선택지 추가
               </PeriodButton>
               {qChoices.length > 2 && (
@@ -410,27 +487,47 @@ export default function ExamsAdminPage() {
         {qType === "short_answer" && (
           <div className="mt-3 flex flex-col gap-3">
             <div className="flex flex-col gap-1.5">
-              <Label>정답으로 인정할 답 (쉼표로 여러 개 가능, 예: TCP, tcp)</Label>
-              <Input onChange={(e) => setQAcceptedAnswers(e.target.value)} placeholder="정답1, 정답2" value={qAcceptedAnswers} />
+              <Label>
+                정답으로 인정할 답 (쉼표로 여러 개 가능, 예: TCP, tcp)
+              </Label>
+              <Input
+                onChange={(e) => setQAcceptedAnswers(e.target.value)}
+                placeholder="정답1, 정답2"
+                value={qAcceptedAnswers}
+              />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label>모범답안 (선택, 해설에 참고용)</Label>
-              <Textarea onChange={(e) => setQModelAnswer(e.target.value)} rows={2} value={qModelAnswer} />
+              <Textarea
+                onChange={(e) => setQModelAnswer(e.target.value)}
+                rows={2}
+                value={qModelAnswer}
+              />
             </div>
           </div>
         )}
 
         {(qType === "subjective" || qType === "essay") && (
           <div className="mt-3 flex flex-col gap-1.5">
-            <Label>모범답안 (선택 — 채점 시 참고용, 자동채점되지 않습니다)</Label>
-            <Textarea onChange={(e) => setQModelAnswer(e.target.value)} rows={qType === "essay" ? 5 : 2} value={qModelAnswer} />
+            <Label>
+              모범답안 (선택 — 채점 시 참고용, 자동채점되지 않습니다)
+            </Label>
+            <Textarea
+              onChange={(e) => setQModelAnswer(e.target.value)}
+              rows={qType === "essay" ? 5 : 2}
+              value={qModelAnswer}
+            />
           </div>
         )}
 
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label>해설 (선택)</Label>
-            <Textarea onChange={(e) => setQExplanation(e.target.value)} rows={2} value={qExplanation} />
+            <Textarea
+              onChange={(e) => setQExplanation(e.target.value)}
+              rows={2}
+              value={qExplanation}
+            />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label>배점</Label>
@@ -444,7 +541,11 @@ export default function ExamsAdminPage() {
           </div>
         </div>
 
-        <PeriodButton className="mt-4" disabled={creatingQuestion} onClick={createQuestion}>
+        <PeriodButton
+          className="mt-4"
+          disabled={creatingQuestion}
+          onClick={createQuestion}
+        >
           {creatingQuestion ? "추가하는 중..." : "문제 추가"}
         </PeriodButton>
       </div>
@@ -452,7 +553,11 @@ export default function ExamsAdminPage() {
       <div className="surface p-4 sm:p-5">
         <h2 className="mb-3 font-semibold text-[14px]">새 시험 만들기</h2>
         <div className="mb-3 flex flex-col gap-2 sm:flex-row">
-          <Input onChange={(e) => setTitle(e.target.value)} placeholder="시험 제목(예: 1차 지필평가)" value={title} />
+          <Input
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="시험 제목(예: 1차 지필평가)"
+            value={title}
+          />
           <Input
             className="sm:w-32"
             onChange={(e) => setDuration(Number(e.target.value))}
@@ -465,23 +570,43 @@ export default function ExamsAdminPage() {
         <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end">
           <div className="flex flex-1 flex-col gap-1">
             <Label className="text-xs">응시 시작(선택, 비우면 제한 없음)</Label>
-            <Input onChange={(e) => setScheduledStart(e.target.value)} type="datetime-local" value={scheduledStart} />
+            <Input
+              onChange={(e) => setScheduledStart(e.target.value)}
+              type="datetime-local"
+              value={scheduledStart}
+            />
           </div>
           <div className="flex flex-1 flex-col gap-1">
             <Label className="text-xs">응시 마감(선택, 비우면 제한 없음)</Label>
-            <Input onChange={(e) => setScheduledEnd(e.target.value)} type="datetime-local" value={scheduledEnd} />
+            <Input
+              onChange={(e) => setScheduledEnd(e.target.value)}
+              type="datetime-local"
+              value={scheduledEnd}
+            />
           </div>
         </div>
         <p className="mb-2 text-muted-foreground text-xs">
-          승인된 문제(직접 작성 + 검수 통과) 중 출제할 문제를 선택하세요 ({selected.size}개 선택됨)
+          승인된 문제(직접 작성 + 검수 통과) 중 출제할 문제를 선택하세요 (
+          {selected.size}개 선택됨)
         </p>
         <div className="mb-2 flex flex-col gap-2 sm:flex-row">
-          <Select onValueChange={(v) => { const val = v === "all" ? "" : v; setPickerSubject(val); loadApproved(val, pickerQuery); }} value={pickerSubject || "all"}>
-            <SelectTrigger className="sm:w-56"><SelectValue placeholder="전체 과목" /></SelectTrigger>
+          <Select
+            onValueChange={(v) => {
+              const val = v === "all" ? "" : v;
+              setPickerSubject(val);
+              loadApproved(val, pickerQuery);
+            }}
+            value={pickerSubject || "all"}
+          >
+            <SelectTrigger className="sm:w-56">
+              <SelectValue placeholder="전체 과목" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">전체 과목</SelectItem>
               {SUBJECTS.map((s) => (
-                <SelectItem key={s} value={s}>{s.replace(/^\d과목_/, "")}</SelectItem>
+                <SelectItem key={s} value={s}>
+                  {s.replace(/^\d과목_/, "")}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -491,20 +616,42 @@ export default function ExamsAdminPage() {
             placeholder="문제 내용 검색 후 Enter"
             value={pickerQuery}
           />
-          <Button onClick={() => loadApproved()} type="button" variant="outline">검색</Button>
+          <Button
+            onClick={() => loadApproved()}
+            type="button"
+            variant="outline"
+          >
+            검색
+          </Button>
         </div>
         <div className="flex max-h-72 flex-col gap-1 overflow-auto rounded-lg border border-border p-2">
           {approved.map((q) => (
-            <label className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 text-[13px] hover:bg-accent/50" key={q.id}>
-              <input checked={selected.has(q.id)} onChange={() => toggle(q.id)} type="checkbox" />
+            <label
+              className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 text-[13px] hover:bg-accent/50"
+              key={q.id}
+            >
+              <input
+                checked={selected.has(q.id)}
+                onChange={() => toggle(q.id)}
+                type="checkbox"
+              />
               <span className="min-w-0">
-                <span className="mr-2 text-muted-foreground">[{q.subject.replace(/^\d과목_/, "")}]</span>
-                <Badge className="mr-2 align-middle" variant="secondary">{QUESTION_TYPE_LABEL[q.question_type] ?? q.question_type}</Badge>
+                <span className="mr-2 text-muted-foreground">
+                  [{q.subject.replace(/^\d과목_/, "")}]
+                </span>
+                <Badge className="mr-2 align-middle" variant="secondary">
+                  {QUESTION_TYPE_LABEL[q.question_type] ?? q.question_type}
+                </Badge>
                 {q.stem}
               </span>
             </label>
           ))}
-          {approved.length === 0 && <p className="p-2 text-muted-foreground text-xs">승인된 문제가 없습니다. 위에서 직접 작성하거나 먼저 문제 검수를 진행하세요.</p>}
+          {approved.length === 0 && (
+            <p className="p-2 text-muted-foreground text-xs">
+              승인된 문제가 없습니다. 위에서 직접 작성하거나 먼저 문제 검수를
+              진행하세요.
+            </p>
+          )}
         </div>
       </div>
 
@@ -516,10 +663,16 @@ export default function ExamsAdminPage() {
               <tr className="border-border border-b bg-muted/50 text-[12px] text-muted-foreground">
                 <th className="px-4 py-2.5 text-left font-semibold">제목</th>
                 <th className="px-4 py-2.5 text-left font-semibold">문항수</th>
-                <th className="px-4 py-2.5 text-left font-semibold">제한시간</th>
-                <th className="px-4 py-2.5 text-left font-semibold">응시 가능 기간</th>
+                <th className="px-4 py-2.5 text-left font-semibold">
+                  제한시간
+                </th>
+                <th className="px-4 py-2.5 text-left font-semibold">
+                  응시 가능 기간
+                </th>
                 <th className="px-4 py-2.5 text-left font-semibold">응시 수</th>
-                <th className="px-4 py-2.5 text-left font-semibold">공개 상태</th>
+                <th className="px-4 py-2.5 text-left font-semibold">
+                  공개 상태
+                </th>
                 <th className="px-4 py-2" />
               </tr>
             </thead>
@@ -545,8 +698,19 @@ export default function ExamsAdminPage() {
                           value={editEnd}
                         />
                         <div className="flex gap-1.5">
-                          <PeriodButton onClick={() => saveSchedule(s.id)} size="sm">저장</PeriodButton>
-                          <Button onClick={() => setEditingScheduleId(null)} size="sm" variant="outline">취소</Button>
+                          <PeriodButton
+                            onClick={() => saveSchedule(s.id)}
+                            size="sm"
+                          >
+                            저장
+                          </PeriodButton>
+                          <Button
+                            onClick={() => setEditingScheduleId(null)}
+                            size="sm"
+                            variant="outline"
+                          >
+                            취소
+                          </Button>
                         </div>
                       </div>
                     ) : (
@@ -562,9 +726,15 @@ export default function ExamsAdminPage() {
                     )}
                   </td>
                   <td className="px-4 py-2">{s.attempt_count}</td>
-                  <td className="px-4 py-2">{s.is_published ? "공개됨" : "비공개"}</td>
                   <td className="px-4 py-2">
-                    <PeriodButton onClick={() => togglePublish(s.id, !s.is_published)} size="sm" variant="outline">
+                    {s.is_published ? "공개됨" : "비공개"}
+                  </td>
+                  <td className="px-4 py-2">
+                    <PeriodButton
+                      onClick={() => togglePublish(s.id, !s.is_published)}
+                      size="sm"
+                      variant="outline"
+                    >
                       {s.is_published ? "비공개로 전환" : "공개"}
                     </PeriodButton>
                   </td>
@@ -578,15 +748,27 @@ export default function ExamsAdminPage() {
       <div className="surface p-4 sm:p-5">
         <h2 className="mb-1 font-semibold text-[14px]">문제 품질 점검</h2>
         <p className="mb-3 text-muted-foreground text-xs">
-          5회 이상 응답된 문제 중 정답률이 낮은 순 — 지문이 모호하거나 정답 태깅이 잘못됐을 가능성을 점검하세요.
+          5회 이상 응답된 문제 중 정답률이 낮은 순 — 지문이 모호하거나 정답
+          태깅이 잘못됐을 가능성을 점검하세요.
         </p>
         <div className="flex flex-col gap-2">
-          {questionQuality.length === 0 && <p className="text-muted-foreground text-xs">아직 데이터가 충분하지 않습니다.</p>}
+          {questionQuality.length === 0 && (
+            <p className="text-muted-foreground text-xs">
+              아직 데이터가 충분하지 않습니다.
+            </p>
+          )}
           {questionQuality.map((q) => (
-            <div className="rounded-lg border border-border/60 px-3 py-2 text-[13px]" key={q.id}>
+            <div
+              className="rounded-lg border border-border/60 px-3 py-2 text-[13px]"
+              key={q.id}
+            >
               <div className="mb-1 flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
-                <Badge variant="secondary">{q.subject.replace(/^\d과목_/, "")}</Badge>
-                <Badge variant="outline">{QUESTION_TYPE_LABEL[q.question_type] ?? q.question_type}</Badge>
+                <Badge variant="secondary">
+                  {q.subject.replace(/^\d과목_/, "")}
+                </Badge>
+                <Badge variant="outline">
+                  {QUESTION_TYPE_LABEL[q.question_type] ?? q.question_type}
+                </Badge>
                 <span>{SOURCE_LABEL[q.source] ?? q.source}</span>
                 <span
                   className={`ml-auto font-medium ${Number(q.accuracy_pct) < 40 ? "text-destructive" : "text-amber-600"}`}
@@ -601,25 +783,46 @@ export default function ExamsAdminPage() {
       </div>
 
       <div className="surface p-4 sm:p-5">
-        <h2 className="mb-3 font-semibold text-[14px]">채점 대기 (주관식·서술형)</h2>
+        <h2 className="mb-3 font-semibold text-[14px]">
+          채점 대기 (주관식·서술형)
+        </h2>
         <div className="flex flex-col gap-3">
-          {gradingQueue.length === 0 && <p className="text-muted-foreground text-xs">채점을 기다리는 답안이 없습니다.</p>}
+          {gradingQueue.length === 0 && (
+            <p className="text-muted-foreground text-xs">
+              채점을 기다리는 답안이 없습니다.
+            </p>
+          )}
           {gradingQueue.map((g) => {
             const maxScore = Number(g.max_score);
-            const draft = gradeDrafts[g.answer_id] ?? { score: "", feedback: "" };
+            const draft = gradeDrafts[g.answer_id] ?? {
+              score: "",
+              feedback: "",
+            };
             return (
-              <div className="rounded-xl border border-border p-3" key={g.answer_id}>
+              <div
+                className="rounded-xl border border-border p-3"
+                key={g.answer_id}
+              >
                 <div className="mb-2 flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
-                  <Badge variant="secondary">{QUESTION_TYPE_LABEL[g.question_type]}</Badge>
+                  <Badge variant="secondary">
+                    {QUESTION_TYPE_LABEL[g.question_type]}
+                  </Badge>
                   <span>{g.subject.replace(/^\d과목_/, "")}</span>
-                  <span>· {g.user_name} ({g.user_email})</span>
+                  <span>
+                    · {g.user_name} ({g.user_email})
+                  </span>
                   <span>· 배점 {maxScore}점</span>
                 </div>
-                <p className="mb-2 whitespace-pre-wrap font-medium text-[13px]">{g.stem}</p>
-                <div className="mb-2 rounded-lg bg-muted/50 p-2 text-[13px] whitespace-pre-wrap">{g.answer_text}</div>
+                <p className="mb-2 whitespace-pre-wrap font-medium text-[13px]">
+                  {g.stem}
+                </p>
+                <div className="mb-2 rounded-lg bg-muted/50 p-2 text-[13px] whitespace-pre-wrap">
+                  {g.answer_text}
+                </div>
                 {g.model_answer && (
                   <p className="mb-2 text-[12px] text-muted-foreground">
-                    <span className="font-medium">모범답안: </span>{g.model_answer}
+                    <span className="font-medium">모범답안: </span>
+                    {g.model_answer}
                   </p>
                 )}
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
@@ -630,7 +833,10 @@ export default function ExamsAdminPage() {
                       max={maxScore}
                       min={0}
                       onChange={(e) =>
-                        setGradeDrafts((p) => ({ ...p, [g.answer_id]: { ...draft, score: e.target.value } }))
+                        setGradeDrafts((p) => ({
+                          ...p,
+                          [g.answer_id]: { ...draft, score: e.target.value },
+                        }))
                       }
                       type="number"
                       value={draft.score}
@@ -640,12 +846,20 @@ export default function ExamsAdminPage() {
                     <Label className="text-xs">피드백 (선택)</Label>
                     <Input
                       onChange={(e) =>
-                        setGradeDrafts((p) => ({ ...p, [g.answer_id]: { ...draft, feedback: e.target.value } }))
+                        setGradeDrafts((p) => ({
+                          ...p,
+                          [g.answer_id]: { ...draft, feedback: e.target.value },
+                        }))
                       }
                       value={draft.feedback}
                     />
                   </div>
-                  <PeriodButton onClick={() => submitGrade(g.answer_id, maxScore)} size="sm">채점 저장</PeriodButton>
+                  <PeriodButton
+                    onClick={() => submitGrade(g.answer_id, maxScore)}
+                    size="sm"
+                  >
+                    채점 저장
+                  </PeriodButton>
                 </div>
               </div>
             );
@@ -674,17 +888,25 @@ export default function ExamsAdminPage() {
           </div>
         </div>
         <div className="flex flex-col gap-2">
-          {attempts.length === 0 && <p className="text-muted-foreground text-xs">응시 기록이 없습니다.</p>}
+          {attempts.length === 0 && (
+            <p className="text-muted-foreground text-xs">
+              응시 기록이 없습니다.
+            </p>
+          )}
           {attempts.map((a) => (
             <div
               className={`flex flex-col gap-1 rounded-lg border px-3 py-2 text-[13px] sm:flex-row sm:items-center sm:justify-between ${
-                a.flagged_for_review ? "border-amber-500/50 bg-amber-500/10" : "border-border"
+                a.flagged_for_review
+                  ? "border-amber-500/50 bg-amber-500/10"
+                  : "border-border"
               }`}
               key={a.id}
             >
               <span>
                 {a.user_name} ({a.user_email}) — {a.set_title ?? "연습"}
-                {a.flagged_for_review && <span className="ml-2 text-amber-600">⚠ 검토 필요</span>}
+                {a.flagged_for_review && (
+                  <span className="ml-2 text-amber-600">⚠ 검토 필요</span>
+                )}
               </span>
               <span className="text-muted-foreground">
                 {a.status} {a.score !== null && `· ${a.score}점`}

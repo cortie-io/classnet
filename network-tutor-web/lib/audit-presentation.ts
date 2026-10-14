@@ -8,7 +8,8 @@ const labels: Record<string, string> = {
 
 const descriptions: Record<string, string> = {
   pending: "자동 검증 결과를 기다리고 있습니다.",
-  verified: "자동 처리에서 이상이 표시되지 않은 상태입니다. 교사의 검수 완료나 정답 보장을 뜻하지 않습니다.",
+  verified:
+    "자동 처리에서 이상이 표시되지 않은 상태입니다. 교사의 검수 완료나 정답 보장을 뜻하지 않습니다.",
   flagged: "자동 검증, 학생 신고 또는 응답 오류로 확인이 필요한 기록입니다.",
   cached: "이전에 저장된 답변을 사용했습니다.",
   rule_only: "계산 규칙이나 문제은행을 이용한 답변입니다.",
@@ -28,7 +29,11 @@ export function displayAuditIntent(intent: string): string {
 
 /** Presentation only: underlying records and the API response remain unchanged. */
 export function auditJsonReplacer(key: string, value: unknown): unknown {
-  if (key === "synthetic_demo" || key.startsWith("demo_") || (key === "intent" && value === "token_burn_test")) {
+  if (
+    key === "synthetic_demo" ||
+    key.startsWith("demo_") ||
+    (key === "intent" && value === "token_burn_test")
+  ) {
     return undefined;
   }
   return value;

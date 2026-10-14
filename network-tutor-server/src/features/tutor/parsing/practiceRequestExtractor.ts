@@ -10,7 +10,7 @@
 // 있다(실제로는 반대: OSPF=다익스트라, RIP=벨먼-포드) — 이 프로젝트가 절대 허용하면 안 되는 유형의
 // 오류다. "만들어줘"를 이 트리거에 포함시켜 항상 문제은행에서 실제 문제를 찾아주는 안전한 경로로 보낸다.
 const PRACTICE_TRIGGER_RE =
-  /(비슷한|관련|관련된|연습|유사한)\s*문제|문제\s*(하나|한\s*개|\d+\s*개)?\s*(만|좀)?\s*(내|뽑아|줘|추천|풀어)|풀어\s*보고\s*싶어|문제\s*은행|문제\s*(를|을)?\s*(만들어|출제해|생성해)/;
+	/(비슷한|관련|관련된|연습|유사한)\s*문제|문제\s*(하나|한\s*개|\d+\s*개)?\s*(만|좀)?\s*(내|뽑아|줘|추천|풀어)|풀어\s*보고\s*싶어|문제\s*은행|문제\s*(를|을)?\s*(만들어|출제해|생성해)/;
 
 // 학생이 실제 문제 지문(보기 포함)을 통째로 붙여넣고 "이 문제 풀어줘"라고 물으면, 트리거 단어("문제 풀어")만
 // 보면 practice_request로 오인되지만 실제 의도는 "문제은행에서 비슷한 걸 찾아달라"가 아니라 "붙여넣은 이
@@ -20,9 +20,13 @@ export const CHOICE_MARKER_RE = /[①②③④⑤⑥]/;
 const PASTED_PROBLEM_LENGTH_THRESHOLD = 60;
 
 export function isPracticeRequest(question: string): boolean {
-  if (!PRACTICE_TRIGGER_RE.test(question)) return false;
-  if (CHOICE_MARKER_RE.test(question) || question.length > PASTED_PROBLEM_LENGTH_THRESHOLD) return false;
-  return true;
+	if (!PRACTICE_TRIGGER_RE.test(question)) return false;
+	if (
+		CHOICE_MARKER_RE.test(question) ||
+		question.length > PASTED_PROBLEM_LENGTH_THRESHOLD
+	)
+		return false;
+	return true;
 }
 
 // 오답노트/시험결과 "전체 해설 생성"은 여러 개의 객관식 문제를 한 프롬프트에 이어 붙여서 보낸다. 문제마다
@@ -37,6 +41,6 @@ export function isPracticeRequest(question: string): boolean {
 export const LONG_COMPOSITE_MESSAGE_THRESHOLD = 200;
 
 export function isMultiQuestionPaste(question: string): boolean {
-  const count = (question.match(/①/g) ?? []).length;
-  return count >= 2 || question.length > LONG_COMPOSITE_MESSAGE_THRESHOLD;
+	const count = (question.match(/①/g) ?? []).length;
+	return count >= 2 || question.length > LONG_COMPOSITE_MESSAGE_THRESHOLD;
 }

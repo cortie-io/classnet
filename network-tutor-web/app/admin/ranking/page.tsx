@@ -1,5 +1,8 @@
 "use client";
-import { useAdminPeriod, PeriodButton } from "@/components/admin/service-period";
+import {
+  useAdminPeriod,
+  PeriodButton,
+} from "@/components/admin/service-period";
 import { adminFetch } from "@/lib/admin-period";
 
 import { useEffect, useState } from "react";
@@ -54,7 +57,7 @@ function csvEscape(value: unknown): string {
 type PrePostField = "pre" | "post";
 
 export default function RankingPage() {
-  const {readOnly,period}=useAdminPeriod();
+  const { readOnly, period } = useAdminPeriod();
   const [data, setData] = useState<RankingResponse | null>(null);
   // 편집 대상은 (학생 id, pre/post) 조합이라 문자열 키("id:pre"/"id:post")로 묶어서 관리한다.
   const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -62,7 +65,9 @@ export default function RankingPage() {
   const [savingKey, setSavingKey] = useState<string | null>(null);
 
   const load = () => {
-    loadJson("/api/admin/analytics/ranking", setData, { init: { cache: "no-store" } });
+    loadJson("/api/admin/analytics/ranking", setData, {
+      init: { cache: "no-store" },
+    });
   };
 
   useEffect(() => {
@@ -93,23 +98,33 @@ export default function RankingPage() {
     const trimmed = draft.trim();
     const score = trimmed === "" ? null : Number(trimmed);
     if (score !== null && (Number.isNaN(score) || score < 0 || score > 100)) {
-      toast({ type: "error", description: "점수는 0~100 사이 숫자여야 합니다." });
+      toast({
+        type: "error",
+        description: "점수는 0~100 사이 숫자여야 합니다.",
+      });
       return;
     }
     const key = keyOf(studentId, field);
     setSavingKey(key);
     try {
-      const res = await adminFetch(`/api/admin/users/${studentId}/${field}-test-score`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ score }),
-      });
+      const res = await adminFetch(
+        `/api/admin/users/${studentId}/${field}-test-score`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ score }),
+        }
+      );
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error ?? "저장 실패");
       setEditingKey(null);
       load();
     } catch (err) {
-      toast({ type: "error", description: err instanceof Error ? err.message : "저장 중 오류가 발생했습니다." });
+      toast({
+        type: "error",
+        description:
+          err instanceof Error ? err.message : "저장 중 오류가 발생했습니다.",
+      });
     } finally {
       setSavingKey(null);
     }
@@ -117,14 +132,39 @@ export default function RankingPage() {
 
   const exportCsv = () => {
     if (!data) return;
-    const header = ["순위", "학번", "이름", "이메일", "종합점수", "채팅 질문 수", "활동 일수", "시도한 문제 수", "맞춘 문제 수", "정답률", "사전테스트", "사후테스트", "향상률"];
+    const header = [
+      "순위",
+      "학번",
+      "이름",
+      "이메일",
+      "종합점수",
+      "채팅 질문 수",
+      "활동 일수",
+      "시도한 문제 수",
+      "맞춘 문제 수",
+      "정답률",
+      "사전테스트",
+      "사후테스트",
+      "향상률",
+    ];
     const lines = data.students.map((s) =>
       [
-        s.rank, s.studentId, s.name, s.email, s.compositeScore, s.chatCount, s.activeDays, s.questionsAttempted, s.questionsCorrect, `${s.accuracyPct}%`,
-        s.preTestScore ?? "", s.postTestScore ?? "", s.improvement ?? "",
+        s.rank,
+        s.studentId,
+        s.name,
+        s.email,
+        s.compositeScore,
+        s.chatCount,
+        s.activeDays,
+        s.questionsAttempted,
+        s.questionsCorrect,
+        `${s.accuracyPct}%`,
+        s.preTestScore ?? "",
+        s.postTestScore ?? "",
+        s.improvement ?? "",
       ]
         .map(csvEscape)
-        .join(","),
+        .join(",")
     );
     const csv = `﻿${[header.join(","), ...lines].join("\n")}`;
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -136,17 +176,29 @@ export default function RankingPage() {
     URL.revokeObjectURL(url);
   };
 
-  if (!data) return <div className="text-muted-foreground text-sm">불러오는 중...</div>;
+  if (!data)
+    return <div className="text-muted-foreground text-sm">불러오는 중...</div>;
 
   return (
     <div className="flex flex-col gap-4">
-      <PageIntro description="학생별 학습량과 정답률 순위예요." icon={TrophyIcon} title="학습 순위">
-        <Button onClick={exportCsv} size="sm" variant="outline">CSV 내보내기</Button>
+      <PageIntro
+        description="학생별 학습량과 정답률 순위예요."
+        icon={TrophyIcon}
+        title="학습 순위"
+      >
+        <Button onClick={exportCsv} size="sm" variant="outline">
+          CSV 내보내기
+        </Button>
       </PageIntro>
 
       {data.prePostSummary ? (
         <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-[13px] leading-relaxed">
-          <p className="mb-1 font-medium">사전·사후테스트 평균 <span className="font-normal text-muted-foreground">(증빙자료용)</span></p>
+          <p className="mb-1 font-medium">
+            사전·사후테스트 평균{" "}
+            <span className="font-normal text-muted-foreground">
+              (증빙자료용)
+            </span>
+          </p>
           <p className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
             <span className="text-muted-foreground">
               사전 평균{" "}
@@ -162,7 +214,8 @@ export default function RankingPage() {
             {data.prePostSummary.avgImprovement != null && (
               <span className="font-semibold text-emerald-700 text-base dark:text-emerald-400">
                 평균 {data.prePostSummary.avgImprovement > 0 ? "+" : ""}
-                {data.prePostSummary.avgImprovement}%p 향상 ({data.prePostSummary.improvementParticipantCount}명 기준)
+                {data.prePostSummary.avgImprovement}%p 향상 (
+                {data.prePostSummary.improvementParticipantCount}명 기준)
               </span>
             )}
           </p>
@@ -175,7 +228,8 @@ export default function RankingPage() {
 
       {data.noUsageYet && (
         <div className="rounded-2xl border border-sky-500/30 bg-sky-500/5 p-4 text-[13px] leading-relaxed text-sky-700 dark:text-sky-400">
-          아직 순위에 반영할 평가 기록이 없습니다. 첫 유효 평가가 채점되면 순위를 계산합니다.
+          아직 순위에 반영할 평가 기록이 없습니다. 첫 유효 평가가 채점되면
+          순위를 계산합니다.
         </div>
       )}
 
@@ -189,41 +243,75 @@ export default function RankingPage() {
           <table className="table w-full min-w-[920px] text-[13px]">
             <thead>
               <tr className="border-border border-b bg-muted/50 text-[12px] text-muted-foreground">
-                <th className="whitespace-nowrap px-4 py-2.5 text-left font-semibold">순위</th>
-                <th className="whitespace-nowrap px-4 py-2.5 text-left font-semibold">학생</th>
-                <th className="whitespace-nowrap px-4 py-2.5 text-right font-semibold">종합점수</th>
-                <th className="whitespace-nowrap px-4 py-2.5 text-right font-semibold">채팅 질문</th>
-                <th className="whitespace-nowrap px-4 py-2.5 text-right font-semibold">활동 일수</th>
-                <th className="whitespace-nowrap px-4 py-2.5 text-right font-semibold">푼 문제/맞춘시도</th>
-                <th className="whitespace-nowrap px-4 py-2.5 text-right font-semibold">정답률</th>
-                <th className="whitespace-nowrap px-4 py-2.5 text-right font-semibold">사전→사후</th>
-                <th className="whitespace-nowrap px-4 py-2.5 text-right font-semibold">향상률</th>
+                <th className="whitespace-nowrap px-4 py-2.5 text-left font-semibold">
+                  순위
+                </th>
+                <th className="whitespace-nowrap px-4 py-2.5 text-left font-semibold">
+                  학생
+                </th>
+                <th className="whitespace-nowrap px-4 py-2.5 text-right font-semibold">
+                  종합점수
+                </th>
+                <th className="whitespace-nowrap px-4 py-2.5 text-right font-semibold">
+                  채팅 질문
+                </th>
+                <th className="whitespace-nowrap px-4 py-2.5 text-right font-semibold">
+                  활동 일수
+                </th>
+                <th className="whitespace-nowrap px-4 py-2.5 text-right font-semibold">
+                  푼 문제/맞춘시도
+                </th>
+                <th className="whitespace-nowrap px-4 py-2.5 text-right font-semibold">
+                  정답률
+                </th>
+                <th className="whitespace-nowrap px-4 py-2.5 text-right font-semibold">
+                  사전→사후
+                </th>
+                <th className="whitespace-nowrap px-4 py-2.5 text-right font-semibold">
+                  향상률
+                </th>
               </tr>
             </thead>
             <tbody>
               {data.students.map((s) => (
-                <tr className="border-border border-b last:border-0 hover:bg-accent/50" key={s.id}>
+                <tr
+                  className="border-border border-b last:border-0 hover:bg-accent/50"
+                  key={s.id}
+                >
                   <td className="px-4 py-2 font-medium">
-                    {s.rank !== null && s.rank <= 3 ? ["🥇", "🥈", "🥉"][s.rank - 1] : (s.rank ?? "미산정")}
+                    {s.rank !== null && s.rank <= 3
+                      ? ["🥇", "🥈", "🥉"][s.rank - 1]
+                      : (s.rank ?? "미산정")}
                   </td>
                   <td className="px-4 py-2">
                     <Link className="block" href={`/admin/students/${s.id}`}>
                       <span className="font-medium">{s.name}</span>
-                      <span className="ml-1.5 text-muted-foreground text-xs">{s.studentId ?? s.email}</span>
+                      <span className="ml-1.5 text-muted-foreground text-xs">
+                        {s.studentId ?? s.email}
+                      </span>
                     </Link>
                   </td>
-                  <td className="px-4 py-2.5 text-right font-semibold">{s.compositeScore}</td>
-                  <td className="px-4 py-2 text-right text-muted-foreground">{s.chatCount}</td>
-                  <td className="px-4 py-2 text-right text-muted-foreground">{s.activeDays}일</td>
+                  <td className="px-4 py-2.5 text-right font-semibold">
+                    {s.compositeScore}
+                  </td>
+                  <td className="px-4 py-2 text-right text-muted-foreground">
+                    {s.chatCount}
+                  </td>
+                  <td className="px-4 py-2 text-right text-muted-foreground">
+                    {s.activeDays}일
+                  </td>
                   <td className="px-4 py-2 text-right text-muted-foreground">
                     {s.questionsCorrect}/{s.questionsAttempted}
                   </td>
-                  <td className="px-4 py-2 text-right text-muted-foreground">{s.accuracyPct}%</td>
+                  <td className="px-4 py-2 text-right text-muted-foreground">
+                    {s.accuracyPct}%
+                  </td>
                   <td className="px-4 py-2 text-right text-muted-foreground">
                     <div className="flex items-center justify-end gap-1">
                       {(["pre", "post"] as const).map((field, idx) => {
                         const key = keyOf(s.id, field);
-                        const value = field === "pre" ? s.preTestScore : s.postTestScore;
+                        const value =
+                          field === "pre" ? s.preTestScore : s.postTestScore;
                         return (
                           <span className="flex items-center gap-1" key={field}>
                             {idx === 1 && <span>→</span>}
@@ -235,14 +323,27 @@ export default function RankingPage() {
                                   max={100}
                                   min={0}
                                   onChange={(e) => setDraft(e.target.value)}
-                                  onKeyDown={(e) => e.key === "Enter" && saveScore(s.id, field)}
+                                  onKeyDown={(e) =>
+                                    e.key === "Enter" && saveScore(s.id, field)
+                                  }
                                   type="number"
                                   value={draft}
                                 />
-                                <PeriodButton className="h-7 px-2" disabled={savingKey === key} onClick={() => saveScore(s.id, field)} size="sm" variant="ghost">
+                                <PeriodButton
+                                  className="h-7 px-2"
+                                  disabled={savingKey === key}
+                                  onClick={() => saveScore(s.id, field)}
+                                  size="sm"
+                                  variant="ghost"
+                                >
                                   {savingKey === key ? "..." : "저장"}
                                 </PeriodButton>
-                                <Button className="h-7 px-2" onClick={() => setEditingKey(null)} size="sm" variant="ghost">
+                                <Button
+                                  className="h-7 px-2"
+                                  onClick={() => setEditingKey(null)}
+                                  size="sm"
+                                  variant="ghost"
+                                >
                                   취소
                                 </Button>
                               </>
@@ -263,8 +364,15 @@ export default function RankingPage() {
                   </td>
                   <td className="px-4 py-2.5 text-right font-semibold">
                     {s.improvement != null ? (
-                      <span className={s.improvement >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"}>
-                        {s.improvement > 0 ? "+" : ""}{s.improvement}
+                      <span
+                        className={
+                          s.improvement >= 0
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-destructive"
+                        }
+                      >
+                        {s.improvement > 0 ? "+" : ""}
+                        {s.improvement}
                       </span>
                     ) : (
                       <span className="text-muted-foreground">—</span>
@@ -274,7 +382,9 @@ export default function RankingPage() {
               ))}
               {data.students.length === 0 && (
                 <tr>
-                  <td className="px-4 py-4 text-muted-foreground" colSpan={9}>학생 데이터가 없습니다.</td>
+                  <td className="px-4 py-4 text-muted-foreground" colSpan={9}>
+                    학생 데이터가 없습니다.
+                  </td>
                 </tr>
               )}
             </tbody>

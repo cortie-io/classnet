@@ -1,7 +1,11 @@
 import { config, type EmbedProvider } from "../../config.js";
 import { LlmError, describeLlmError } from "./http.js";
 import { embedWithOllama } from "./ollama.js";
-import { embedWithOpenAI, openaiDefaultEmbedDimensions, openaiEmbedDimensions } from "./openai.js";
+import {
+	embedWithOpenAI,
+	openaiDefaultEmbedDimensions,
+	openaiEmbedDimensions,
+} from "./openai.js";
 
 // 질문 ↔ 개념 노드 검색용 임베딩. 공급자는 EMBED_PROVIDER(openai|ollama|none)로 고르고, 비어 있으면
 // 학교 공용 OpenAI 키가 있을 때 openai, 없으면 none(BM25만으로 검색)이다.
@@ -20,23 +24,24 @@ export const EMBED_DOCUMENT_BATCH_SIZE = 64;
 const DOCUMENT_BATCH_TIMEOUT_MS = 60_000;
 
 export function activeEmbeddingProvider(): EmbedProvider {
-  const wanted = config.embedProvider ?? (config.openaiApiKey ? "openai" : "none");
-  if (wanted === "openai" && !config.openaiApiKey) return "none";
-  if (wanted === "ollama" && !config.ollamaBaseUrl) return "none";
-  return wanted;
+	const wanted =
+		config.embedProvider ?? (config.openaiApiKey ? "openai" : "none");
+	if (wanted === "openai" && !config.openaiApiKey) return "none";
+	if (wanted === "ollama" && !config.ollamaBaseUrl) return "none";
+	return wanted;
 }
 
 /** concept_embeddings.model에 저장하는 식별자. 모델과 차원까지 넣어 서로 다른 벡터가 섞이지 않게 한다
  * (예: openai:text-embedding-3-small:1536). 임베딩을 쓰지 않으면 null. */
 export function activeEmbeddingModelId(): string | null {
-  switch (activeEmbeddingProvider()) {
-    case "openai":
-      return `openai:${config.openaiEmbedModel}:${openaiEmbedDimensions() ?? "default"}`;
-    case "ollama":
-      return `ollama:${config.ollamaEmbedModel}`;
-    default:
-      return null;
-  }
+	switch (activeEmbeddingProvider()) {
+		case "openai":
+			return `openai:${config.openaiEmbedModel}:${openaiEmbedDimensions() ?? "default"}`;
+		case "ollama":
+			return `ollama:${config.ollamaEmbedModel}`;
+		default:
+			return null;
+	}
 }
 
 /**
@@ -46,41 +51,56 @@ export function activeEmbeddingModelId(): string | null {
  * 행. 차원을 바꿔 쓰는 설정(OPENAI_EMBED_DIMENSIONS)이면 예전 벡터와 비교할 수 없으므로 null.
  */
 export function legacyEmbeddingModelName(): string | null {
-  switch (activeEmbeddingProvider()) {
-    case "openai": {
-      const dims = openaiEmbedDimensions();
-      return dims === undefined || dims === openaiDefaultEmbedDimensions() ? config.openaiEmbedModel : null;
-    }
-    case "ollama":
-      return config.ollamaEmbedModel;
-    default:
-      return null;
-  }
+	switch (activeEmbeddingProvider()) {
+		case "openai": {
+			const dims = openaiEmbedDimensions();
+			return dims === undefined || dims === openaiDefaultEmbedDimensions()
+				? config.openaiEmbedModel
+				: null;
+		}
+		case "ollama":
+			return config.ollamaEmbedModel;
+		default:
+			return null;
+	}
 }
 
 interface StatusMark {
-  at: string;
-  message?: string;
+	at: string;
+	message?: string;
 }
 let lastOk: StatusMark | null = null;
 let lastErr: StatusMark | null = null;
 
 /** /ready에 그대로 내보내는 임베딩 상태. */
 export function embeddingStatus(): {
-  provider: EmbedProvider;
-  model: string | null;
-  lastOk: StatusMark | null;
-  lastErr: StatusMark | null;
+	provider: EmbedProvider;
+	model: string | null;
+	lastOk: StatusMark | null;
+	lastErr: StatusMark | null;
 } {
-  return { provider: activeEmbeddingProvider(), model: activeEmbeddingModelId(), lastOk, lastErr };
+	return {
+		provider: activeEmbeddingProvider(),
+		model: activeEmbeddingModelId(),
+		lastOk,
+		lastErr,
+	};
 }
 
-async function embedRaw(texts: string[], opts: { signal?: AbortSignal; timeoutMs?: number }): Promise<number[][]> {
-  const provider = activeEmbeddingProvider();
-  // 검색 질의·노드 임베딩은 늘 학교 공용 키로만 만든다(학생 개인 키로 벡터를 만들 이유가 없다).
-  if (provider === "openai") return embedWithOpenAI(texts, config.openaiApiKey!, opts);
-  if (provider === "ollama") return embedWithOllama(texts, opts);
-  throw new LlmError("not_configured", "none", "embeddings are disabled (EMBED_PROVIDER=none or no key)");
+async function embedRaw(
+	texts: string[],
+	opts: { signal?: AbortSignal; timeoutMs?: number },
+): Promise<number[][]> {
+	const provider = activeEmbeddingProvider();
+	// 검색 질의·노드 임베딩은 늘 학교 공용 키로만 만든다(학생 개인 키로 벡터를 만들 이유가 없다).
+	if (provider === "openai")
+		return embedWithOpenAI(texts, config.openaiApiKey!, opts);
+	if (provider === "ollama") return embedWithOllama(texts, opts);
+	throw new LlmError(
+		"not_configured",
+		"none",
+		"embeddings are disabled (EMBED_PROVIDER=none or no key)",
+	);
 }
 
 // 같은 질문(특히 수업 중 여러 학생이 같은 예시 질문을 칠 때)마다 매번 임베딩을 부르지 않도록 작은 LRU를 둔다.
@@ -88,9 +108,9 @@ const QUERY_CACHE_SIZE = 256;
 const queryCache = new Map<string, number[]>();
 
 export function clearEmbeddingStateForTests(): void {
-  queryCache.clear();
-  lastOk = null;
-  lastErr = null;
+	queryCache.clear();
+	lastOk = null;
+	lastErr = null;
 }
 
 /**
@@ -98,50 +118,72 @@ export function clearEmbeddingStateForTests(): void {
  * 질의가 비었거나, 공급자가 이 입력을 거절(400)한 경우. 이런 경우는 장애가 아니므로 오류로 올리지 않는다.
  * 타임아웃·네트워크·429·5xx·401은 LlmError로 던지고, hybridSearch가 받아서 BM25만으로 이어 간다.
  */
-export async function embedQuery(text: string, opts: { signal?: AbortSignal } = {}): Promise<number[] | null> {
-  const modelId = activeEmbeddingModelId();
-  if (!modelId) return null;
-  const input = text.trim().slice(0, EMBED_QUERY_MAX_CHARS);
-  if (!input) return null;
+export async function embedQuery(
+	text: string,
+	opts: { signal?: AbortSignal } = {},
+): Promise<number[] | null> {
+	const modelId = activeEmbeddingModelId();
+	if (!modelId) return null;
+	const input = text.trim().slice(0, EMBED_QUERY_MAX_CHARS);
+	if (!input) return null;
 
-  const key = `${modelId}\u0000${input}`;
-  const hit = queryCache.get(key);
-  if (hit) {
-    queryCache.delete(key);
-    queryCache.set(key, hit);
-    return hit;
-  }
+	const key = `${modelId}\u0000${input}`;
+	const hit = queryCache.get(key);
+	if (hit) {
+		queryCache.delete(key);
+		queryCache.set(key, hit);
+		return hit;
+	}
 
-  try {
-    const [vector] = await embedRaw([input], { signal: opts.signal });
-    lastOk = { at: new Date().toISOString() };
-    if (!Array.isArray(vector) || vector.length === 0) return null;
-    queryCache.set(key, vector);
-    if (queryCache.size > QUERY_CACHE_SIZE) queryCache.delete(queryCache.keys().next().value!);
-    return vector;
-  } catch (err) {
-    if (err instanceof LlmError && err.kind === "aborted") throw err;
-    lastErr = { at: new Date().toISOString(), message: describeLlmError(err).message };
-    if (err instanceof LlmError && err.kind === "bad_request") return null;
-    throw err;
-  }
+	try {
+		const [vector] = await embedRaw([input], { signal: opts.signal });
+		lastOk = { at: new Date().toISOString() };
+		if (!Array.isArray(vector) || vector.length === 0) return null;
+		queryCache.set(key, vector);
+		if (queryCache.size > QUERY_CACHE_SIZE)
+			queryCache.delete(queryCache.keys().next().value!);
+		return vector;
+	} catch (err) {
+		if (err instanceof LlmError && err.kind === "aborted") throw err;
+		lastErr = {
+			at: new Date().toISOString(),
+			message: describeLlmError(err).message,
+		};
+		if (err instanceof LlmError && err.kind === "bad_request") return null;
+		throw err;
+	}
 }
 
 /** 개념 노드 묶음 임베딩(재임베딩 스크립트용). EMBED_DOCUMENT_BATCH_SIZE개씩 나눠 보낸다. */
 export async function embedDocuments(texts: string[]): Promise<number[][]> {
-  const out: number[][] = [];
-  for (let i = 0; i < texts.length; i += EMBED_DOCUMENT_BATCH_SIZE) {
-    const batch = texts.slice(i, i + EMBED_DOCUMENT_BATCH_SIZE);
-    const vectors = await embedRaw(batch, { timeoutMs: DOCUMENT_BATCH_TIMEOUT_MS });
-    if (vectors.length !== batch.length || vectors.some((v) => !Array.isArray(v) || v.length === 0)) {
-      throw new Error(`embedding batch returned ${vectors.length} vectors for ${batch.length} inputs`);
-    }
-    out.push(...vectors);
-  }
-  return out;
+	const out: number[][] = [];
+	for (let i = 0; i < texts.length; i += EMBED_DOCUMENT_BATCH_SIZE) {
+		const batch = texts.slice(i, i + EMBED_DOCUMENT_BATCH_SIZE);
+		const vectors = await embedRaw(batch, {
+			timeoutMs: DOCUMENT_BATCH_TIMEOUT_MS,
+		});
+		if (
+			vectors.length !== batch.length ||
+			vectors.some((v) => !Array.isArray(v) || v.length === 0)
+		) {
+			throw new Error(
+				`embedding batch returned ${vectors.length} vectors for ${batch.length} inputs`,
+			);
+		}
+		out.push(...vectors);
+	}
+	return out;
 }
 
 /** 개념 노드 하나를 임베딩할 때 넣는 텍스트 — ingest와 재임베딩 스크립트가 같은 형식을 쓰도록 한곳에 둔다. */
-export function nodeEmbedInput(row: { subject: string; topic: string; title: string; body_text: string }): string {
-  return `${row.subject} > ${row.topic} > ${row.title}\n${row.body_text}`.slice(0, 6000);
+export function nodeEmbedInput(row: {
+	subject: string;
+	topic: string;
+	title: string;
+	body_text: string;
+}): string {
+	return `${row.subject} > ${row.topic} > ${row.title}\n${row.body_text}`.slice(
+		0,
+		6000,
+	);
 }

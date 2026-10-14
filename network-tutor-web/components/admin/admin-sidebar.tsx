@@ -46,11 +46,21 @@ export function AdminSidebar({ user }: { user: User }) {
       <SidebarHeader className="px-3 pt-4 pb-2 group-data-[collapsible=icon]:px-2">
         <SidebarMenu>
           <SidebarMenuItem className="flex flex-row items-center justify-between">
-            <Link className="flex min-w-0 items-center gap-2.5 px-0.5" href="/admin">
-              <BrandMark className="size-8 drop-shadow-[0_4px_10px_rgb(67_56_202/0.3)]" title="classnet" />
+            <Link
+              className="flex min-w-0 items-center gap-2.5 px-0.5"
+              href="/admin"
+            >
+              <BrandMark
+                className="size-8 drop-shadow-[0_4px_10px_rgb(67_56_202/0.3)]"
+                title="classnet"
+              />
               <span className="flex min-w-0 items-center gap-1.5 group-data-[collapsible=icon]:hidden">
-                <span className="truncate font-extrabold text-[17px] text-foreground tracking-[-0.04em]">classnet</span>
-                <span className="rounded-md bg-brand px-1.5 py-0.5 font-bold text-[10px] text-white">관리자</span>
+                <span className="truncate font-extrabold text-[17px] text-foreground tracking-[-0.04em]">
+                  classnet
+                </span>
+                <span className="rounded-md bg-brand px-1.5 py-0.5 font-bold text-[10px] text-white">
+                  관리자
+                </span>
               </span>
             </Link>
             <SidebarTrigger className="shrink-0 text-sidebar-foreground/45 transition-colors duration-150 hover:text-sidebar-foreground group-data-[collapsible=icon]:hidden" />
@@ -59,17 +69,31 @@ export function AdminSidebar({ user }: { user: User }) {
       </SidebarHeader>
       <SidebarContent className="px-1">
         <SidebarGroup className="pt-1">
-          <SidebarGroupLabel className="h-7 px-2.5">관리 메뉴</SidebarGroupLabel>
+          <SidebarGroupLabel className="h-7 px-2.5">
+            관리 메뉴
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="gap-0.5">
               {NAV_ITEMS.map((item) => {
                 const Icon = item.icon;
-                const active = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href));
+                const active =
+                  pathname === item.href ||
+                  (item.href !== "/admin" && pathname.startsWith(item.href));
                 return (
                   <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton asChild isActive={active} tooltip={item.label}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={active}
+                      tooltip={item.label}
+                    >
                       <Link href={item.href}>
-                        <Icon className={active ? "text-primary" : "text-sidebar-foreground/45"} />
+                        <Icon
+                          className={
+                            active
+                              ? "text-primary"
+                              : "text-sidebar-foreground/45"
+                          }
+                        />
                         <span>{item.label}</span>
                       </Link>
                     </SidebarMenuButton>
@@ -80,7 +104,9 @@ export function AdminSidebar({ user }: { user: User }) {
           </SidebarGroupContent>
         </SidebarGroup>
         <SidebarGroup className="mt-auto">
-          <SidebarGroupLabel className="h-7 px-2.5">학생 화면</SidebarGroupLabel>
+          <SidebarGroupLabel className="h-7 px-2.5">
+            학생 화면
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>

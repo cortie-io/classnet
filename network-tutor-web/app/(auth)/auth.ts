@@ -2,7 +2,12 @@ import NextAuth, { type DefaultSession } from "next-auth";
 import type { DefaultJWT } from "next-auth/jwt";
 import Credentials from "next-auth/providers/credentials";
 import { DUMMY_PASSWORD_HASH, verifyPassword } from "@/lib/auth/password";
-import { admitLogin, getAuthState, getUserByEmail, getUserByStudentId } from "@/lib/db/queries";
+import {
+  admitLogin,
+  getAuthState,
+  getUserByEmail,
+  getUserByStudentId,
+} from "@/lib/db/queries";
 import { authConfig } from "./auth.config";
 
 // 게스트 없음: 이 서비스는 로그인 없이는 사용할 수 없다(회원가입도 없음 — 계정은 관리자가 발급).
@@ -60,7 +65,7 @@ export const {
       }
 
       if (!user) {
-        if(token.servicePeriod!=="2")return null;
+        if (token.servicePeriod !== "2") return null;
         const state = await getAuthState(Number(token.id));
         if (!state || state.auth_version !== token.authVersion) return null;
         token.role = state.role;
@@ -86,11 +91,19 @@ export const {
       // 잘못된 자격 종류가 넘어와도 여기서 역할까지 다시 검증해 어긋나면 거부한다.
       async authorize(credentials) {
         const studentId = String(credentials.studentId ?? "").trim();
-        const email = String(credentials.email ?? "").trim().toLowerCase();
+        const email = String(credentials.email ?? "")
+          .trim()
+          .toLowerCase();
         const password = String(credentials.password ?? "");
 
-        if ((!studentId && !email) || studentId.length > 64 || email.length > 254) return null;
-        if (password.length > 1024 || !(await admitLogin(studentId || email))) return null;
+        if (
+          (!studentId && !email) ||
+          studentId.length > 64 ||
+          email.length > 254
+        )
+          return null;
+        if (password.length > 1024 || !(await admitLogin(studentId || email)))
+          return null;
 
         let user: Awaited<ReturnType<typeof getUserByEmail>> = null;
         let expectedRole: "admin" | "student" | null = null;
@@ -109,7 +122,10 @@ export const {
           return null;
         }
 
-        const passwordsMatch = await verifyPassword(password, user.passwordHash);
+        const passwordsMatch = await verifyPassword(
+          password,
+          user.passwordHash
+        );
         if (!passwordsMatch) {
           return null;
         }

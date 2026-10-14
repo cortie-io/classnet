@@ -7,7 +7,9 @@
 //     연결되지 않는 주소를 넣어 두어, 로컬 Postgres(config의 기본값)에 우연히 붙는 일도 없게 한다.
 
 if ((process.env.DATABASE_URL ?? "").includes("rds.amazonaws.com")) {
-  throw new Error("[test] DATABASE_URL이 운영 RDS를 가리키고 있어 테스트를 중단합니다.");
+	throw new Error(
+		"[test] DATABASE_URL이 운영 RDS를 가리키고 있어 테스트를 중단합니다.",
+	);
 }
 
 process.env.NODE_ENV = "test";
@@ -20,6 +22,13 @@ process.env.SESSION_SECRET ??= "test-session-secret";
 process.env.INTERNAL_API_SECRET = "test-internal-secret";
 
 globalThis.fetch = (async (input: unknown) => {
-  const url = typeof input === "string" ? input : input instanceof URL ? input.href : String((input as Request).url);
-  throw new Error(`[test] 테스트에서 실제 네트워크 호출은 막혀 있습니다: ${url} — test/fetchStub.ts로 응답을 꾸며 주세요.`);
+	const url =
+		typeof input === "string"
+			? input
+			: input instanceof URL
+				? input.href
+				: String((input as Request).url);
+	throw new Error(
+		`[test] 테스트에서 실제 네트워크 호출은 막혀 있습니다: ${url} — test/fetchStub.ts로 응답을 꾸며 주세요.`,
+	);
 }) as typeof fetch;

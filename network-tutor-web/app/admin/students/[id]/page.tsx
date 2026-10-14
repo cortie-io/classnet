@@ -5,7 +5,11 @@ import { PeriodButton } from "@/components/admin/service-period";
 import { adminFetch } from "@/lib/admin-period";
 
 import { use, useEffect, useRef, useState } from "react";
-import { auditStatusLabel, auditStatusDescription, displayAuditIntent } from "@/lib/audit-presentation";
+import {
+  auditStatusLabel,
+  auditStatusDescription,
+  displayAuditIntent,
+} from "@/lib/audit-presentation";
 import { UserRoundIcon } from "lucide-react";
 import { PageIntro } from "@/components/chat/page-intro";
 import { Button } from "@/components/ui/button";
@@ -24,8 +28,19 @@ interface StudentDetail {
     role: string;
   };
   categoryStats: { subject: string; count: number }[];
-  weakAreas: { subject: string; wrongCount: number; totalCount: number; accuracy: number }[];
-  weakTopics: { subject: string; topic: string; wrongCount: number; totalCount: number; accuracy: number }[];
+  weakAreas: {
+    subject: string;
+    wrongCount: number;
+    totalCount: number;
+    accuracy: number;
+  }[];
+  weakTopics: {
+    subject: string;
+    topic: string;
+    wrongCount: number;
+    totalCount: number;
+    accuracy: number;
+  }[];
   examStats: { correct: string; total: string };
   prePostTest: {
     preTestScore: number | null;
@@ -63,7 +78,11 @@ interface HistoryItem {
   created_at: string;
 }
 
-export default function StudentDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default function StudentDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = use(params);
   const [detail, setDetail] = useState<StudentDetail | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -83,25 +102,39 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
     try {
       const query = new URLSearchParams({ limit: "50", paginated: "true" });
       if (cursor !== undefined) query.set("beforeId", String(cursor));
-      const response = await adminFetch(`/api/admin/users/${id}/history?${query}`, {
-        cache: "no-store", signal: controller.signal,
-      });
+      const response = await adminFetch(
+        `/api/admin/users/${id}/history?${query}`,
+        {
+          cache: "no-store",
+          signal: controller.signal,
+        }
+      );
       if (!response.ok) throw new Error("대화 기록을 불러오지 못했습니다.");
-      const data = await response.json() as {
-        items: HistoryItem[]; total: number; hasMore: boolean; nextCursor: number | null;
+      const data = (await response.json()) as {
+        items: HistoryItem[];
+        total: number;
+        hasMore: boolean;
+        nextCursor: number | null;
       };
       if (controller.signal.aborted) return;
       setHistory((previous) => {
         if (cursor === undefined) return data.items;
         const existing = new Set(previous.map((item) => item.id));
-        return [...previous, ...data.items.filter((item) => !existing.has(item.id))];
+        return [
+          ...previous,
+          ...data.items.filter((item) => !existing.has(item.id)),
+        ];
       });
       setHistoryTotal(data.total);
       setHistoryHasMore(data.hasMore);
       setHistoryCursor(data.nextCursor);
     } catch (error) {
       if (!controller.signal.aborted) {
-        setHistoryError(error instanceof Error ? error.message : "대화 기록을 불러오지 못했습니다.");
+        setHistoryError(
+          error instanceof Error
+            ? error.message
+            : "대화 기록을 불러오지 못했습니다."
+        );
       }
     } finally {
       if (!controller.signal.aborted) setHistoryLoading(false);
@@ -119,8 +152,16 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
       .then((r) => r.json())
       .then((d: StudentDetail) => {
         setDetail(d);
-        setPreScoreDraft(d.prePostTest.manualPreTestScore != null ? String(d.prePostTest.manualPreTestScore) : "");
-        setPostScoreDraft(d.prePostTest.manualPostTestScore != null ? String(d.prePostTest.manualPostTestScore) : "");
+        setPreScoreDraft(
+          d.prePostTest.manualPreTestScore != null
+            ? String(d.prePostTest.manualPreTestScore)
+            : ""
+        );
+        setPostScoreDraft(
+          d.prePostTest.manualPostTestScore != null
+            ? String(d.prePostTest.manualPostTestScore)
+            : ""
+        );
       });
   };
 
@@ -134,26 +175,43 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
     return () => historyRequest.current?.abort();
   }, [id]);
 
-  const saveScore = async (field: "pre" | "post", draft: string, setSaving: (v: boolean) => void) => {
+  const saveScore = async (
+    field: "pre" | "post",
+    draft: string,
+    setSaving: (v: boolean) => void
+  ) => {
     const trimmed = draft.trim();
     const score = trimmed === "" ? null : Number(trimmed);
     if (score !== null && (Number.isNaN(score) || score < 0 || score > 100)) {
-      toast({ type: "error", description: "점수는 0~100 사이 숫자여야 합니다." });
+      toast({
+        type: "error",
+        description: "점수는 0~100 사이 숫자여야 합니다.",
+      });
       return;
     }
     setSaving(true);
     try {
-      const res = await adminFetch(`/api/admin/users/${id}/${field}-test-score`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ score }),
-      });
+      const res = await adminFetch(
+        `/api/admin/users/${id}/${field}-test-score`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ score }),
+        }
+      );
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "저장 실패");
-      toast({ type: "success", description: `${field === "pre" ? "사전" : "사후"}테스트 점수가 저장되었습니다.` });
+      toast({
+        type: "success",
+        description: `${field === "pre" ? "사전" : "사후"}테스트 점수가 저장되었습니다.`,
+      });
       loadDetail();
     } catch (err) {
-      toast({ type: "error", description: err instanceof Error ? err.message : "저장 중 오류가 발생했습니다." });
+      toast({
+        type: "error",
+        description:
+          err instanceof Error ? err.message : "저장 중 오류가 발생했습니다.",
+      });
     } finally {
       setSaving(false);
     }
@@ -161,7 +219,10 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
 
   const resetPassword = async () => {
     if (newPassword.length < 8) {
-      toast({ type: "error", description: "비밀번호는 8자 이상이어야 합니다." });
+      toast({
+        type: "error",
+        description: "비밀번호는 8자 이상이어야 합니다.",
+      });
       return;
     }
     const res = await adminFetch(`/api/admin/users/${id}/reset-password`, {
@@ -177,13 +238,29 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
     }
   };
 
-  if (!detail) return <div className="text-muted-foreground text-sm">불러오는 중...</div>;
+  if (!detail)
+    return <div className="text-muted-foreground text-sm">불러오는 중...</div>;
 
   return (
     <div className="flex flex-col gap-6">
-      <PageIntro description={detail.user.email} icon={UserRoundIcon} title={detail.user.name} />
+      <PageIntro
+        description={detail.user.email}
+        icon={UserRoundIcon}
+        title={detail.user.name}
+      />
 
-      {detail.user.role==="student"&&<StudentProfileEditor student={detail.user} onSaved={user=>setDetail(current=>current?{...current,user:{...current.user,...user}}:current)} />}
+      {detail.user.role === "student" && (
+        <StudentProfileEditor
+          student={detail.user}
+          onSaved={(user) =>
+            setDetail((current) =>
+              current
+                ? { ...current, user: { ...current.user, ...user } }
+                : current
+            )
+          }
+        />
+      )}
 
       <StudentChats userId={id} />
 
@@ -194,7 +271,11 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
         </div>
         <div className="rounded-xl border border-border bg-card shadow-[var(--shadow-card)] p-3">
           <p className="text-muted-foreground text-xs">생년월일</p>
-          <p>{detail.user.birthdate ? new Date(detail.user.birthdate).toLocaleDateString("ko-KR") : "-"}</p>
+          <p>
+            {detail.user.birthdate
+              ? new Date(detail.user.birthdate).toLocaleDateString("ko-KR")
+              : "-"}
+          </p>
         </div>
         <div className="rounded-xl border border-border bg-card shadow-[var(--shadow-card)] p-3">
           <p className="text-muted-foreground text-xs">학습 수준</p>
@@ -202,31 +283,47 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
         </div>
         <div className="rounded-xl border border-border bg-card shadow-[var(--shadow-card)] p-3">
           <p className="text-muted-foreground text-xs">과목별 질문 분포</p>
-          <p>{detail.categoryStats.map((c) => `${c.subject.replace(/^\d과목_/, "")}(${c.count})`).join(", ") || "없음"}</p>
+          <p>
+            {detail.categoryStats
+              .map((c) => `${c.subject.replace(/^\d과목_/, "")}(${c.count})`)
+              .join(", ") || "없음"}
+          </p>
         </div>
       </div>
 
       <div className="surface p-5">
         <h2 className="mb-1 font-semibold text-[14px]">시험 성적</h2>
         <p className="mb-3 text-muted-foreground text-xs">
-          전체 정답률 {detail.examStats.total !== "0" ? `${Math.round((Number(detail.examStats.correct) / Number(detail.examStats.total)) * 1000) / 10}% (${detail.examStats.correct}/${detail.examStats.total})` : "채점 기록 없음"}
+          전체 정답률{" "}
+          {detail.examStats.total !== "0"
+            ? `${Math.round((Number(detail.examStats.correct) / Number(detail.examStats.total)) * 1000) / 10}% (${detail.examStats.correct}/${detail.examStats.total})`
+            : "채점 기록 없음"}
         </p>
-        {(detail.prePostTest.preTestScore != null || detail.prePostTest.postTestScore != null) && (
+        {(detail.prePostTest.preTestScore != null ||
+          detail.prePostTest.postTestScore != null) && (
           <div className="mb-3 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-[12.5px]">
             <span className="text-muted-foreground">사전→사후테스트</span>
             <span className="font-medium">
-              {detail.prePostTest.preTestScore ?? "미응시"} → {detail.prePostTest.postTestScore ?? "미응시"}
+              {detail.prePostTest.preTestScore ?? "미응시"} →{" "}
+              {detail.prePostTest.postTestScore ?? "미응시"}
             </span>
             {detail.prePostTest.improvement != null && (
-              <span className={`font-semibold ${detail.prePostTest.improvement >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"}`}>
-                ({detail.prePostTest.improvement > 0 ? "+" : ""}{detail.prePostTest.improvement}점)
+              <span
+                className={`font-semibold ${detail.prePostTest.improvement >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"}`}
+              >
+                ({detail.prePostTest.improvement > 0 ? "+" : ""}
+                {detail.prePostTest.improvement}점)
               </span>
             )}
           </div>
         )}
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border/60 px-3 py-2 text-[12.5px]">
-          <span className="text-muted-foreground">사전테스트 점수 직접 입력</span>
-          <span className="text-muted-foreground text-[11px]">(사이트 밖에서 치른 경우)</span>
+          <span className="text-muted-foreground">
+            사전테스트 점수 직접 입력
+          </span>
+          <span className="text-muted-foreground text-[11px]">
+            (사이트 밖에서 치른 경우)
+          </span>
           <Input
             className="h-8 w-20"
             max={100}
@@ -236,13 +333,21 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
             type="number"
             value={preScoreDraft}
           />
-          <PeriodButton disabled={savingPreScore} onClick={() => saveScore("pre", preScoreDraft, setSavingPreScore)} size="sm">
+          <PeriodButton
+            disabled={savingPreScore}
+            onClick={() => saveScore("pre", preScoreDraft, setSavingPreScore)}
+            size="sm"
+          >
             {savingPreScore ? "저장 중..." : "저장"}
           </PeriodButton>
         </div>
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border/60 px-3 py-2 text-[12.5px]">
-          <span className="text-muted-foreground">사후테스트 점수 직접 입력</span>
-          <span className="text-muted-foreground text-[11px]">(사이트 밖에서 치른 경우)</span>
+          <span className="text-muted-foreground">
+            사후테스트 점수 직접 입력
+          </span>
+          <span className="text-muted-foreground text-[11px]">
+            (사이트 밖에서 치른 경우)
+          </span>
           <Input
             className="h-8 w-20"
             max={100}
@@ -252,39 +357,61 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
             type="number"
             value={postScoreDraft}
           />
-          <PeriodButton disabled={savingPostScore} onClick={() => saveScore("post", postScoreDraft, setSavingPostScore)} size="sm">
+          <PeriodButton
+            disabled={savingPostScore}
+            onClick={() =>
+              saveScore("post", postScoreDraft, setSavingPostScore)
+            }
+            size="sm"
+          >
             {savingPostScore ? "저장 중..." : "저장"}
           </PeriodButton>
         </div>
         {(detail.weakAreas.length > 0 || detail.weakTopics.length > 0) && (
           <div className="mb-3 flex flex-wrap gap-1.5">
             {detail.weakAreas.map((w) => (
-              <span className="rounded-full bg-destructive/10 px-2.5 py-1 text-[12px] text-destructive" key={w.subject}>
-                {w.subject.replace(/^\d과목_/, "")} {Math.round(w.accuracy * 100)}%
+              <span
+                className="rounded-full bg-destructive/10 px-2.5 py-1 text-[12px] text-destructive"
+                key={w.subject}
+              >
+                {w.subject.replace(/^\d과목_/, "")}{" "}
+                {Math.round(w.accuracy * 100)}%
               </span>
             ))}
             {detail.weakTopics.slice(0, 5).map((w) => (
-              <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-[12px] text-amber-600" key={w.topic}>
+              <span
+                className="rounded-full bg-amber-500/10 px-2.5 py-1 text-[12px] text-amber-600"
+                key={w.topic}
+              >
                 {w.topic} {Math.round(w.accuracy * 100)}%
               </span>
             ))}
           </div>
         )}
         <div className="flex flex-col gap-1.5">
-          {detail.attempts.length === 0 && <p className="text-muted-foreground text-xs">응시 기록이 없습니다.</p>}
+          {detail.attempts.length === 0 && (
+            <p className="text-muted-foreground text-xs">
+              응시 기록이 없습니다.
+            </p>
+          )}
           {detail.attempts.map((a) => (
             <div
               className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 text-[12.5px] ${
-                a.flagged_for_review ? "border-amber-500/50 bg-amber-500/10" : "border-border/60"
+                a.flagged_for_review
+                  ? "border-amber-500/50 bg-amber-500/10"
+                  : "border-border/60"
               }`}
               key={a.id}
             >
               <span>
                 {a.set_title ?? (a.set_kind ? KIND_LABEL[a.set_kind] : "연습")}
-                {a.flagged_for_review && <span className="ml-1.5 text-amber-600">⚠ 검토 필요</span>}
+                {a.flagged_for_review && (
+                  <span className="ml-1.5 text-amber-600">⚠ 검토 필요</span>
+                )}
               </span>
               <span className="text-muted-foreground">
-                {a.status} {a.score !== null && `· ${a.score}점`} · {new Date(a.started_at).toLocaleDateString("ko-KR")}
+                {a.status} {a.score !== null && `· ${a.score}점`} ·{" "}
+                {new Date(a.started_at).toLocaleDateString("ko-KR")}
               </span>
             </div>
           ))}
@@ -294,17 +421,29 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
       <div className="surface p-5">
         <h2 className="mb-2 font-semibold text-[14px]">비밀번호 초기화</h2>
         <div className="flex gap-2">
-          <Input onChange={(e) => setNewPassword(e.target.value)} placeholder="새 비밀번호(8자 이상)" type="password" value={newPassword} />
+          <Input
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="새 비밀번호(8자 이상)"
+            type="password"
+            value={newPassword}
+          />
           <PeriodButton onClick={resetPassword}>초기화</PeriodButton>
         </div>
       </div>
 
       <div>
-        <h2 className="mb-2 font-semibold text-[14px]">질문/채팅 기록 · {history.length} / {historyTotal}건</h2>
+        <h2 className="mb-2 font-semibold text-[14px]">
+          질문/채팅 기록 · {history.length} / {historyTotal}건
+        </h2>
         <div className="flex flex-col gap-2">
-          {!historyLoading && !historyError && history.length === 0 && <p className="text-muted-foreground text-sm">기록이 없습니다.</p>}
+          {!historyLoading && !historyError && history.length === 0 && (
+            <p className="text-muted-foreground text-sm">기록이 없습니다.</p>
+          )}
           {history.map((h) => (
-            <div className="rounded-xl border border-border bg-card shadow-[var(--shadow-card)] p-4 text-[13px]" key={h.id}>
+            <div
+              className="rounded-xl border border-border bg-card shadow-[var(--shadow-card)] p-4 text-[13px]"
+              key={h.id}
+            >
               <div className="mb-1 flex items-center gap-2 text-muted-foreground text-xs">
                 <span
                   title={auditStatusDescription(h.verification_status)}
@@ -318,22 +457,40 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
                 >
                   {auditStatusLabel(h.verification_status)}
                 </span>
-                {displayAuditIntent(h.intent) && <span>{displayAuditIntent(h.intent)}</span>}
+                {displayAuditIntent(h.intent) && (
+                  <span>{displayAuditIntent(h.intent)}</span>
+                )}
                 <span>{new Date(h.created_at).toLocaleString("ko-KR")}</span>
               </div>
               <p className="mb-1 font-medium">Q. {h.question}</p>
-              <p className="whitespace-pre-wrap text-muted-foreground">{h.final_answer}</p>
+              <p className="whitespace-pre-wrap text-muted-foreground">
+                {h.final_answer}
+              </p>
             </div>
           ))}
-          {historyLoading && <p className="text-muted-foreground text-sm">기록을 불러오는 중...</p>}
+          {historyLoading && (
+            <p className="text-muted-foreground text-sm">
+              기록을 불러오는 중...
+            </p>
+          )}
           {historyError && (
             <div className="flex items-center gap-2">
               <p className="text-destructive text-sm">{historyError}</p>
-              <Button disabled={historyLoading} onClick={() => loadHistory(historyCursor ?? undefined)} variant="outline">다시 시도</Button>
+              <Button
+                disabled={historyLoading}
+                onClick={() => loadHistory(historyCursor ?? undefined)}
+                variant="outline"
+              >
+                다시 시도
+              </Button>
             </div>
           )}
           {historyHasMore && !historyError && (
-            <Button disabled={historyLoading} onClick={() => loadHistory(historyCursor ?? undefined)} variant="outline">
+            <Button
+              disabled={historyLoading}
+              onClick={() => loadHistory(historyCursor ?? undefined)}
+              variant="outline"
+            >
               {historyLoading ? "불러오는 중..." : "이전 기록 더 보기"}
             </Button>
           )}

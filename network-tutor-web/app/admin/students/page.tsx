@@ -1,5 +1,8 @@
 "use client";
-import { useAdminPeriod, PeriodButton } from "@/components/admin/service-period";
+import {
+  useAdminPeriod,
+  PeriodButton,
+} from "@/components/admin/service-period";
 import { adminFetch } from "@/lib/admin-period";
 
 import { useEffect, useState } from "react";
@@ -24,12 +27,22 @@ interface StudentRow {
 }
 
 export default function StudentsPage() {
-  const {readOnly}=useAdminPeriod();
+  const { readOnly } = useAdminPeriod();
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ studentId: "", name: "", birthdate: "", email: "", password: "" });
+  const [form, setForm] = useState({
+    studentId: "",
+    name: "",
+    birthdate: "",
+    email: "",
+    password: "",
+  });
   const [creating, setCreating] = useState(false);
-  const [csvResult, setCsvResult] = useState<{ createdCount: number; failedCount: number; failed: { rowNumber: number; message: string }[] } | null>(null);
+  const [csvResult, setCsvResult] = useState<{
+    createdCount: number;
+    failedCount: number;
+    failed: { rowNumber: number; message: string }[];
+  } | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -40,8 +53,16 @@ export default function StudentsPage() {
 
   const createStudent = async () => {
     // 학생은 학번으로 로그인하므로 학번이 없으면 만들어도 로그인할 수 없다.
-    if (!form.studentId.trim() || !form.name || !form.email || form.password.length < 8) {
-      toast({ type: "error", description: "학번, 이름, 이메일, 비밀번호(8자 이상)를 입력하세요." });
+    if (
+      !form.studentId.trim() ||
+      !form.name ||
+      !form.email ||
+      form.password.length < 8
+    ) {
+      toast({
+        type: "error",
+        description: "학번, 이름, 이메일, 비밀번호(8자 이상)를 입력하세요.",
+      });
       return;
     }
     setCreating(true);
@@ -53,11 +74,24 @@ export default function StudentsPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "생성 실패");
-      toast({ type: "success", description: `${form.name} 계정이 생성되었습니다.` });
-      setForm({ studentId: "", name: "", birthdate: "", email: "", password: "" });
+      toast({
+        type: "success",
+        description: `${form.name} 계정이 생성되었습니다.`,
+      });
+      setForm({
+        studentId: "",
+        name: "",
+        birthdate: "",
+        email: "",
+        password: "",
+      });
       load();
     } catch (err) {
-      toast({ type: "error", description: err instanceof Error ? err.message : "오류가 발생했습니다." });
+      toast({
+        type: "error",
+        description:
+          err instanceof Error ? err.message : "오류가 발생했습니다.",
+      });
     } finally {
       setCreating(false);
     }
@@ -76,21 +110,46 @@ export default function StudentsPage() {
       setCsvResult(data);
       load();
     } catch (err) {
-      toast({ type: "error", description: err instanceof Error ? err.message : "오류가 발생했습니다." });
+      toast({
+        type: "error",
+        description:
+          err instanceof Error ? err.message : "오류가 발생했습니다.",
+      });
     }
   };
 
   return (
     <div className="flex flex-col gap-6">
-      <PageIntro description="학생 계정을 만들고, 학생별 학습 현황을 확인해요." icon={UsersIcon} title="학생 관리" />
+      <PageIntro
+        description="학생 계정을 만들고, 학생별 학습 현황을 확인해요."
+        icon={UsersIcon}
+        title="학생 관리"
+      />
 
       <div className="surface p-5">
         <h2 className="mb-3 font-semibold text-[14px]">계정 추가</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <Input onChange={(e) => setForm({ ...form, studentId: e.target.value })} placeholder="학번" value={form.studentId} />
-          <Input onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="이름" value={form.name} />
-          <Input onChange={(e) => setForm({ ...form, birthdate: e.target.value })} type="date" value={form.birthdate} />
-          <Input onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="학교 이메일" type="email" value={form.email} />
+          <Input
+            onChange={(e) => setForm({ ...form, studentId: e.target.value })}
+            placeholder="학번"
+            value={form.studentId}
+          />
+          <Input
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            placeholder="이름"
+            value={form.name}
+          />
+          <Input
+            onChange={(e) => setForm({ ...form, birthdate: e.target.value })}
+            type="date"
+            value={form.birthdate}
+          />
+          <Input
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            placeholder="학교 이메일"
+            type="email"
+            value={form.email}
+          />
           <Input
             onChange={(e) => setForm({ ...form, password: e.target.value })}
             placeholder="초기 비밀번호(8자 이상)"
@@ -104,7 +163,9 @@ export default function StudentsPage() {
 
       <div className="surface p-5">
         <h2 className="mb-1 font-semibold text-[14px]">CSV 일괄 등록</h2>
-        <p className="mb-3 text-muted-foreground text-xs">컬럼: 학번,이름,생년월일,메일,비밀번호 (헤더 필수)</p>
+        <p className="mb-3 text-muted-foreground text-xs">
+          컬럼: 학번,이름,생년월일,메일,비밀번호 (헤더 필수)
+        </p>
         <input
           accept=".csv,text/csv"
           disabled={readOnly}
@@ -118,7 +179,9 @@ export default function StudentsPage() {
             </p>
             {csvResult.failed.length > 0 && (
               <pre className="mt-1 max-h-40 overflow-auto rounded-lg bg-muted/50 p-2 text-xs">
-                {csvResult.failed.map((f) => `행 ${f.rowNumber}: ${f.message}`).join("\n")}
+                {csvResult.failed
+                  .map((f) => `행 ${f.rowNumber}: ${f.message}`)
+                  .join("\n")}
               </pre>
             )}
           </div>
@@ -127,54 +190,66 @@ export default function StudentsPage() {
 
       <div className="surface">
         <div className="overflow-x-auto">
-        <table className="table w-full min-w-[640px] text-[13px]">
-          <thead>
-            <tr className="border-border border-b bg-muted/50 text-[12px] text-muted-foreground">
-              <th className="px-4 py-2.5 text-left font-semibold">학번</th>
-              <th className="px-4 py-2.5 text-left font-semibold">이름</th>
-              <th className="px-4 py-2.5 text-left font-semibold">이메일</th>
-              <th className="px-4 py-2.5 text-left font-semibold">수준</th>
-              <th className="px-4 py-2.5 text-left font-semibold">질문 수</th>
-              <th className="px-4 py-2.5 text-left font-semibold">최근 활동</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && (
-              <tr>
-                <td className="px-4 py-4 text-muted-foreground" colSpan={6}>
-                  불러오는 중...
-                </td>
+          <table className="table w-full min-w-[640px] text-[13px]">
+            <thead>
+              <tr className="border-border border-b bg-muted/50 text-[12px] text-muted-foreground">
+                <th className="px-4 py-2.5 text-left font-semibold">학번</th>
+                <th className="px-4 py-2.5 text-left font-semibold">이름</th>
+                <th className="px-4 py-2.5 text-left font-semibold">이메일</th>
+                <th className="px-4 py-2.5 text-left font-semibold">수준</th>
+                <th className="px-4 py-2.5 text-left font-semibold">질문 수</th>
+                <th className="px-4 py-2.5 text-left font-semibold">
+                  최근 활동
+                </th>
               </tr>
-            )}
-            {!loading && students.length === 0 && (
-              <tr>
-                <td className="px-4 py-4 text-muted-foreground" colSpan={6}>
-                  등록된 학생이 없습니다.
-                </td>
-              </tr>
-            )}
-            {students.map((s) => (
-              <tr className="border-border border-b last:border-0 hover:bg-accent/50" key={s.id}>
-                <td className="px-4 py-2">
-                  <Link className="block" href={`/admin/students/${s.id}`}>
-                    {s.student_id ?? "-"}
-                  </Link>
-                </td>
-                <td className="px-4 py-2">
-                  <Link href={`/admin/students/${s.id}`}>
-                    {s.name} {s.role === "admin" && <span className="text-muted-foreground text-xs">(관리자)</span>}
-                  </Link>
-                </td>
-                <td className="px-4 py-2 text-muted-foreground">{s.email}</td>
-                <td className="px-4 py-2">{s.level}</td>
-                <td className="px-4 py-2">{s.question_count}</td>
-                <td className="px-4 py-2 text-muted-foreground">
-                  {s.last_active_at ? new Date(s.last_active_at).toLocaleString("ko-KR") : "-"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {loading && (
+                <tr>
+                  <td className="px-4 py-4 text-muted-foreground" colSpan={6}>
+                    불러오는 중...
+                  </td>
+                </tr>
+              )}
+              {!loading && students.length === 0 && (
+                <tr>
+                  <td className="px-4 py-4 text-muted-foreground" colSpan={6}>
+                    등록된 학생이 없습니다.
+                  </td>
+                </tr>
+              )}
+              {students.map((s) => (
+                <tr
+                  className="border-border border-b last:border-0 hover:bg-accent/50"
+                  key={s.id}
+                >
+                  <td className="px-4 py-2">
+                    <Link className="block" href={`/admin/students/${s.id}`}>
+                      {s.student_id ?? "-"}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-2">
+                    <Link href={`/admin/students/${s.id}`}>
+                      {s.name}{" "}
+                      {s.role === "admin" && (
+                        <span className="text-muted-foreground text-xs">
+                          (관리자)
+                        </span>
+                      )}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-2 text-muted-foreground">{s.email}</td>
+                  <td className="px-4 py-2">{s.level}</td>
+                  <td className="px-4 py-2">{s.question_count}</td>
+                  <td className="px-4 py-2 text-muted-foreground">
+                    {s.last_active_at
+                      ? new Date(s.last_active_at).toLocaleString("ko-KR")
+                      : "-"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
