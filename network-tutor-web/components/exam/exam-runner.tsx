@@ -30,6 +30,8 @@ export interface ExamStartResponse {
   attemptId: number;
   questions: AttemptQuestionView[];
   timeLimitMinutes: number | null;
+  /** 진행 중이던 응시를 이어서 열 때(지정 시험 새로고침 등) 이미 저장해 둔 답 — 화면 기준 보기 번호. */
+  savedAnswers?: Record<number, { selectedIndex?: number; answerText?: string }>;
   error?: string;
 }
 
@@ -43,11 +45,26 @@ const PROCTORED_EVENTS_HELP =
 // 않고 그냥 답만 저장한다 — 채점 결과는 전부 제출 후 /exam/[id] 결과 화면에서만 확인할 수 있다.
 export function ExamRunner({ start, proctored }: { start: ExamStartResponse; proctored: boolean }) {
   const router = useRouter();
-  const { attemptId, questions, timeLimitMinutes } = start;
+  const { attemptId, questions, timeLimitMinutes, savedAnswers } = start;
   const [index, setIndex] = useState(0);
-  const [selected, setSelected] = useState<Record<number, number>>({});
-  const [answerTexts, setAnswerTexts] = useState<Record<number, string>>({});
-  const [saved, setSaved] = useState<Record<number, boolean>>({});
+  const [selected, setSelected] = useState<Record<number, number>>(() => {
+    const init: Record<number, number> = {};
+    for (const [qid, a] of Object.entries(savedAnswers ?? {})) if (a.selectedIndex !== undefined) init[Number(qid)] = a.selectedIndex;
+    return init;
+  });
+  const [answerTexts, setAnswerTexts] = useState<Record<number, string>>(() => {
+    const init: Record<number, string> = {};
+    for (const [qid, a] of Object.entries(savedAnswers ?? {})) if (a.answerText !== undefined) init[Number(qid)] = a.answerText;
+    return init;
+  });
+  const [saved, setSaved] = useState<Record<number, boolean>>(() =>
+    Object.fromEntries(Object.keys(savedAnswers ?? {}).map((qid) => [Number(qid), true])),
+  );
+  // 시간 만료로 자동 제출할 때 아직 "저장"을 안 누른 주관식 입력도 먼저 저장하려고 최신 값을 ref로 들고 있는다.
+  const answerTextsRef = useRef(answerTexts);
+  answerTextsRef.current = answerTexts;
+  const savedRef = useRef(saved);
+  savedRef.current = saved;
   const [submitting, setSubmitting] = useState(false);
   const [remainingSec, setRemainingSec] = useState<number | null>(timeLimitMinutes ? timeLimitMinutes * 60 : null);
   const deadlineRef = useRef<number | null>(timeLimitMinutes ? Date.now() + timeLimitMinutes * 60_000 : null);
@@ -61,8 +78,24 @@ export function ExamRunner({ start, proctored }: { start: ExamStartResponse; pro
     submittedRef.current = true;
     setSubmitting(true);
     try {
+      for (const [qid, text] of Object.entries(answerTextsRef.current)) {
+        if (!text.trim() || savedRef.current[Number(qid)]) continue;
+        await fetch(`/api/exam/attempts/${attemptId}/answer`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ questionId: Number(qid), answerText: text.trim() }),
+        }).catch(() => undefined);
+      }
       const res = await fetch(`/api/exam/attempts/${attemptId}/submit`, { method: "POST" });
-      if (!res.ok) throw new Error((await res.json()).error ?? "제출 실패");
+      if (!res.ok) {
+        const message: string = (await res.json().catch(() => ({}))).error ?? "제출 실패";
+        // 서버가 이미 마감 처리한 경우(시간 만료 직후 저장 등)엔 멈춰 있지 말고 결과 화면으로 간다.
+        if (message.includes("이미 종료") || message.includes("자동 제출")) {
+          router.push(`/exam/${attemptId}`);
+          return;
+        }
+        throw new Error(message);
+      }
       router.push(`/exam/${attemptId}`);
     } catch (err) {
       toast({ type: "error", description: err instanceof Error ? err.message : "제출 중 오류가 발생했습니다." });

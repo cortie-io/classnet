@@ -39,7 +39,8 @@ function OneQuestion({ attemptId, question, index }: { attemptId: number; questi
       const res = await fetch(`/api/exam/attempts/${attemptId}/answer`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ questionId: question.questionId, selectedIndex: selected }),
+        // reveal: 여기서는 "정답 확인"을 눌렀을 때 바로 정오답을 보여준다(서버는 이후 답 변경을 막는다).
+        body: JSON.stringify({ questionId: question.questionId, selectedIndex: selected, reveal: true }),
       });
       const data = await res.json();
       if (res.ok && data.instantFeedback) {

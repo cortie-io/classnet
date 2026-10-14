@@ -259,3 +259,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS token_quota INTEGER NOT NULL DEFAULT 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS token_used INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS token_remaining INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_token_burn_at TIMESTAMPTZ;
+
+-- 바로 정오답을 보여주는 연습에서 "정답 확인"으로 정답을 공개한 시각. 공개한 문항은 답을 바꿀 수 없고,
+-- 진행 중인 응시의 답은 공개된 것만 오답노트에 나온다(examService.submitAnswer, studentReport.getWrongAnswers).
+ALTER TABLE exam_answers ADD COLUMN IF NOT EXISTS revealed_at TIMESTAMPTZ;

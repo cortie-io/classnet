@@ -75,6 +75,20 @@ async function fetchApprovedQuestions(ids: number[]): Promise<Map<number, Approv
   );
 }
 
+/** 이 학생이 지금 치르고 있는(in_progress) 모의고사·지정 시험 문항 — 정오답을 바로 알려주지 않는 응시라서,
+ * 응시 중에는 같은 문항의 해설 조회·연습 응시·오답노트로 정답을 미리 볼 수 없게 막는 데 쓴다. */
+export async function lockedQuestionIdsForUser(userId: number): Promise<Set<number>> {
+  const { rows } = await pool.query<{ qid: number }>(
+    `SELECT DISTINCT unnest(att.question_ids) AS qid
+     FROM exam_attempts att JOIN exam_sets s ON s.id = att.exam_set_id
+     WHERE att.user_id = $1 AND att.status = 'in_progress' AND s.kind IN ('mock', 'admin_timed')`,
+    [userId],
+  );
+  return new Set(rows.map((r) => r.qid));
+}
+
+export const LOCKED_QUESTION_MESSAGE = "지금 응시 중인 시험의 문제라, 시험을 제출한 뒤에 볼 수 있습니다.";
+
 /** 학급/과목별로 승인된 문제 중 무작위 count개 id를 뽑는다. */
 async function drawRandomApprovedIds(subject: string | null, count: number, excludeIds: number[] = []): Promise<number[]> {
   const params: unknown[] = [];
@@ -131,7 +145,12 @@ export async function createAttempt(params: {
   title?: string;
   roundLabel?: string; // past_exam_round일 때 "연도-월-일" 형식으로 회차 지정
   questionIds?: number[]; // practice_custom일 때 무작위 대신 특정 문제로 고정하고 싶으면(예: 채팅에서 뽑아준 문제)
-}): Promise<{ attemptId: number; questions: AttemptQuestionView[]; timeLimitMinutes: number | null }> {
+}): Promise<{
+  attemptId: number;
+  questions: AttemptQuestionView[];
+  timeLimitMinutes: number | null;
+  savedAnswers?: Record<number, { selectedIndex?: number; answerText?: string }>;
+}> {
   let questionIds: number[];
   let timeLimitMinutes: number | null = null;
   let examSetId: number | null = null;
@@ -177,6 +196,21 @@ export async function createAttempt(params: {
     if (rows[0].scheduled_end && now > rows[0].scheduled_end) {
       throw new Error(`응시 가능 기간이 종료되었습니다. 응시 마감: ${rows[0].scheduled_end.toLocaleString("ko-KR")}`);
     }
+    // 지정 시험(사전/사후테스트 등)은 한 번만 친다 — 제출 후 결과 화면에서 정답을 보고 다시 응시해
+    // 만점을 받는 일을 막는다. 진행 중인 응시가 있으면(새로고침·창 닫힘) 새로 만들지 않고 그대로 이어서 준다.
+    // 관리자가 무효 처리(invalidated)한 응시는 없는 것으로 보고 재응시를 허용한다.
+    const { rows: prev } = await pool.query<AttemptRow>(
+      `SELECT * FROM exam_attempts WHERE user_id = $1 AND exam_set_id = $2 AND status <> 'invalidated'
+       ORDER BY started_at DESC LIMIT 1`,
+      [params.userId, params.examSetId],
+    );
+    if (prev[0]) {
+      if (prev[0].status !== "in_progress" || isTimeExpired(prev[0])) {
+        await autoSubmitIfExpired(prev[0].id);
+        throw new Error("이미 응시한 시험입니다. 다시 응시하려면 선생님께 문의하세요.");
+      }
+      return resumeAttempt(prev[0]);
+    }
     questionIds = rows[0].question_ids;
     timeLimitMinutes = rows[0].duration_minutes;
     examSetId = params.examSetId;
@@ -195,11 +229,13 @@ export async function createAttempt(params: {
     );
     examSetId = setRes.rows[0].id;
   } else {
+    const locked = await lockedQuestionIdsForUser(params.userId);
     if (params.questionIds && params.questionIds.length > 0) {
+      if (params.questionIds.some((id) => locked.has(id))) throw new Error(LOCKED_QUESTION_MESSAGE);
       questionIds = params.questionIds;
     } else {
       const count = params.count ?? 10;
-      questionIds = await drawRandomApprovedIds(params.subject ?? null, count);
+      questionIds = await drawRandomApprovedIds(params.subject ?? null, count, [...locked]);
     }
     const setRes = await pool.query<{ id: number }>(
       `INSERT INTO exam_sets (kind, title, created_by, question_ids, is_published)
@@ -253,6 +289,44 @@ export async function getAttempt(attemptId: number): Promise<AttemptRow | null> 
   return rows[0] ?? null;
 }
 
+/** 진행 중인 응시를 처음 받았던 화면 그대로(문항·보기 순서, 남은 시간, 이미 저장한 답) 다시 만들어 준다. */
+async function resumeAttempt(attempt: AttemptRow): Promise<{
+  attemptId: number;
+  questions: AttemptQuestionView[];
+  timeLimitMinutes: number | null;
+  savedAnswers: Record<number, { selectedIndex?: number; answerText?: string }>;
+}> {
+  const approvedMap = await fetchApprovedQuestions(attempt.question_ids);
+  const views: AttemptQuestionView[] = attempt.question_ids
+    .filter((qid) => approvedMap.has(qid))
+    .map((qid) => {
+      const q = approvedMap.get(qid)!;
+      const order = attempt.choice_order[String(qid)] ?? [];
+      const choices = q.questionType === "multiple_choice" && q.choices ? order.map((i) => q.choices![i]) : [];
+      return { questionId: qid, stem: q.stem, questionType: q.questionType, choices, maxScore: q.maxScore, stemImageUrl: q.stemImageUrl };
+    });
+
+  const { rows } = await pool.query<{ question_id: number; selected_index: number | null; answer_text: string | null }>(
+    "SELECT question_id, selected_index, answer_text FROM exam_answers WHERE attempt_id = $1",
+    [attempt.id],
+  );
+  const savedAnswers: Record<number, { selectedIndex?: number; answerText?: string }> = {};
+  for (const r of rows) {
+    const order = attempt.choice_order[String(r.question_id)];
+    if (r.selected_index != null) {
+      savedAnswers[r.question_id] = { selectedIndex: order ? order.indexOf(r.selected_index) : r.selected_index };
+    } else if (r.answer_text != null) {
+      savedAnswers[r.question_id] = { answerText: r.answer_text };
+    }
+  }
+
+  // 화면은 "지금부터 timeLimitMinutes분"으로 카운트다운하므로 남은 시간만 넘긴다(서버 마감은 그대로).
+  const timeLimitMinutes = attempt.time_limit_minutes
+    ? Math.max(0, new Date(attempt.started_at).getTime() + attempt.time_limit_minutes * 60_000 - Date.now()) / 60_000
+    : null;
+  return { attemptId: attempt.id, questions: views, timeLimitMinutes, savedAnswers };
+}
+
 async function getExamSetKind(examSetId: number | null): Promise<string | null> {
   if (!examSetId) return null;
   const { rows } = await pool.query<{ kind: string }>("SELECT kind FROM exam_sets WHERE id = $1", [examSetId]);
@@ -281,12 +355,16 @@ export async function submitAnswer(params: {
   questionId: number;
   selectedDisplayIndex?: number;
   answerText?: string;
+  /** 바로 정오답을 보여주는 연습(채팅 안 미니 문제 등)에서 "정답 확인"을 눌렀을 때만 true.
+   * 한 번 정답을 공개한 문항은 답을 바꿀 수 없다(정답을 보고 고쳐서 맞춘 것으로 기록되는 걸 막음). */
+  reveal?: boolean;
 }): Promise<AnswerResult> {
   const attempt = await getAttempt(params.attemptId);
   if (!attempt || attempt.user_id !== params.userId) throw new Error("응시 기록을 찾을 수 없습니다.");
   if (attempt.status !== "in_progress") throw new Error("이미 종료된 응시입니다.");
   if (isTimeExpired(attempt)) {
-    await pool.query("UPDATE exam_attempts SET status = 'auto_submitted', submitted_at = now() WHERE id = $1", [params.attemptId]);
+    // 점수까지 계산해서 닫는다 — 상태만 바꾸면 score가 영구히 NULL로 남아 사전/사후 점수에서 빠졌다.
+    await autoSubmitIfExpired(params.attemptId);
     throw new Error("제한 시간이 종료되어 자동 제출되었습니다.");
   }
   if (!attempt.question_ids.includes(params.questionId)) throw new Error("이 응시에 포함되지 않은 문제입니다.");
@@ -305,7 +383,13 @@ export async function submitAnswer(params: {
   const q = rows[0];
   const maxScore = Number(q.max_score);
   const kind = await getExamSetKind(attempt.exam_set_id);
-  const instantFeedback = kind === "practice_custom" || kind === "past_exam_round";
+  const instantFeedback = (kind === "practice_custom" || kind === "past_exam_round") && params.reveal === true;
+
+  const { rows: prevRows } = await pool.query<{ revealed_at: Date | null }>(
+    "SELECT revealed_at FROM exam_answers WHERE attempt_id = $1 AND question_id = $2",
+    [params.attemptId, params.questionId],
+  );
+  if (prevRows[0]?.revealed_at) throw new Error("이미 정답을 확인한 문제라 답을 바꿀 수 없습니다.");
 
   if (q.question_type === "multiple_choice") {
     if (typeof params.selectedDisplayIndex !== "number") throw new Error("selectedDisplayIndex가 필요합니다.");
@@ -315,11 +399,12 @@ export async function submitAnswer(params: {
     const score = isCorrect ? maxScore : 0;
 
     await pool.query(
-      `INSERT INTO exam_answers (attempt_id, question_id, selected_index, is_correct, score, graded_at)
-       VALUES ($1,$2,$3,$4,$5,now())
+      `INSERT INTO exam_answers (attempt_id, question_id, selected_index, is_correct, score, graded_at, revealed_at)
+       VALUES ($1,$2,$3,$4,$5,now(),$6)
        ON CONFLICT (attempt_id, question_id) DO UPDATE SET
-         selected_index = EXCLUDED.selected_index, is_correct = EXCLUDED.is_correct, score = EXCLUDED.score, answered_at = now(), graded_at = now()`,
-      [params.attemptId, params.questionId, originalIndex, isCorrect, score],
+         selected_index = EXCLUDED.selected_index, is_correct = EXCLUDED.is_correct, score = EXCLUDED.score, answered_at = now(), graded_at = now(),
+         revealed_at = EXCLUDED.revealed_at`,
+      [params.attemptId, params.questionId, originalIndex, isCorrect, score, instantFeedback ? new Date() : null],
     );
 
     if (!instantFeedback) return { recorded: true, instantFeedback };
@@ -335,11 +420,12 @@ export async function submitAnswer(params: {
     const isCorrect = matchesAcceptedAnswer(answerText, q.accepted_answers ?? []);
     const score = isCorrect ? maxScore : 0;
     await pool.query(
-      `INSERT INTO exam_answers (attempt_id, question_id, answer_text, is_correct, score, graded_at)
-       VALUES ($1,$2,$3,$4,$5,now())
+      `INSERT INTO exam_answers (attempt_id, question_id, answer_text, is_correct, score, graded_at, revealed_at)
+       VALUES ($1,$2,$3,$4,$5,now(),$6)
        ON CONFLICT (attempt_id, question_id) DO UPDATE SET
-         answer_text = EXCLUDED.answer_text, is_correct = EXCLUDED.is_correct, score = EXCLUDED.score, answered_at = now(), graded_at = now()`,
-      [params.attemptId, params.questionId, answerText, isCorrect, score],
+         answer_text = EXCLUDED.answer_text, is_correct = EXCLUDED.is_correct, score = EXCLUDED.score, answered_at = now(), graded_at = now(),
+         revealed_at = EXCLUDED.revealed_at`,
+      [params.attemptId, params.questionId, answerText, isCorrect, score, instantFeedback ? new Date() : null],
     );
     if (!instantFeedback) return { recorded: true, instantFeedback };
     return { recorded: true, instantFeedback, isCorrect, explanation: q.explanation };
@@ -452,10 +538,11 @@ export async function submitAttempt(
   if (attempt.status !== "in_progress") throw new Error("이미 종료된 응시입니다.");
 
   const { score, total, gradingPending, items } = await buildResultItems(attempt);
-  await pool.query(
-    "UPDATE exam_attempts SET status = 'submitted', submitted_at = now(), score = $1 WHERE id = $2",
+  const { rowCount } = await pool.query(
+    "UPDATE exam_attempts SET status = 'submitted', submitted_at = now(), score = $1 WHERE id = $2 AND status = 'in_progress'",
     [score, attemptId],
   );
+  if (rowCount === 0) throw new Error("이미 종료된 응시입니다.");
 
   return { score, total, gradingPending, items };
 }
@@ -574,7 +661,7 @@ export async function autoSubmitIfExpired(attemptId: number): Promise<void> {
   if (!attempt || attempt.status !== "in_progress" || !isTimeExpired(attempt)) return;
   const { score } = await buildResultItems(attempt);
   await pool.query(
-    "UPDATE exam_attempts SET status = 'auto_submitted', submitted_at = now(), score = $1 WHERE id = $2",
+    "UPDATE exam_attempts SET status = 'auto_submitted', submitted_at = now(), score = $1 WHERE id = $2 AND status = 'in_progress'",
     [score, attemptId],
   );
 }

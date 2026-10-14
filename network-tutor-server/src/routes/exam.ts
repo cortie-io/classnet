@@ -12,6 +12,8 @@ import {
   listPastExamRounds,
   MOCK_EXAM_SUBJECT_DISTRIBUTION,
   MOCK_EXAM_DURATION_MINUTES,
+  lockedQuestionIdsForUser,
+  LOCKED_QUESTION_MESSAGE,
 } from "../exam/examService.js";
 import { getWrongAnswers, getStudentReport, getOrCreateReportAnalysis } from "../exam/studentReport.js";
 import { getWeakAreas, getWeakTopics } from "../pipeline/personalization.js";
@@ -312,6 +314,7 @@ examRouter.post("/exam/attempts/:id/answer", requireAuth, async (req, res) => {
       questionId,
       selectedDisplayIndex: typeof selectedIndex === "number" ? selectedIndex : undefined,
       answerText: typeof answerText === "string" ? answerText : undefined,
+      reveal: req.body?.reveal === true,
     });
     res.json(result);
   } catch (err) {
@@ -345,5 +348,8 @@ examRouter.get("/exam/questions/:id/explain", requireAuth, async (req, res) => {
     [Number(req.params.id)],
   );
   if (rows.length === 0) return res.status(404).json({ error: "문제를 찾을 수 없습니다." });
+  if ((await lockedQuestionIdsForUser(req.user!.id)).has(rows[0].id)) {
+    return res.status(403).json({ error: LOCKED_QUESTION_MESSAGE });
+  }
   res.json(rows[0]);
 });

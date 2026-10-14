@@ -25,7 +25,10 @@ export async function getWrongAnswers(userId: number, limit = 100): Promise<Wron
      FROM exam_answers a
      JOIN exam_questions q ON q.id = a.question_id
      JOIN exam_attempts att ON att.id = a.attempt_id
+     -- 끝난 응시의 답, 또는 연습에서 이미 정답을 공개한 답만 — 진행 중인 모의고사·지정 시험의 오답을
+     -- 여기서 보여주면 정답을 보고 고쳐 낼 수 있었다. 무효 처리(invalidated)된 응시는 뺀다.
      WHERE att.user_id = $1 AND a.is_correct = false
+       AND (att.status IN ('submitted', 'auto_submitted') OR a.revealed_at IS NOT NULL)
      ORDER BY a.answered_at DESC LIMIT $2`,
     [userId, limit],
   );
