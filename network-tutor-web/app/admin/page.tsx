@@ -1,9 +1,11 @@
 "use client";
+import { PeriodButton } from "@/components/admin/service-period";
+import { adminFetch } from "@/lib/admin-period";
 
 import { useEffect, useState } from "react";
 import { ChevronRightIcon, ClipboardCheckIcon, FileClockIcon, LayoutDashboardIcon, type LucideIcon, MessageSquareWarningIcon, UsersIcon } from "lucide-react";
 import { PageIntro } from "@/components/chat/page-intro";
-import Link from "next/link";
+import { AdminLink as Link } from "@/components/admin/service-period";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/chat/toast";
@@ -72,7 +74,7 @@ export default function AdminDashboardPage() {
   const saveExamDate = async () => {
     setSavingDate(true);
     try {
-      const res = await fetch("/api/admin/settings/exam-date", {
+      const res = await adminFetch("/api/admin/settings/exam-date", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ examDate: examDate || null }),
@@ -174,11 +176,11 @@ export default function AdminDashboardPage() {
         <p className="mb-3 text-muted-foreground text-xs">설정하면 학생 화면 사이드바에 D-day 카운트다운이 표시됩니다.</p>
         <div className="flex flex-col gap-2 sm:flex-row">
           <Input className="sm:w-48" onChange={(e) => setExamDate(e.target.value)} type="date" value={examDate} />
-          <Button disabled={savingDate} onClick={saveExamDate} size="sm">저장</Button>
+          <PeriodButton disabled={savingDate} onClick={saveExamDate} size="sm">저장</PeriodButton>
           {examDate && (
-            <Button onClick={() => setExamDate("")} size="sm" variant="outline">
+            <PeriodButton onClick={() => setExamDate("")} size="sm" variant="outline">
               해제
-            </Button>
+            </PeriodButton>
           )}
         </div>
       </div>

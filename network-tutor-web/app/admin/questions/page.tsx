@@ -1,4 +1,6 @@
 "use client";
+import { PeriodButton } from "@/components/admin/service-period";
+import { adminFetch } from "@/lib/admin-period";
 
 import { useEffect, useState } from "react";
 import { ClipboardListIcon } from "lucide-react";
@@ -101,7 +103,7 @@ export default function QuestionsReviewPage() {
   useEffect(() => load(), [status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const act = async (id: number, action: "approve" | "reject") => {
-    const res = await fetch(`/api/admin/exam/questions/${id}/${action}`, { method: "POST" });
+    const res = await adminFetch(`/api/admin/exam/questions/${id}/${action}`, { method: "POST" });
     if (res.ok) {
       setQuestions((qs) => qs.filter((q) => q.id !== id));
       toast({ type: "success", description: action === "approve" ? "승인되었습니다." : "반려되었습니다." });
@@ -138,7 +140,7 @@ export default function QuestionsReviewPage() {
       } else {
         body.modelAnswer = draft.modelAnswer;
       }
-      const res = await fetch(`/api/admin/exam/questions/${q.id}`, {
+      const res = await adminFetch(`/api/admin/exam/questions/${q.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -159,7 +161,7 @@ export default function QuestionsReviewPage() {
     if (!confirm("이 문제를 완전히 삭제하시겠습니까? 되돌릴 수 없습니다.")) return;
     setDeletingId(id);
     try {
-      const res = await fetch(`/api/admin/exam/questions/${id}`, { method: "DELETE" });
+      const res = await adminFetch(`/api/admin/exam/questions/${id}`, { method: "DELETE" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "삭제 실패");
       setQuestions((qs) => qs.filter((q) => q.id !== id));
@@ -262,12 +264,12 @@ export default function QuestionsReviewPage() {
                   <div className="mt-3 flex flex-wrap gap-2">
                     {status === "pending_review" && (
                       <>
-                        <Button onClick={() => act(q.id, "approve")} size="sm">승인</Button>
-                        <Button onClick={() => act(q.id, "reject")} size="sm" variant="outline">반려</Button>
+                        <PeriodButton onClick={() => act(q.id, "approve")} size="sm">승인</PeriodButton>
+                        <PeriodButton onClick={() => act(q.id, "reject")} size="sm" variant="outline">반려</PeriodButton>
                       </>
                     )}
-                    <Button onClick={() => startEdit(q)} size="sm" variant="outline">수정</Button>
-                    <Button
+                    <PeriodButton onClick={() => startEdit(q)} size="sm" variant="outline">수정</PeriodButton>
+                    <PeriodButton
                       disabled={deletingId === q.id}
                       onClick={() => removeQuestion(q.id)}
                       size="sm"
@@ -275,7 +277,7 @@ export default function QuestionsReviewPage() {
                       className="text-destructive hover:text-destructive"
                     >
                       {deletingId === q.id ? "삭제 중..." : "삭제"}
-                    </Button>
+                    </PeriodButton>
                   </div>
                 </>
               ) : draft ? (
@@ -342,9 +344,9 @@ export default function QuestionsReviewPage() {
                     />
                   </div>
                   <div className="flex gap-2">
-                    <Button disabled={savingEdit} onClick={() => saveEdit(q)} size="sm">
+                    <PeriodButton disabled={savingEdit} onClick={() => saveEdit(q)} size="sm">
                       {savingEdit ? "저장 중..." : "저장"}
-                    </Button>
+                    </PeriodButton>
                     <Button onClick={cancelEdit} size="sm" variant="outline">취소</Button>
                   </div>
                 </div>

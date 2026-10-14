@@ -41,3 +41,10 @@ test("archive rejects all mutations and returns frozen ranking without recalcula
   assert.equal((await call('/api/admin/analytics/ranking?period=2')).data.students[0].rank,null);
   assert.equal((await archive.db.query<{count:number}>('SELECT count(*)::int AS count FROM users')).rows[0].count,2);
 });
+
+test("deleting a phase2 account leaves phase1 identity, history and saved ranking accessible",async()=>{
+  assert.equal((await call('/api/admin/users/2?period=2','DELETE')).status,200);
+  assert.equal((await call('/api/admin/users?period=2')).data.some((u:any)=>u.id===2),false);
+  assert.equal((await call('/api/admin/users?period=1')).data.find((u:any)=>u.id===2).name,'archive student');
+  assert.equal((await call('/api/admin/analytics/ranking?period=1')).data.students[0].rank,7);
+});

@@ -1,4 +1,6 @@
 "use client";
+import { PeriodButton } from "@/components/admin/service-period";
+import { adminFetch } from "@/lib/admin-period";
 
 import { useEffect, useState } from "react";
 import { TimerIcon } from "lucide-react";
@@ -209,7 +211,7 @@ export default function ExamsAdminPage() {
 
     setCreatingQuestion(true);
     try {
-      const res = await fetch("/api/admin/exam/questions", {
+      const res = await adminFetch("/api/admin/exam/questions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -229,7 +231,7 @@ export default function ExamsAdminPage() {
 
   const exportAttemptsCsv = async () => {
     try {
-      const res = await fetch("/api/admin/exam/attempts-export");
+      const res = await adminFetch("/api/admin/exam/attempts-export");
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "내보내기 실패");
       const blob = new Blob([data.csv], { type: "text/csv;charset=utf-8;" });
@@ -249,7 +251,7 @@ export default function ExamsAdminPage() {
       toast({ type: "error", description: "제목과 문제를 1개 이상 선택하세요." });
       return;
     }
-    const res = await fetch("/api/admin/exam/sets", {
+    const res = await adminFetch("/api/admin/exam/sets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -274,7 +276,7 @@ export default function ExamsAdminPage() {
   };
 
   const togglePublish = async (id: number, publish: boolean) => {
-    await fetch(`/api/admin/exam/sets/${id}/${publish ? "publish" : "unpublish"}`, { method: "POST" });
+    await adminFetch(`/api/admin/exam/sets/${id}/${publish ? "publish" : "unpublish"}`, { method: "POST" });
     loadSets();
   };
 
@@ -291,7 +293,7 @@ export default function ExamsAdminPage() {
       toast({ type: "error", description: "응시 시작 시각은 마감 시각보다 이전이어야 합니다." });
       return;
     }
-    const res = await fetch(`/api/admin/exam/sets/${id}`, {
+    const res = await adminFetch(`/api/admin/exam/sets/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ scheduledStart: startIso, scheduledEnd: endIso }),
@@ -314,7 +316,7 @@ export default function ExamsAdminPage() {
       toast({ type: "error", description: `0 ~ ${maxScore} 사이 점수를 입력하세요.` });
       return;
     }
-    const res = await fetch(`/api/admin/exam/answers/${answerId}/grade`, {
+    const res = await adminFetch(`/api/admin/exam/answers/${answerId}/grade`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ score, feedback: draft.feedback || undefined }),
@@ -388,18 +390,18 @@ export default function ExamsAdminPage() {
               </div>
             ))}
             <div className="flex gap-2">
-              <Button onClick={() => setQChoices((p) => [...p, ""])} size="sm" type="button" variant="outline">
+              <PeriodButton onClick={() => setQChoices((p) => [...p, ""])} size="sm" type="button" variant="outline">
                 선택지 추가
-              </Button>
+              </PeriodButton>
               {qChoices.length > 2 && (
-                <Button
+                <PeriodButton
                   onClick={() => setQChoices((p) => p.slice(0, -1))}
                   size="sm"
                   type="button"
                   variant="outline"
                 >
                   선택지 제거
-                </Button>
+                </PeriodButton>
               )}
             </div>
           </div>
@@ -442,9 +444,9 @@ export default function ExamsAdminPage() {
           </div>
         </div>
 
-        <Button className="mt-4" disabled={creatingQuestion} onClick={createQuestion}>
+        <PeriodButton className="mt-4" disabled={creatingQuestion} onClick={createQuestion}>
           {creatingQuestion ? "추가하는 중..." : "문제 추가"}
-        </Button>
+        </PeriodButton>
       </div>
 
       <div className="surface p-4 sm:p-5">
@@ -458,7 +460,7 @@ export default function ExamsAdminPage() {
             type="number"
             value={duration}
           />
-          <Button onClick={createSet}>생성</Button>
+          <PeriodButton onClick={createSet}>생성</PeriodButton>
         </div>
         <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end">
           <div className="flex flex-1 flex-col gap-1">
@@ -543,7 +545,7 @@ export default function ExamsAdminPage() {
                           value={editEnd}
                         />
                         <div className="flex gap-1.5">
-                          <Button onClick={() => saveSchedule(s.id)} size="sm">저장</Button>
+                          <PeriodButton onClick={() => saveSchedule(s.id)} size="sm">저장</PeriodButton>
                           <Button onClick={() => setEditingScheduleId(null)} size="sm" variant="outline">취소</Button>
                         </div>
                       </div>
@@ -562,9 +564,9 @@ export default function ExamsAdminPage() {
                   <td className="px-4 py-2">{s.attempt_count}</td>
                   <td className="px-4 py-2">{s.is_published ? "공개됨" : "비공개"}</td>
                   <td className="px-4 py-2">
-                    <Button onClick={() => togglePublish(s.id, !s.is_published)} size="sm" variant="outline">
+                    <PeriodButton onClick={() => togglePublish(s.id, !s.is_published)} size="sm" variant="outline">
                       {s.is_published ? "비공개로 전환" : "공개"}
-                    </Button>
+                    </PeriodButton>
                   </td>
                 </tr>
               ))}
@@ -643,7 +645,7 @@ export default function ExamsAdminPage() {
                       value={draft.feedback}
                     />
                   </div>
-                  <Button onClick={() => submitGrade(g.answer_id, maxScore)} size="sm">채점 저장</Button>
+                  <PeriodButton onClick={() => submitGrade(g.answer_id, maxScore)} size="sm">채점 저장</PeriodButton>
                 </div>
               </div>
             );

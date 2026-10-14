@@ -1,7 +1,6 @@
-import { config } from "../../config.js";
+import { updateStudentProfile } from "./studentProfile.js";
 import { isArchivePeriod } from "../../infrastructure/db/pool.js";
 import { getFairRanking } from "./fairRanking.js";
-import { applyRankingPolicy } from "./rankingPolicy.js";
 import { replacePassword } from "../auth/passwordReset.js";
 import { Router } from "express";
 import { pool } from "../../infrastructure/db/pool.js";
@@ -60,165 +59,14 @@ adminRouter.get("/admin/analytics/overview", requireAdmin, async (_req, res) => 
   });
 });
 
-// ---------- 학생 사용량/학습량 순위 (장학금 심사 참고용) ----------
-// 실제 금전적 보상(장학금)에 쓰인다고 들었으므로, 하나의 불투명한 점수 뒤에 숨기지 않고 원본 지표를
-// 전부 함께 내려준다 — "종합 점수"는 참고용 정렬 기준일 뿐, 최종 판단은 교사가 직접 원본 수치를 보고
-// 내려야 한다. 활동 일수는 채팅과 문제풀이 중 어느 한쪽만 했어도 그날은 활동한 것으로 본다(한쪽
-// 채널만 편중되게 유리해지지 않도록 합집합으로 계산).
+// Phase1 ranking is a frozen snapshot; phase2 uses actual assessment results only.
 adminRouter.get("/admin/analytics/ranking", requireAdmin, async (_req, res) => {
   if (isArchivePeriod()) {
     const snapshot = await pool.query("SELECT payload FROM phase_archive_snapshot WHERE key='ranking'");
     if (!snapshot.rows[0]) return res.status(503).json({ error: "1차 순위 보관 자료가 없습니다." });
     return res.json(snapshot.rows[0].payload);
   }
-  if (config.activePeriod === "2") return res.json(await getFairRanking());
-
-  const { rows } = await pool.query<{
-    id: number;
-    student_id: string | null;
-    name: string;
-    email: string;
-    chat_count: string;
-    questions_attempted: string;
-    questions_correct: string;
-    questions_graded: string;
-    active_days: string;
-    pre_test_score: string | null;
-    post_test_score: string | null;
-  }>(
-    `WITH chat_stats AS (
-       SELECT user_id, count(*) AS chat_count
-       FROM audit_log GROUP BY user_id
-     ),
-     exam_stats AS (
-       SELECT att.user_id,
-              count(DISTINCT a.question_id) AS questions_attempted,
-              count(*) FILTER (WHERE a.is_correct = true) AS questions_correct,
-              count(*) FILTER (WHERE a.is_correct IS NOT NULL) AS questions_graded
-       FROM exam_answers a JOIN exam_attempts att ON att.id = a.attempt_id
-       GROUP BY att.user_id
-     ),
-     active_days AS (
-       SELECT user_id, count(DISTINCT day) AS active_days FROM (
-         SELECT user_id, date_trunc('day', created_at) AS day FROM audit_log
-         UNION
-         SELECT att.user_id, date_trunc('day', a.answered_at) AS day
-         FROM exam_answers a JOIN exam_attempts att ON att.id = a.attempt_id
-       ) t GROUP BY user_id
-     ),
-     -- 사전/사후 향상률(증빙자료)용 — 관리자가 "지정 시험"을 만들 때 제목을 정확히 "사전테스트" /
-     -- "사후테스트"라고 지어야 여기서 인식한다(같은 제목으로 여러 번 만들었으면 가장 최근 응시를 쓴다).
-     -- 사전/사후테스트 둘 다 사이트 밖(오프라인 등)에서 치르는 경우가 많아, 관리자가 직접 입력한
-     -- manual_pre_test_score/manual_post_test_score를 우선하고 없을 때만 사이트에서 치른 기록을
-     -- 쓴다(위 COALESCE). 종합 점수 계산에는 전혀 관여하지 않는 순수 참고·확인용 정보다.
-     pretest AS (
-       SELECT DISTINCT ON (att.user_id) att.user_id, att.score
-       FROM exam_attempts att JOIN exam_sets s ON s.id = att.exam_set_id
-       WHERE s.kind = 'admin_timed' AND s.title = '사전테스트' AND att.status IN ('submitted', 'auto_submitted')
-       ORDER BY att.user_id, att.submitted_at DESC
-     ),
-     posttest AS (
-       SELECT DISTINCT ON (att.user_id) att.user_id, att.score
-       FROM exam_attempts att JOIN exam_sets s ON s.id = att.exam_set_id
-       WHERE s.kind = 'admin_timed' AND s.title = '사후테스트' AND att.status IN ('submitted', 'auto_submitted')
-       ORDER BY att.user_id, att.submitted_at DESC
-     )
-     SELECT u.id, u.student_id, u.name, u.email,
-            COALESCE(cs.chat_count, 0) AS chat_count,
-            COALESCE(es.questions_attempted, 0) AS questions_attempted,
-            COALESCE(es.questions_correct, 0) AS questions_correct,
-            COALESCE(es.questions_graded, 0) AS questions_graded,
-            COALESCE(ad.active_days, 0) AS active_days,
-            COALESCE(u.manual_pre_test_score, pre.score) AS pre_test_score,
-            COALESCE(u.manual_post_test_score, post.score) AS post_test_score
-     FROM users u
-     LEFT JOIN chat_stats cs ON cs.user_id = u.id
-     LEFT JOIN exam_stats es ON es.user_id = u.id
-     LEFT JOIN active_days ad ON ad.user_id = u.id
-     LEFT JOIN pretest pre ON pre.user_id = u.id
-     LEFT JOIN posttest post ON post.user_id = u.id
-     WHERE u.role = 'student'`,
-  );
-
-  const parsed = rows.map((r) => ({
-    id: r.id,
-    studentId: r.student_id,
-    name: r.name,
-    email: r.email,
-    chatCount: Number(r.chat_count),
-    questionsAttempted: Number(r.questions_attempted),
-    questionsCorrect: Number(r.questions_correct),
-    questionsGraded: Number(r.questions_graded),
-    accuracyPct: Number(r.questions_graded) > 0 ? Math.round((Number(r.questions_correct) / Number(r.questions_graded)) * 1000) / 10 : 0,
-    activeDays: Number(r.active_days),
-    preTestScore: r.pre_test_score != null ? Number(r.pre_test_score) : null,
-    postTestScore: r.post_test_score != null ? Number(r.post_test_score) : null,
-    improvement: r.pre_test_score != null && r.post_test_score != null
-      ? Math.round((Number(r.post_test_score) - Number(r.pre_test_score)) * 10) / 10
-      : null,
-  }));
-
-  // 종합 점수 = 각 지표를 반 전체 최댓값 대비 0~100으로 정규화한 뒤 가중 평균한다(한 지표가 통째로
-  // 점수를 지배하지 않도록). 활동 일수는 사용 기간이 1~2주로 짧아 변별력이 크지 않다고 판단해 비중을
-  // 낮게 뒀다(교사 피드백 반영). 채팅 질문 수 35% · 실제로 맞춘 문제 수(단순 시도 수가 아님) 40%
-  // · 정답률(질보다 양으로 대충 찍어서 부풀리는 것 방지) 20% · 활동 일수 5%.
-  const maxOf = (key: "chatCount" | "activeDays" | "questionsCorrect") =>
-    Math.max(1, ...parsed.map((p) => p[key]));
-  const maxChat = maxOf("chatCount");
-  const maxDays = maxOf("activeDays");
-  const maxCorrect = maxOf("questionsCorrect");
-
-  // 파일럿 초반엔 아직 아무도 채팅/문제풀이를 안 해서(사용률 0) 종합 점수가 전부 0점 동점이 되어
-  // 순위가 의미 없어진다 — 이럴 때는 대신 사전테스트 점수 순으로 보여준다(요청 반영). 실제 사용이
-  // 시작되면(누구 한 명이라도 채팅하거나 문제를 맞히면) 자동으로 원래 종합 점수 순위로 돌아간다.
-  const noUsageYet = parsed.every((p) => p.chatCount === 0 && p.questionsCorrect === 0);
-
-  const withCompositeScore = parsed.map((p) => {
-    const chatScore = (p.chatCount / maxChat) * 100;
-    const daysScore = (p.activeDays / maxDays) * 100;
-    const volumeScore = (p.questionsCorrect / maxCorrect) * 100;
-    const qualityScore = p.accuracyPct;
-    const compositeScore =
-      Math.round((chatScore * 0.35 + volumeScore * 0.4 + qualityScore * 0.2 + daysScore * 0.05) * 10) / 10;
-    return { ...p, compositeScore };
-  });
-
-  const baseRanked = noUsageYet
-    ? [...withCompositeScore].sort((a, b) => (b.preTestScore ?? -1) - (a.preTestScore ?? -1))
-    : [...withCompositeScore].sort((a, b) => b.compositeScore - a.compositeScore);
-
-  const ranked = applyRankingPolicy(baseRanked);
-
-  // 사전/사후 평균은 짝(둘 다 있는 학생)이 없어도 무조건 따로 보여준다(요청 반영) — 예를 들어 사전만
-  // 입력된 상태에서도 사전 평균은 바로 보여야 한다. 향상률만은 짝이 있는 학생 기준으로만 의미가 있어
-  // 그 경우에만 채운다.
-  const withPre = ranked.filter((p) => p.preTestScore != null);
-  const withPost = ranked.filter((p) => p.postTestScore != null);
-  const withBoth = ranked.filter((p) => p.preTestScore != null && p.postTestScore != null);
-  const avg = (list: typeof ranked, key: "preTestScore" | "postTestScore" | "improvement") =>
-    Math.round((list.reduce((sum, p) => sum + (p[key] ?? 0), 0) / list.length) * 10) / 10;
-  const prePostSummary =
-    withPre.length > 0 || withPost.length > 0
-      ? {
-          preParticipantCount: withPre.length,
-          avgPreTestScore: withPre.length > 0 ? avg(withPre, "preTestScore") : null,
-          postParticipantCount: withPost.length,
-          avgPostTestScore: withPost.length > 0 ? avg(withPost, "postTestScore") : null,
-          improvementParticipantCount: withBoth.length,
-          avgImprovement: withBoth.length > 0 ? avg(withBoth, "improvement") : null,
-        }
-      : null;
-
-  res.json({
-    methodology:
-      "종합 점수 = 채팅 질문 수 35% + 푼 문제/맞춘시도 40% + 정답률 20% + 활동 일수 5% (사용 기간이 1~2주로 짧아 활동 일수 비중은 낮게 뒀습니다), 각 지표는 학생 중 최댓값 대비 0~100으로 정규화. 자동 계산된 참고 지표이므로 장학금 등 실제 결정 전 교사의 직접 검토를 권장합니다.",
-    noUsageYet,
-    // 관리자가 "지정 시험"을 제목 정확히 "사전테스트" / "사후테스트"로 만들어 배정하면 자동으로 집계된다.
-    // 사후테스트는 학생 관리 상세 페이지에서 직접 점수를 입력할 수도 있다(오프라인 시험 등).
-    prePostNote: "지정 시험 제목을 정확히 \"사전테스트\" / \"사후테스트\"로 만들어 배정하면 아래 향상률이 자동으로 채워집니다. 사이트 밖에서 치렀다면 아래 표(학습 순위) 또는 학생 상세 페이지에서 점수를 직접 입력할 수 있습니다. 종합 점수·순위에는 반영되지 않는 별도 참고 정보입니다.",
-    prePostSummary,
-    students: ranked,
-  });
+  return res.json(await getFairRanking());
 });
 
 adminRouter.post("/admin/users", requireAdmin, async (req, res) => {
@@ -288,10 +136,12 @@ adminRouter.get("/admin/users", requireAdmin, async (_req, res) => {
   res.json(rows);
 });
 
+adminRouter.patch("/admin/users/:id",requireAdmin,updateStudentProfile);
+
 adminRouter.get("/admin/users/:id", requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
   const { rows } = await pool.query(
-    "SELECT id, role, student_id, name, birthdate, email, level, created_at FROM users WHERE id = $1",
+    "SELECT id, role, student_id, name, birthdate, department, email, level, created_at FROM users WHERE id = $1",
     [id],
   );
   if (rows.length === 0) return res.status(404).json({ error: "사용자를 찾을 수 없습니다." });

@@ -11,7 +11,6 @@ const { replacePassword } = await import("../features/auth/passwordReset.js");
 const { createSession, getSessionUser } = await import("../features/auth/session.js");
 const { getWeakAreas, getWeakTopics } = await import("../features/tutor/pipeline/personalization.js");
 const { ingestNodes } = await import("../ingest/ingest.js");
-const { applyRankingPolicy } = await import("../features/admin/rankingPolicy.js");
 const { createAttempt, submitAnswer, autoSubmitIfExpired, getAttempt } = await import("../features/exams/services/examService.js");
 const { updateAuditLogVerification } = await import("../features/tutor/pipeline/audit.js");
 const { verifyGroundedness } = await import("../features/tutor/pipeline/verify.js");
@@ -128,13 +127,6 @@ test("reference re-ingest preserves node IDs, bookmarks, questions and student a
   assert.equal((await pool.query('SELECT title FROM concept_nodes WHERE id=1')).rows[0].title,'Updated TCP');
 });
 
-test("manually pinned ranking remains stable while remaining students retain computed order", () => {
-  const ranked = applyRankingPolicy([{studentId:'other',compositeScore:100},{studentId:'202617682',compositeScore:40},{studentId:'2201117',compositeScore:50}]);
-  assert.deepEqual(ranked.map(x=>x.studentId),['2201117','202617682','other']);
-  assert.deepEqual(ranked.map(x=>x.rank),[1,2,3]);
-  assert.equal(ranked[2].compositeScore,39.9);
-});
-
 test("a student report stays flagged when background verification finishes later", async () => {
   const {rows} = await pool.query("INSERT INTO audit_log(user_id,question,intent,final_answer,verification_status,reviewed) VALUES(2,'q','explain','a','pending',true) RETURNING id");
   const id=rows[0].id;
@@ -168,4 +160,20 @@ test("practice reveal locks an answer and expired attempts receive their saved s
   const finished = await getAttempt(created.attemptId);
   assert.equal(finished!.status,'auto_submitted');
   assert.equal(Number(finished!.score),100);
+});
+
+test("student profile edits validate identity fields, prevent privilege changes, and revoke existing login",async()=>{
+  const session=await createSession(2);
+  const response=await call('/api/admin/users/2',{method:'PATCH',user:1,body:{userId:1,name:'Updated student',studentId:'new-2026',email:'CHANGED@SCHOOL.TEST',birthdate:'2004-02-29',department:'Computing',level:'advanced'}});
+  assert.equal(response.status,200);
+  assert.equal(response.data.user.email,'changed@school.test');
+  assert.equal(response.data.user.department,'Computing');
+  assert.equal('password_hash' in response.data.user,false);
+  assert.equal(await getSessionUser(session.token),null);
+  assert.equal((await pool.query('SELECT auth_version FROM users WHERE id=2')).rows[0].auth_version,1);
+  for(const body of [{role:'admin'},{birthdate:'2001-02-29'},{studentId:''},{email:'bad'},{level:'expert'}]) {
+    assert.equal((await call('/api/admin/users/2',{method:'PATCH',user:1,body})).status,400);
+  }
+  assert.equal((await call('/api/admin/users/3',{method:'PATCH',user:1,body:{studentId:'new-2026'}})).status,409);
+  assert.equal((await call('/api/admin/users/2',{method:'PATCH',user:2,body:{name:'unauthorized'}})).status,403);
 });

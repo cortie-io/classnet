@@ -1,9 +1,11 @@
 "use client";
+import { useAdminPeriod, PeriodButton } from "@/components/admin/service-period";
+import { adminFetch } from "@/lib/admin-period";
 
 import { useEffect, useState } from "react";
 import { TrophyIcon } from "lucide-react";
 import { PageIntro } from "@/components/chat/page-intro";
-import Link from "next/link";
+import { AdminLink as Link } from "@/components/admin/service-period";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/chat/toast";
@@ -21,7 +23,7 @@ interface RankedStudent {
   accuracyPct: number;
   activeDays: number;
   compositeScore: number;
-  rank: number;
+  rank: number | null;
   preTestScore: number | null;
   postTestScore: number | null;
   improvement: number | null;
@@ -52,6 +54,7 @@ function csvEscape(value: unknown): string {
 type PrePostField = "pre" | "post";
 
 export default function RankingPage() {
+  const {readOnly,period}=useAdminPeriod();
   const [data, setData] = useState<RankingResponse | null>(null);
   // 편집 대상은 (학생 id, pre/post) 조합이라 문자열 키("id:pre"/"id:post")로 묶어서 관리한다.
   const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -96,7 +99,7 @@ export default function RankingPage() {
     const key = keyOf(studentId, field);
     setSavingKey(key);
     try {
-      const res = await fetch(`/api/admin/users/${studentId}/${field}-test-score`, {
+      const res = await adminFetch(`/api/admin/users/${studentId}/${field}-test-score`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ score }),
@@ -128,7 +131,7 @@ export default function RankingPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `학습순위_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `학습순위_${period}차_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -172,7 +175,7 @@ export default function RankingPage() {
 
       {data.noUsageYet && (
         <div className="rounded-2xl border border-sky-500/30 bg-sky-500/5 p-4 text-[13px] leading-relaxed text-sky-700 dark:text-sky-400">
-          아직 채팅·문제풀이 사용 기록이 없어서, 종합 점수 대신 <strong>사전테스트 점수 순</strong>으로 순위를 보여주고 있습니다. 실제 사용이 시작되면 자동으로 종합 점수 순위로 바뀝니다.
+          아직 순위에 반영할 평가 기록이 없습니다. 첫 유효 평가가 채점되면 순위를 계산합니다.
         </div>
       )}
 
@@ -201,7 +204,7 @@ export default function RankingPage() {
               {data.students.map((s) => (
                 <tr className="border-border border-b last:border-0 hover:bg-accent/50" key={s.id}>
                   <td className="px-4 py-2 font-medium">
-                    {s.rank <= 3 ? ["🥇", "🥈", "🥉"][s.rank - 1] : s.rank}
+                    {s.rank !== null && s.rank <= 3 ? ["🥇", "🥈", "🥉"][s.rank - 1] : (s.rank ?? "미산정")}
                   </td>
                   <td className="px-4 py-2">
                     <Link className="block" href={`/admin/students/${s.id}`}>
@@ -236,9 +239,9 @@ export default function RankingPage() {
                                   type="number"
                                   value={draft}
                                 />
-                                <Button className="h-7 px-2" disabled={savingKey === key} onClick={() => saveScore(s.id, field)} size="sm" variant="ghost">
+                                <PeriodButton className="h-7 px-2" disabled={savingKey === key} onClick={() => saveScore(s.id, field)} size="sm" variant="ghost">
                                   {savingKey === key ? "..." : "저장"}
-                                </Button>
+                                </PeriodButton>
                                 <Button className="h-7 px-2" onClick={() => setEditingKey(null)} size="sm" variant="ghost">
                                   취소
                                 </Button>
@@ -246,6 +249,7 @@ export default function RankingPage() {
                             ) : (
                               <button
                                 className="rounded px-1.5 py-0.5 hover:bg-accent hover:underline"
+                                disabled={readOnly}
                                 onClick={() => startEdit(s, field)}
                                 type="button"
                               >

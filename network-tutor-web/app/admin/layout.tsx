@@ -1,3 +1,4 @@
+import { AdminPeriodProvider, AdminPeriodSelector } from "@/components/admin/service-period";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@/app/(auth)/auth";
@@ -22,7 +23,7 @@ async function AdminGate({ children }: { children: React.ReactNode }) {
   if (session.user.role !== "admin") redirect("/");
 
   return (
-    <SidebarProvider defaultOpen={true}>
+    <AdminPeriodProvider><SidebarProvider defaultOpen={true}>
       <AdminSidebar user={session.user} />
       <SidebarInset>
         {/* 휴대폰에서는 사이드바가 닫힌 시트라 그 안의 토글을 누를 방법이 없었다 — 본문 위에 여는 버튼을 둔다. */}
@@ -32,8 +33,8 @@ async function AdminGate({ children }: { children: React.ReactNode }) {
           <span className="font-bold text-[15px]">classnet</span>
           <span className="rounded-md bg-brand px-1.5 py-0.5 font-bold text-[10px] text-white">관리자</span>
         </header>
-        <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-8 sm:py-10">{children}</div>
+        <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-8 sm:py-10"><AdminPeriodSelector />{children}</div>
       </SidebarInset>
-    </SidebarProvider>
+    </SidebarProvider></AdminPeriodProvider>
   );
 }

@@ -1,3 +1,4 @@
+import { adminFetch } from "@/lib/admin-period";
 import { toast } from "@/components/chat/toast";
 
 /**
@@ -11,7 +12,7 @@ export async function loadJson<T>(
   opts: { init?: RequestInit; onError?: (message: string) => void; quiet?: boolean } = {},
 ): Promise<void> {
   try {
-    const res = await fetch(url, opts.init);
+    const res = await adminFetch(url, opts.init);
     const data = await res.json().catch(() => null);
     if (!res.ok) {
       const message = data && typeof data.error === "string" ? data.error : `불러오기 실패 (${res.status})`;

@@ -33,6 +33,6 @@ export async function callAdminBackend<T = unknown>(
     body: isBodyless ? undefined : JSON.stringify({ ...(init.body as object | undefined), userId: Number(session.user.id) }),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.error ?? `backend request failed (${res.status})`);
+  if (!res.ok) throw new AdminAuthError(data?.error ?? `backend request failed (${res.status})`, res.status);
   return data as T;
 }

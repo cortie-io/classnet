@@ -9,7 +9,7 @@ import {
   TrophyIcon,
   UsersIcon,
 } from "lucide-react";
-import Link from "next/link";
+import { AdminLink as Link } from "@/components/admin/service-period";
 import { usePathname } from "next/navigation";
 import type { User } from "next-auth";
 import { BrandMark } from "@/components/brand/logo";

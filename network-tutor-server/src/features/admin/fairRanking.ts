@@ -38,7 +38,7 @@ export async function getFairRanking() {
         WHERE status IN ('submitted','auto_submitted')
       ) activity GROUP BY user_id
     )
-    SELECT u.id,u.student_id,u.name,u.email,coalesce(a.attempted,0) AS attempted,
+    SELECT u.id,u.student_id,u.name,u.email,u.manual_pre_test_score,u.manual_post_test_score,coalesce(a.attempted,0) AS attempted,
       coalesce(a.graded,0) AS graded,coalesce(a.correct,0) AS correct,coalesce(a.earned,0) AS earned,
       coalesce(c.count,0) AS chat_count,coalesce(d.count,0) AS active_days
     FROM users u LEFT JOIN assessment a ON a.user_id=u.id
@@ -49,8 +49,16 @@ export async function getFairRanking() {
     questionsAttempted: Number(r.attempted), questionsGraded: Number(r.graded), questionsCorrect: Number(r.correct),
     compositeScore: Number(r.earned), chatCount: Number(r.chat_count), activeDays: Number(r.active_days),
     accuracyPct: r.graded ? Math.round(r.correct/r.graded*1000)/10 : 0,
-    preTestScore: null, postTestScore: null, improvement: null,
+    preTestScore: r.manual_pre_test_score === null ? null : Number(r.manual_pre_test_score),
+    postTestScore: r.manual_post_test_score === null ? null : Number(r.manual_post_test_score),
+    improvement: r.manual_pre_test_score !== null && r.manual_post_test_score !== null ? Number(r.manual_post_test_score)-Number(r.manual_pre_test_score) : null,
   })));
+  const mean = (key: "preTestScore"|"postTestScore"|"improvement") => {
+    const values=students.map(s=>s[key]).filter((v):v is number=>v!==null);
+    return {count:values.length,average:values.length?Math.round(values.reduce((a,b)=>a+b,0)/values.length*10)/10:null};
+  };
+  const pre=mean("preTestScore"),post=mean("postTestScore"),improvement=mean("improvement");
   return { methodology: rankingMethodology, noUsageYet: students.every(s=>!s.questionsGraded),
-    prePostNote: "1차와 독립된 2차의 실제 평가 기록으로 계산합니다.", prePostSummary: null, students };
+    prePostNote: "사전·사후 점수는 별도 참고 정보이며 순위 점수에는 반영하지 않습니다.", prePostSummary: pre.count||post.count ? {preParticipantCount:pre.count,avgPreTestScore:pre.average,
+      postParticipantCount:post.count,avgPostTestScore:post.average,improvementParticipantCount:improvement.count,avgImprovement:improvement.average} : null, students };
 }

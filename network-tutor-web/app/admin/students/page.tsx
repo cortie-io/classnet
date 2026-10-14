@@ -1,9 +1,11 @@
 "use client";
+import { useAdminPeriod, PeriodButton } from "@/components/admin/service-period";
+import { adminFetch } from "@/lib/admin-period";
 
 import { useEffect, useState } from "react";
 import { UsersIcon } from "lucide-react";
 import { PageIntro } from "@/components/chat/page-intro";
-import Link from "next/link";
+import { AdminLink as Link } from "@/components/admin/service-period";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/chat/toast";
@@ -22,6 +24,7 @@ interface StudentRow {
 }
 
 export default function StudentsPage() {
+  const {readOnly}=useAdminPeriod();
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ studentId: "", name: "", birthdate: "", email: "", password: "" });
@@ -43,7 +46,7 @@ export default function StudentsPage() {
     }
     setCreating(true);
     try {
-      const res = await fetch("/api/admin/users", {
+      const res = await adminFetch("/api/admin/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
@@ -63,7 +66,7 @@ export default function StudentsPage() {
   const uploadCsv = async (file: File) => {
     const csvText = await file.text();
     try {
-      const res = await fetch("/api/admin/users/bulk-csv", {
+      const res = await adminFetch("/api/admin/users/bulk-csv", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ csvText }),
@@ -93,9 +96,9 @@ export default function StudentsPage() {
             placeholder="초기 비밀번호(8자 이상)"
             value={form.password}
           />
-          <Button disabled={creating} onClick={createStudent}>
+          <PeriodButton disabled={creating} onClick={createStudent}>
             {creating ? "생성 중..." : "계정 생성"}
-          </Button>
+          </PeriodButton>
         </div>
       </div>
 
@@ -104,6 +107,7 @@ export default function StudentsPage() {
         <p className="mb-3 text-muted-foreground text-xs">컬럼: 학번,이름,생년월일,메일,비밀번호 (헤더 필수)</p>
         <input
           accept=".csv,text/csv"
+          disabled={readOnly}
           onChange={(e) => e.target.files?.[0] && uploadCsv(e.target.files[0])}
           type="file"
         />

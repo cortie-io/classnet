@@ -1,4 +1,7 @@
 "use client";
+import { StudentProfileEditor } from "@/components/admin/student-profile";
+import { PeriodButton } from "@/components/admin/service-period";
+import { adminFetch } from "@/lib/admin-period";
 
 import { use, useEffect, useRef, useState } from "react";
 import { auditStatusLabel, auditStatusDescription, displayAuditIntent } from "@/lib/audit-presentation";
@@ -15,6 +18,7 @@ interface StudentDetail {
     email: string;
     student_id: string | null;
     birthdate: string | null;
+    department: string | null;
     level: string;
     role: string;
   };
@@ -78,7 +82,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
     try {
       const query = new URLSearchParams({ limit: "50", paginated: "true" });
       if (cursor !== undefined) query.set("beforeId", String(cursor));
-      const response = await fetch(`/api/admin/users/${id}/history?${query}`, {
+      const response = await adminFetch(`/api/admin/users/${id}/history?${query}`, {
         cache: "no-store", signal: controller.signal,
       });
       if (!response.ok) throw new Error("대화 기록을 불러오지 못했습니다.");
@@ -110,7 +114,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
   const [savingPostScore, setSavingPostScore] = useState(false);
 
   const loadDetail = () => {
-    fetch(`/api/admin/users/${id}`)
+    adminFetch(`/api/admin/users/${id}`)
       .then((r) => r.json())
       .then((d: StudentDetail) => {
         setDetail(d);
@@ -138,7 +142,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
     }
     setSaving(true);
     try {
-      const res = await fetch(`/api/admin/users/${id}/${field}-test-score`, {
+      const res = await adminFetch(`/api/admin/users/${id}/${field}-test-score`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ score }),
@@ -159,7 +163,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
       toast({ type: "error", description: "비밀번호는 8자 이상이어야 합니다." });
       return;
     }
-    const res = await fetch(`/api/admin/users/${id}/reset-password`, {
+    const res = await adminFetch(`/api/admin/users/${id}/reset-password`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ newPassword }),
@@ -177,6 +181,8 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
   return (
     <div className="flex flex-col gap-6">
       <PageIntro description={detail.user.email} icon={UserRoundIcon} title={detail.user.name} />
+
+      {detail.user.role==="student"&&<StudentProfileEditor student={detail.user} onSaved={user=>setDetail(current=>current?{...current,user:{...current.user,...user}}:current)} />}
 
       <div className="grid grid-cols-2 gap-3 text-[13px] sm:grid-cols-4">
         <div className="rounded-xl border border-border bg-card shadow-[var(--shadow-card)] p-3">
@@ -227,9 +233,9 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
             type="number"
             value={preScoreDraft}
           />
-          <Button disabled={savingPreScore} onClick={() => saveScore("pre", preScoreDraft, setSavingPreScore)} size="sm">
+          <PeriodButton disabled={savingPreScore} onClick={() => saveScore("pre", preScoreDraft, setSavingPreScore)} size="sm">
             {savingPreScore ? "저장 중..." : "저장"}
-          </Button>
+          </PeriodButton>
         </div>
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border/60 px-3 py-2 text-[12.5px]">
           <span className="text-muted-foreground">사후테스트 점수 직접 입력</span>
@@ -243,9 +249,9 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
             type="number"
             value={postScoreDraft}
           />
-          <Button disabled={savingPostScore} onClick={() => saveScore("post", postScoreDraft, setSavingPostScore)} size="sm">
+          <PeriodButton disabled={savingPostScore} onClick={() => saveScore("post", postScoreDraft, setSavingPostScore)} size="sm">
             {savingPostScore ? "저장 중..." : "저장"}
-          </Button>
+          </PeriodButton>
         </div>
         {(detail.weakAreas.length > 0 || detail.weakTopics.length > 0) && (
           <div className="mb-3 flex flex-wrap gap-1.5">
@@ -286,7 +292,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
         <h2 className="mb-2 font-semibold text-[14px]">비밀번호 초기화</h2>
         <div className="flex gap-2">
           <Input onChange={(e) => setNewPassword(e.target.value)} placeholder="새 비밀번호(8자 이상)" type="password" value={newPassword} />
-          <Button onClick={resetPassword}>초기화</Button>
+          <PeriodButton onClick={resetPassword}>초기화</PeriodButton>
         </div>
       </div>
 

@@ -1,3 +1,4 @@
+import { selectAdminPeriod } from "../admin/periods.js";
 import { Router } from "express";
 import { pool } from "../../infrastructure/db/pool.js";
 import { requireAdmin, requireAuth } from "../auth/middleware.js";
@@ -16,6 +17,8 @@ auditRouter.post("/audit/:id/report", requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+auditRouter.use(requireAdmin, selectAdminPeriod);
+
 auditRouter.get("/audit", requireAdmin, async (req, res) => {
   const status = typeof req.query.status === "string" ? req.query.status : null;
   const reviewed = req.query.reviewed === "true" ? true : req.query.reviewed === "false" ? false : null;
@@ -23,8 +26,11 @@ auditRouter.get("/audit", requireAdmin, async (req, res) => {
   // 여기서 같은 이름을 학생 필터로 쓰면 관리자 자신의 user_id로 감사로그가 걸러져 버린다
   // (실제로 채팅을 거의 안 쓴 관리자 계정은 감사로그가 통째로 비어 보이는 버그가 있었음). 별도 이름을 쓴다.
   const studentId = req.query.studentId ? Number(req.query.studentId) : null;
-  const limit = Math.min(Number(req.query.limit ?? 50), 200);
+  const limit = Number(req.query.limit ?? 50);
   const offset = Number(req.query.offset ?? 0);
+  if(!Number.isSafeInteger(limit)||limit<1||limit>200||!Number.isSafeInteger(offset)||offset<0) {
+    return res.status(400).json({error:"페이지 범위를 확인해 주세요."});
+  }
 
   const conditions: string[] = [];
   const params: unknown[] = [];
@@ -48,7 +54,7 @@ auditRouter.get("/audit", requireAdmin, async (req, res) => {
             a.verification_status, a.confidence, a.reviewed, a.created_at
      FROM audit_log a LEFT JOIN users u ON u.id = a.user_id
      ${where}
-     ORDER BY a.created_at DESC
+     ORDER BY a.created_at DESC,a.id DESC
      LIMIT $${params.length - 1} OFFSET $${params.length}`,
     params,
   );

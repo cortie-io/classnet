@@ -1,6 +1,6 @@
 import { createApp } from "./app.js";
 import { config } from "./config.js";
-import { pool } from "./infrastructure/db/pool.js";
+import { activePool, archivePool } from "./infrastructure/db/pool.js";
 import { loadCorpus, getCorpus } from "./infrastructure/search/corpus.js";
 import { bm25Index } from "./infrastructure/search/textIndex.js";
 
@@ -14,7 +14,7 @@ async function main() {
     const timeout = setTimeout(() => process.exit(1), 10_000);
     timeout.unref();
     server.close(async () => {
-      await pool.end();
+      await Promise.all([activePool.end(), archivePool?.end()]);
       clearTimeout(timeout);
       process.exit(0);
     });
