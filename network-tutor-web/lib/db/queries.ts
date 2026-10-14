@@ -1,4 +1,6 @@
 import "server-only";
+import {existsSync,readFileSync} from "node:fs";
+import path from "node:path";
 
 import {
   and,
@@ -29,7 +31,11 @@ import {
   vote,
 } from "./schema";
 
-const client = postgres(process.env.DATABASE_URL ?? process.env.POSTGRES_URL ?? "");
+const databaseUrl=process.env.DATABASE_URL ?? process.env.POSTGRES_URL ?? "";
+const databaseHost=(()=>{try{return new URL(databaseUrl).hostname;}catch{return "localhost";}})();
+const remoteDatabase=!["localhost","127.0.0.1","[::1]","::1",""].includes(databaseHost);
+const caFile=path.join(process.cwd(),"certs/rds-global-bundle.pem");
+const client=postgres(databaseUrl,remoteDatabase?{ssl:{rejectUnauthorized:true,...(existsSync(caFile)?{ca:readFileSync(caFile,"utf8")}: {})}}:{});
 const db = drizzle(client);
 
 // 회원가입 없음, 게스트 없음: 계정은 network-tutor-server의 실제 `users` 테이블(정수 id)이

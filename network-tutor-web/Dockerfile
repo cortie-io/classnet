@@ -23,6 +23,7 @@ RUN npm pkg delete scripts.prepare
 RUN pnpm install --frozen-lockfile --prod
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
+COPY certs/rds-global-bundle.pem ./certs/rds-global-bundle.pem
 COPY --from=builder /app/next.config.ts ./next.config.ts
 
 EXPOSE 3400
