@@ -126,3 +126,13 @@ test("only admin can read phase1 chat messages; old chat IDs never resolve in ph
 	);
 	assert.equal((await call(path + "?period=1", "GET", 2)).status, 401);
 });
+
+test("frozen phase1 student detail works without phase2-only schema columns", async () => {
+	await archive.db.exec(
+		"ALTER TABLE exam_answers DROP COLUMN revealed_at; ALTER TABLE users DROP COLUMN auth_version; ALTER TABLE users DROP COLUMN class_code;",
+	);
+	const detail = await call("/api/admin/users/2?period=1");
+	assert.equal(detail.status, 200);
+	assert.equal(detail.data.user.name, "archive student");
+	assert.equal(detail.data.user.class_code, null);
+});

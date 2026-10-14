@@ -1,4 +1,4 @@
-import { pool } from "../../../infrastructure/db/pool.js";
+import { pool, isArchivePeriod } from "../../../infrastructure/db/pool.js";
 
 export interface WeakArea {
 	subject: string;
@@ -42,7 +42,7 @@ export async function getWeakAreas(userId: number): Promise<WeakArea[]> {
      FROM exam_answers a
      JOIN exam_questions q ON q.id = a.question_id
      JOIN exam_attempts att ON att.id = a.attempt_id
-     WHERE att.user_id = $1 AND att.status <> 'invalidated' AND (att.status IN ('submitted', 'auto_submitted') OR a.revealed_at IS NOT NULL) AND a.is_correct IS NOT NULL
+     WHERE att.user_id = $1 AND ${isArchivePeriod() ? "TRUE" : "att.status <> 'invalidated' AND (att.status IN ('submitted', 'auto_submitted') OR a.revealed_at IS NOT NULL)"} AND a.is_correct IS NOT NULL
      GROUP BY q.subject`,
 		[userId],
 	);
@@ -80,7 +80,7 @@ export async function getWeakTopics(userId: number): Promise<WeakTopic[]> {
      JOIN exam_questions q ON q.id = a.question_id
      JOIN exam_attempts att ON att.id = a.attempt_id
      JOIN concept_nodes n ON n.id = q.concept_node_id
-     WHERE att.user_id = $1 AND att.status <> 'invalidated' AND (att.status IN ('submitted', 'auto_submitted') OR a.revealed_at IS NOT NULL) AND a.is_correct IS NOT NULL
+     WHERE att.user_id = $1 AND ${isArchivePeriod() ? "TRUE" : "att.status <> 'invalidated' AND (att.status IN ('submitted', 'auto_submitted') OR a.revealed_at IS NOT NULL)"} AND a.is_correct IS NOT NULL
      GROUP BY n.subject, n.topic`,
 		[userId],
 	);
