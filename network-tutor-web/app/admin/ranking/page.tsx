@@ -1,11 +1,15 @@
 "use client";
 import {
+  GroupScopeSelect,
+  rankingScopeQuery,
+} from "@/components/admin/student-groups";
+import {
   useAdminPeriod,
   PeriodButton,
 } from "@/components/admin/service-period";
 import { adminFetch } from "@/lib/admin-period";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { TrophyIcon } from "lucide-react";
 import { PageIntro } from "@/components/chat/page-intro";
 import { AdminLink as Link } from "@/components/admin/service-period";
@@ -27,6 +31,8 @@ interface RankedStudent {
   activeDays: number;
   compositeScore: number;
   rank: number | null;
+  classCode?: string | null;
+  grade?: number | null;
   preTestScore: number | null;
   postTestScore: number | null;
   improvement: number | null;
@@ -58,6 +64,9 @@ type PrePostField = "pre" | "post";
 
 export default function RankingPage() {
   const { readOnly, period } = useAdminPeriod();
+  const [scope, setScope] = useState("all");
+  const request = useRef<AbortController | null>(null);
+  const [loadError, setLoadError] = useState("");
   const [data, setData] = useState<RankingResponse | null>(null);
   // 편집 대상은 (학생 id, pre/post) 조합이라 문자열 키("id:pre"/"id:post")로 묶어서 관리한다.
   const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -65,12 +74,28 @@ export default function RankingPage() {
   const [savingKey, setSavingKey] = useState<string | null>(null);
 
   const load = () => {
-    loadJson("/api/admin/analytics/ranking", setData, {
-      init: { cache: "no-store" },
-    });
+    request.current?.abort();
+    const controller = new AbortController();
+    request.current = controller;
+    setLoadError("");
+    loadJson(
+      "/api/admin/analytics/ranking" + rankingScopeQuery(scope),
+      (result: RankingResponse) => {
+        if (!controller.signal.aborted) setData(result);
+      },
+      {
+        init: { cache: "no-store", signal: controller.signal },
+        quiet: true,
+        onError: (message) => {
+          if (!controller.signal.aborted) setLoadError(message);
+        },
+      }
+    );
   };
 
   useEffect(() => {
+    setData(null);
+    setEditingKey(null);
     load();
     // 순위 집계는 무거운 쿼리라 30초마다, 이 탭이 화면에 보일 때만 새로 고친다(다시 보이면 바로 한 번).
     const intervalId = setInterval(() => {
@@ -81,10 +106,11 @@ export default function RankingPage() {
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => {
+      request.current?.abort();
       clearInterval(intervalId);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, []);
+  }, [scope]);
 
   const keyOf = (id: number, field: PrePostField) => `${id}:${field}`;
 
@@ -171,13 +197,21 @@ export default function RankingPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `학습순위_${period}차_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `학습순위_${period}차_${scope.replace(":", "-")}_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
   if (!data)
-    return <div className="text-muted-foreground text-sm">불러오는 중...</div>;
+    return (
+      <div className="flex flex-col gap-4">
+        <GroupScopeSelect value={scope} onChange={setScope} />
+        <p role={loadError ? "alert" : "status"}>
+          {loadError || "불러오는 중…"}
+        </p>
+        {loadError && <Button onClick={load}>다시 시도</Button>}
+      </div>
+    );
 
   return (
     <div className="flex flex-col gap-4">
@@ -191,6 +225,7 @@ export default function RankingPage() {
         </Button>
       </PageIntro>
 
+      <GroupScopeSelect value={scope} onChange={setScope} />
       {data.prePostSummary ? (
         <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-[13px] leading-relaxed">
           <p className="mb-1 font-medium">
@@ -285,7 +320,14 @@ export default function RankingPage() {
                   </td>
                   <td className="px-4 py-2">
                     <Link className="block" href={`/admin/students/${s.id}`}>
-                      <span className="font-medium">{s.name}</span>
+                      <span className="font-medium">
+                        {s.name}
+                        {!readOnly && (
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            {s.classCode ?? "미배정"}
+                          </span>
+                        )}
+                      </span>
                       <span className="ml-1.5 text-muted-foreground text-xs">
                         {s.studentId ?? s.email}
                       </span>

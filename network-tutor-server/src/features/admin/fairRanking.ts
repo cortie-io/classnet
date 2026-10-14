@@ -1,3 +1,7 @@
+import {
+	gradeForClass,
+	type RankingScope,
+} from "../../domain/students/classes.js";
 import { pool } from "../../infrastructure/db/pool.js";
 
 export const rankingMethodology =
@@ -23,8 +27,9 @@ export function assignFairRanks<
 		});
 }
 
-export async function getFairRanking() {
-	const { rows } = await pool.query(`
+export async function getFairRanking(scope: RankingScope = {}) {
+	const { rows } = await pool.query(
+		`
     WITH first_answers AS (
       SELECT DISTINCT ON (att.user_id, a.question_id)
         att.user_id, a.question_id, a.is_correct, a.score, q.max_score
@@ -47,18 +52,24 @@ export async function getFairRanking() {
         WHERE status IN ('submitted','auto_submitted')
       ) activity GROUP BY user_id
     )
-    SELECT u.id,u.student_id,u.name,u.email,u.manual_pre_test_score,u.manual_post_test_score,coalesce(a.attempted,0) AS attempted,
+    SELECT u.id,u.student_id,u.name,u.email,u.class_code,u.manual_pre_test_score,u.manual_post_test_score,coalesce(a.attempted,0) AS attempted,
       coalesce(a.graded,0) AS graded,coalesce(a.correct,0) AS correct,coalesce(a.earned,0) AS earned,
       coalesce(c.count,0) AS chat_count,coalesce(d.count,0) AS active_days
     FROM users u LEFT JOIN assessment a ON a.user_id=u.id
     LEFT JOIN chats c ON c.user_id=u.id LEFT JOIN days d ON d.user_id=u.id
-    WHERE u.role='student'`);
+    WHERE u.role='student'
+      AND ($1::text IS NULL OR CASE WHEN $1='unassigned' THEN u.class_code IS NULL ELSE u.class_code=$1 END)
+      AND ($2::int IS NULL OR substring(u.class_code,1,1)::int=$2)`,
+		[scope.classCode ?? null, scope.grade ?? null],
+	);
 	const students = assignFairRanks(
 		rows.map((r) => ({
 			id: r.id,
 			studentId: r.student_id,
 			name: r.name,
 			email: r.email,
+			classCode: r.class_code,
+			grade: gradeForClass(r.class_code),
 			questionsAttempted: Number(r.attempted),
 			questionsGraded: Number(r.graded),
 			questionsCorrect: Number(r.correct),
@@ -99,6 +110,7 @@ export async function getFairRanking() {
 		improvement = mean("improvement");
 	return {
 		methodology: rankingMethodology,
+		scope,
 		noUsageYet: students.every((s) => !s.questionsGraded),
 		prePostNote:
 			"사전·사후 점수는 별도 참고 정보이며 순위 점수에는 반영하지 않습니다.",

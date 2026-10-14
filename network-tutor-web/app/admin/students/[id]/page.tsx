@@ -24,6 +24,7 @@ interface StudentDetail {
     student_id: string | null;
     birthdate: string | null;
     department: string | null;
+    class_code?: string | null;
     level: string;
     role: string;
   };

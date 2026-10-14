@@ -78,7 +78,7 @@ beforeEach(async () => {
     VALUES (1,'past_exam','TCP',1,'Question','["A","B","C","D"]',0,'Explanation','approved');
     INSERT INTO exam_sets (id,kind,title,created_by,question_ids,is_published)
     VALUES (1,'practice_custom','Practice',1,ARRAY[1],true);
-    SELECT setval('exam_sets_id_seq',1,true);`);
+    SELECT setval('exam_sets_id_seq',1,true); SELECT setval('users_id_seq',3,true);`);
 });
 
 after(async () => {
@@ -366,5 +366,103 @@ test("student profile edits validate identity fields, prevent privilege changes,
 			})
 		).status,
 		403,
+	);
+});
+
+test("class assignment is atomic, restricted to students and validates the six classes", async () => {
+	const assigned = await call("/api/admin/users/class-assignment", {
+		method: "POST",
+		user: 1,
+		body: { studentIds: [2, 3], classCode: "1-B" },
+	});
+	assert.equal(assigned.status, 200);
+	assert.equal(assigned.data.updatedCount, 2);
+	assert.equal(assigned.data.grade, 1);
+	assert.equal(
+		(
+			await call("/api/admin/users/2", {
+				method: "PATCH",
+				user: 1,
+				body: { classCode: "4" },
+			})
+		).data.user.class_code,
+		"4",
+	);
+	assert.equal(
+		(
+			await call("/api/admin/users/class-assignment", {
+				method: "POST",
+				user: 1,
+				body: { studentIds: [1, 2], classCode: "1-C" },
+			})
+		).status,
+		404,
+	);
+	assert.equal(
+		(await pool.query("SELECT class_code FROM users WHERE id=2")).rows[0]
+			.class_code,
+		"4",
+	);
+	assert.equal(
+		(
+			await call("/api/admin/users/class-assignment", {
+				method: "POST",
+				user: 1,
+				body: { studentIds: [2], classCode: "5" },
+			})
+		).status,
+		400,
+	);
+	assert.equal(
+		(
+			await call("/api/admin/users/2", {
+				method: "PATCH",
+				user: 1,
+				body: { classCode: "1-D" },
+			})
+		).status,
+		400,
+	);
+	assert.equal(
+		(
+			await call("/api/admin/users/class-assignment", {
+				method: "POST",
+				user: 2,
+				body: { studentIds: [2], classCode: "1-A" },
+			})
+		).status,
+		403,
+	);
+});
+
+test("new accounts and CSV imports retain validated class assignments", async () => {
+	const created = await call("/api/admin/users", {
+		method: "POST",
+		user: 1,
+		body: {
+			studentId: "new-student",
+			name: "New",
+			email: "new@school.test",
+			password: "test-pass-2026",
+			classCode: "3",
+		},
+	});
+	assert.equal(created.status, 201);
+	assert.equal(created.data.class_code, "3");
+	const imported = await call("/api/admin/users/bulk-csv", {
+		method: "POST",
+		user: 1,
+		body: {
+			csvText:
+				"학번,이름,반,이메일,비밀번호\ncsv1,Student,1-A,csv1@school.test,password123\ncsv2,Student,5,csv2@school.test,password123",
+		},
+	});
+	assert.equal(imported.status, 200);
+	assert.equal(imported.data.createdCount, 1);
+	assert.equal(imported.data.failedCount, 1);
+	assert.equal(
+		(await pool.query("SELECT class_code FROM users WHERE student_id='csv1'"))
+			.rows[0].class_code,
+		"1-A",
 	);
 });

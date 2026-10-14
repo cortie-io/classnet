@@ -35,3 +35,9 @@ The image compiles TypeScript once and runs dist/server.js as the node user. Tes
 The completed design and frozen-service notice are already deployed independently. Keep the live service on frozen phase1 until the concurrent backend work has been integrated and the complete second release has passed validation. The protected phase1 dump and ranking live in /var/backups/cortie-db/phase1-freeze-20261014 on alpha. scripts/operations/prepare_phase2.py intentionally fails if its target database/roles exist; never rerun by deleting the guards. Protected phase2-runtime.env contains both database variable names and the archive reader URL; it is not part of the image or Git.
 
 Switch both the server DATABASE_URL and web DATABASE_URL/POSTGRES_URL together, plus ACTIVE_SERVICE_PERIOD=2 and server PHASE1_DATABASE_URL. Keep encryption/auth/internal secrets stable. Do not reset the database on startup or deployment. A rollback of UI code must never write to frozen phase1 or overwrite phase2 data.
+
+## Phase2 student groups
+
+Class codes are 1-A, 1-B, 1-C, 2, 3, 4. The first three map to grade1; the others map to grades2/3/4. Grade is derived, never independently editable. Preserved accounts start with class_code=NULL until a teacher assigns them. Profile edits, account creation and CSV imports validate against domain/students/classes.ts. Batch assignment validates the entire student set before one atomic UPDATE; it cannot partially apply to missing or administrator accounts.
+
+Rank filtering accepts exactly one classCode or grade. Question points remain identical to the overall rank; competition ranks are recomputed inside the selected population. Unassigned students remain included overall and can be viewed separately. Phase1 has no retroactive class data; its frozen ranking is never recomputed by group.

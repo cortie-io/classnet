@@ -1,3 +1,4 @@
+import { STUDENT_CLASSES } from "../../domain/students/classes.js";
 import type { RequestHandler } from "express";
 import { config } from "../../config.js";
 import { periodContext } from "../../infrastructure/db/pool.js";
@@ -15,11 +16,9 @@ export const selectAdminPeriod: RequestHandler = (req, res, next) => {
 	}
 	if (period === "1" && config.activePeriod === "2") {
 		if (!["GET", "HEAD"].includes(req.method)) {
-			res
-				.status(403)
-				.json({
-					error: "1차 기록은 보관된 조회 전용 자료로 수정할 수 없습니다.",
-				});
+			res.status(403).json({
+				error: "1차 기록은 보관된 조회 전용 자료로 수정할 수 없습니다.",
+			});
 			return;
 		}
 		if (!config.phase1DatabaseUrl) {
@@ -37,6 +36,7 @@ export const selectAdminPeriod: RequestHandler = (req, res, next) => {
 export const periodMetadata: RequestHandler = (_req, res) => {
 	res.json({
 		activePeriod: config.activePeriod,
+		classes: STUDENT_CLASSES,
 		periods: [
 			{
 				id: "1",

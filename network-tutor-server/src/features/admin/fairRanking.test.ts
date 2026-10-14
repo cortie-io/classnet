@@ -55,3 +55,33 @@ test("phase2 rank excludes repeat farming, unfinished and invalidated answers, a
 	);
 	assert.equal(ranking.students[1].chatCount, 100);
 });
+
+test("class and grade rankings recalculate competition ranks within their selected population", async () => {
+	await pool.query(
+		"UPDATE users SET class_code=CASE WHEN id=1 THEN '1-A' ELSE '1-B' END",
+	);
+	const grade = await getFairRanking({ grade: 1 }),
+		classA = await getFairRanking({ classCode: "1-A" }),
+		classB = await getFairRanking({ classCode: "1-B" }),
+		empty = await getFairRanking({ grade: 2 });
+	assert.deepEqual(
+		grade.students.map((s) => [s.id, s.rank]),
+		[
+			[2, 1],
+			[1, 2],
+		],
+	);
+	assert.deepEqual(
+		classA.students.map((s) => [s.id, s.rank]),
+		[[1, 1]],
+	);
+	assert.deepEqual(
+		classB.students.map((s) => [s.id, s.rank]),
+		[[2, 1]],
+	);
+	assert.equal(
+		classB.students[0].compositeScore,
+		grade.students[0].compositeScore,
+	);
+	assert.equal(empty.students.length, 0);
+});

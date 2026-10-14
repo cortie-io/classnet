@@ -1,3 +1,4 @@
+import { isClassCode } from "../../domain/students/classes.js";
 /** 최소 RFC4180 지원 CSV 파서: 따옴표로 감싼 필드 안의 콤마·줄바꿈을 처리한다. */
 export function parseCsv(text: string): string[][] {
 	const rows: string[][] = [];
@@ -43,6 +44,9 @@ export function parseCsv(text: string): string[][] {
 }
 
 const HEADER_ALIASES: Record<string, string> = {
+	반: "classCode",
+	classcode: "classCode",
+	class_code: "classCode",
 	학번: "studentId",
 	studentid: "studentId",
 	student_id: "studentId",
@@ -60,6 +64,7 @@ const HEADER_ALIASES: Record<string, string> = {
 };
 
 export interface StudentCsvRow {
+	classCode: string;
 	studentId: string;
 	name: string;
 	birthdate: string;
@@ -121,7 +126,15 @@ export function parseStudentCsv(text: string): {
 			errors.push({ rowNumber, message: "비밀번호는 8자 이상이어야 합니다." });
 			continue;
 		}
+		if (record.classCode && !isClassCode(record.classCode)) {
+			errors.push({
+				rowNumber,
+				message: "반은 1-A, 1-B, 1-C, 2, 3, 4 중 하나여야 합니다.",
+			});
+			continue;
+		}
 		rows.push({
+			classCode: record.classCode || "",
 			studentId: record.studentId,
 			name: record.name,
 			birthdate: record.birthdate || "",

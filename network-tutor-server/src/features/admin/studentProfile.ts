@@ -1,3 +1,4 @@
+import { isClassCode } from "../../domain/students/classes.js";
 import type { RequestHandler } from "express";
 import { pool } from "../../infrastructure/db/pool.js";
 
@@ -8,6 +9,7 @@ const allowed = new Set([
 	"birthdate",
 	"department",
 	"level",
+	"classCode",
 ]);
 export const updateStudentProfile: RequestHandler = async (req, res) => {
 	const id = Number(req.params.id),
@@ -32,6 +34,16 @@ export const updateStudentProfile: RequestHandler = async (req, res) => {
 	}
 	const changes: Record<string, string | null> = {};
 	for (const [key, raw] of Object.entries(body)) {
+		if (key === "classCode") {
+			if (raw !== null && !isClassCode(raw)) {
+				res
+					.status(400)
+					.json({ error: "반은 1-A, 1-B, 1-C, 2, 3, 4 중 선택해 주세요." });
+				return;
+			}
+			changes.class_code = raw as string | null;
+			continue;
+		}
 		if (
 			(key === "birthdate" || key === "department") &&
 			(raw === null || raw === "")
@@ -99,7 +111,7 @@ export const updateStudentProfile: RequestHandler = async (req, res) => {
 			`WITH changed AS (
       UPDATE users SET ${fields.join(",")},auth_version=auth_version+1
       WHERE id=$${values.length + 1} AND role='student'
-      RETURNING id,role,student_id,name,birthdate,department,email,level,created_at
+      RETURNING id,role,student_id,name,birthdate,department,email,level,class_code,created_at
     ), revoked AS (DELETE FROM sessions WHERE user_id IN (SELECT id FROM changed)) SELECT * FROM changed`,
 			[...values, id],
 		);

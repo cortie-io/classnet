@@ -279,3 +279,8 @@ CREATE TABLE IF NOT EXISTS request_limits (
   bucket BIGINT NOT NULL,
   count INT NOT NULL CHECK (count > 0)
 );
+
+-- Phase2 only: class defines grade; unassigned historical identities remain NULL.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS class_code TEXT
+  CHECK (class_code IN ('1-A','1-B','1-C','2','3','4'));
+CREATE INDEX IF NOT EXISTS idx_users_class_code ON users(class_code) WHERE role='student';

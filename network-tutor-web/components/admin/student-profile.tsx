@@ -14,6 +14,7 @@ export interface StudentProfile {
   birthdate: string | null;
   department: string | null;
   level: string;
+  class_code?: string | null;
 }
 export function StudentProfileEditor({
   student,
@@ -22,7 +23,7 @@ export function StudentProfileEditor({
   student: StudentProfile;
   onSaved: (student: StudentProfile) => void;
 }) {
-  const { readOnly } = useAdminPeriod();
+  const { readOnly, classes } = useAdminPeriod();
   const [form, setForm] = useState({
     name: student.name,
     studentId: student.student_id ?? "",
@@ -30,6 +31,7 @@ export function StudentProfileEditor({
     birthdate: student.birthdate?.slice(0, 10) ?? "",
     department: student.department ?? "",
     level: student.level,
+    classCode: student.class_code ?? "",
   });
   const [saving, setSaving] = useState(false),
     [error, setError] = useState("");
@@ -40,7 +42,7 @@ export function StudentProfileEditor({
       const response = await adminFetch(`/api/admin/users/${student.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, classCode: form.classCode || null }),
       });
       const data = await response.json();
       if (!response.ok) throw Error(data.error ?? "저장하지 못했어요.");
@@ -69,6 +71,25 @@ export function StudentProfileEditor({
           disabled={readOnly || saving}
           className="grid grid-cols-1 gap-4 sm:grid-cols-2"
         >
+          {!readOnly && (
+            <label className="flex flex-col gap-1.5 text-sm">
+              반 · 학년
+              <select
+                className="rounded-lg border border-border bg-background px-3 py-2"
+                value={form.classCode}
+                onChange={(e) =>
+                  setForm({ ...form, classCode: e.target.value })
+                }
+              >
+                <option value="">미배정</option>
+                {classes.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.label} ({c.code})
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           {(
             [
               { key: "name", label: "이름", type: "text", max: 100 },

@@ -11,10 +11,17 @@ import NextLink from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
+import type { ClassDefinition } from "./student-groups";
+
 type Period = "1" | "2";
-const PeriodContext = createContext<{ period: Period; readOnly: boolean }>({
+const PeriodContext = createContext<{
+  period: Period;
+  readOnly: boolean;
+  classes: ClassDefinition[];
+}>({
   period: "2",
   readOnly: false,
+  classes: [],
 });
 export const useAdminPeriod = () => useContext(PeriodContext);
 
@@ -22,6 +29,7 @@ export function AdminPeriodProvider({ children }: { children: ReactNode }) {
   const search = useSearchParams();
   const [meta, setMeta] = useState<{
     activePeriod: Period;
+    classes: ClassDefinition[];
     periods: {
       id: Period;
       name: string;
@@ -81,7 +89,9 @@ export function AdminPeriodProvider({ children }: { children: ReactNode }) {
       </div>
     );
   return (
-    <PeriodContext.Provider value={{ period, readOnly: item.readOnly }}>
+    <PeriodContext.Provider
+      value={{ period, readOnly: item.readOnly, classes: meta.classes ?? [] }}
+    >
       <div key={period} className="contents">
         {children}
       </div>

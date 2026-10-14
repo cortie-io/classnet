@@ -1,4 +1,9 @@
 import { updateStudentProfile } from "./studentProfile.js";
+import {
+	isClassCode,
+	parseRankingScope,
+} from "../../domain/students/classes.js";
+import { assignStudentClass } from "./classAssignment.js";
 import { isArchivePeriod } from "../../infrastructure/db/pool.js";
 import { getFairRanking } from "./fairRanking.js";
 import { replacePassword } from "../auth/passwordReset.js";
@@ -87,8 +92,12 @@ adminRouter.get(
 );
 
 // Phase1 ranking is a frozen snapshot; phase2 uses actual assessment results only.
-adminRouter.get("/admin/analytics/ranking", requireAdmin, async (_req, res) => {
+adminRouter.get("/admin/analytics/ranking", requireAdmin, async (req, res) => {
 	if (isArchivePeriod()) {
+		if (req.query.classCode !== undefined || req.query.grade !== undefined)
+			return res
+				.status(400)
+				.json({ error: "반·학년 분류는 2차부터 제공됩니다." });
 		const snapshot = await pool.query(
 			"SELECT payload FROM phase_archive_snapshot WHERE key='ranking'",
 		);
@@ -96,12 +105,25 @@ adminRouter.get("/admin/analytics/ranking", requireAdmin, async (_req, res) => {
 			return res.status(503).json({ error: "1차 순위 보관 자료가 없습니다." });
 		return res.json(snapshot.rows[0].payload);
 	}
-	return res.json(await getFairRanking());
+	const scope = parseRankingScope(req.query);
+	if (!scope)
+		return res
+			.status(400)
+			.json({ error: "반 또는 학년 조회 범위를 확인해 주세요." });
+	return res.json(await getFairRanking(scope));
 });
 
 adminRouter.post("/admin/users", requireAdmin, async (req, res) => {
-	const { role, studentId, name, birthdate, department, email, password } =
-		req.body ?? {};
+	const {
+		role,
+		studentId,
+		name,
+		birthdate,
+		department,
+		email,
+		password,
+		classCode,
+	} = req.body ?? {};
 	if (
 		typeof name !== "string" ||
 		typeof email !== "string" ||
@@ -113,22 +135,22 @@ adminRouter.post("/admin/users", requireAdmin, async (req, res) => {
 			.json({ error: "name, email, password(8자 이상)가 필요합니다." });
 	}
 	const finalRole = role === "admin" ? "admin" : "student";
+	if (classCode !== undefined && classCode !== null && !isClassCode(classCode))
+		return res.status(400).json({ error: "반을 확인해 주세요." });
 	// 학생은 학번으로 로그인한다(web auth.ts) — 학번 없이 만들면 영영 로그인할 수 없는 계정이 된다.
 	if (
 		finalRole === "student" &&
 		(typeof studentId !== "string" || !studentId.trim())
 	) {
-		return res
-			.status(400)
-			.json({
-				error: "학생 계정에는 학번이 필요합니다(학번으로 로그인합니다).",
-			});
+		return res.status(400).json({
+			error: "학생 계정에는 학번이 필요합니다(학번으로 로그인합니다).",
+		});
 	}
 	try {
 		const passwordHash = await hashPassword(password);
 		const { rows } = await pool.query(
-			`INSERT INTO users (role, student_id, name, birthdate, department, email, password_hash, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id, role, student_id, name, department, email, created_at`,
+			`INSERT INTO users (role, student_id, name, birthdate, department, email, password_hash, created_by, class_code)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, role, student_id, name, department, email, class_code, created_at`,
 			[
 				finalRole,
 				(typeof studentId === "string" && studentId.trim()) || null,
@@ -138,6 +160,7 @@ adminRouter.post("/admin/users", requireAdmin, async (req, res) => {
 				email.trim().toLowerCase(),
 				passwordHash,
 				req.user!.id,
+				classCode ?? null,
 			],
 		);
 		res.status(201).json(rows[0]);
@@ -153,11 +176,9 @@ adminRouter.post("/admin/users", requireAdmin, async (req, res) => {
 adminRouter.post("/admin/users/bulk-csv", requireAdmin, async (req, res) => {
 	const { csvText } = req.body ?? {};
 	if (typeof csvText !== "string" || csvText.trim().length === 0) {
-		return res
-			.status(400)
-			.json({
-				error: "csvText가 필요합니다. (컬럼: 학번,이름,생년월일,메일,비밀번호)",
-			});
+		return res.status(400).json({
+			error: "csvText가 필요합니다. (컬럼: 학번,이름,생년월일,메일,비밀번호)",
+		});
 	}
 	const { rows, errors } = parseStudentCsv(csvText);
 	const created: { rowNumber: number; email: string }[] = [];
@@ -167,8 +188,8 @@ adminRouter.post("/admin/users/bulk-csv", requireAdmin, async (req, res) => {
 		try {
 			const passwordHash = await hashPassword(row.password);
 			await pool.query(
-				`INSERT INTO users (role, student_id, name, birthdate, department, email, password_hash, created_by)
-         VALUES ('student', $1, $2, $3, $4, $5, $6, $7)`,
+				`INSERT INTO users (role, student_id, name, birthdate, department, email, password_hash, created_by, class_code)
+         VALUES ('student', $1, $2, $3, $4, $5, $6, $7, $8)`,
 				[
 					row.studentId,
 					row.name,
@@ -177,6 +198,7 @@ adminRouter.post("/admin/users/bulk-csv", requireAdmin, async (req, res) => {
 					row.email,
 					passwordHash,
 					req.user!.id,
+					row.classCode || null,
 				],
 			);
 			created.push({ rowNumber: row.rowNumber, email: row.email });
@@ -201,6 +223,7 @@ adminRouter.post("/admin/users/bulk-csv", requireAdmin, async (req, res) => {
 adminRouter.get("/admin/users", requireAdmin, async (_req, res) => {
 	const { rows } = await pool.query(
 		`SELECT u.id, u.role, u.student_id, u.name, u.email, u.level, u.created_at,
+      ${isArchivePeriod() ? "NULL::text" : "u.class_code"} AS class_code,
             count(a.id)::int AS question_count,
             count(a.id) FILTER (WHERE a.verification_status = 'verified')::int AS verified_count,
             count(a.id) FILTER (WHERE a.verification_status = 'flagged')::int AS flagged_count,
@@ -213,12 +236,18 @@ adminRouter.get("/admin/users", requireAdmin, async (_req, res) => {
 	res.json(rows);
 });
 
+adminRouter.post(
+	"/admin/users/class-assignment",
+	requireAdmin,
+	assignStudentClass,
+);
+
 adminRouter.patch("/admin/users/:id", requireAdmin, updateStudentProfile);
 
 adminRouter.get("/admin/users/:id", requireAdmin, async (req, res) => {
 	const id = Number(req.params.id);
 	const { rows } = await pool.query(
-		"SELECT id, role, student_id, name, birthdate, department, email, level, created_at FROM users WHERE id = $1",
+		`SELECT id, role, student_id, name, birthdate, department, email, level, created_at, ${isArchivePeriod() ? "NULL::text" : "class_code"} AS class_code FROM users WHERE id = $1`,
 		[id],
 	);
 	if (rows.length === 0)
@@ -461,11 +490,9 @@ adminRouter.delete("/admin/users/:id", requireAdmin, async (req, res) => {
 		// 기록이 하나라도 있는 계정은 삭제가 그냥 실패한다 — 실사용 학생 계정은 거의 다 응시 기록이 있으므로
 		// 이 경로를 그대로 두면 매번 원인 불명의 500으로 보였을 것이다. 명확한 이유를 알려준다.
 		if (err.code === "23503") {
-			return res
-				.status(409)
-				.json({
-					error: "이 계정은 응시·채점 기록이 남아 있어 삭제할 수 없습니다.",
-				});
+			return res.status(409).json({
+				error: "이 계정은 응시·채점 기록이 남아 있어 삭제할 수 없습니다.",
+			});
 		}
 		throw err;
 	}

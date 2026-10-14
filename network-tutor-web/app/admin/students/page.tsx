@@ -1,5 +1,9 @@
 "use client";
 import {
+  GroupScopeSelect,
+  groupMatches,
+} from "@/components/admin/student-groups";
+import {
   useAdminPeriod,
   PeriodButton,
 } from "@/components/admin/service-period";
@@ -21,13 +25,18 @@ interface StudentRow {
   name: string;
   email: string;
   level: string;
+  class_code?: string | null;
   question_count: number;
   verified_count: number;
   last_active_at: string | null;
 }
 
 export default function StudentsPage() {
-  const { readOnly } = useAdminPeriod();
+  const { readOnly, classes } = useAdminPeriod();
+  const [scope, setScope] = useState("all");
+  const [selected, setSelected] = useState<number[]>([]);
+  const [assignment, setAssignment] = useState("");
+  const [assigning, setAssigning] = useState(false);
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({
@@ -36,6 +45,7 @@ export default function StudentsPage() {
     birthdate: "",
     email: "",
     password: "",
+    classCode: "",
   });
   const [creating, setCreating] = useState(false);
   const [csvResult, setCsvResult] = useState<{
@@ -70,7 +80,7 @@ export default function StudentsPage() {
       const res = await adminFetch("/api/admin/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, classCode: form.classCode || null }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "생성 실패");
@@ -84,6 +94,7 @@ export default function StudentsPage() {
         birthdate: "",
         email: "",
         password: "",
+        classCode: "",
       });
       load();
     } catch (err) {
@@ -118,6 +129,43 @@ export default function StudentsPage() {
     }
   };
 
+  const visibleStudents = students.filter(
+    (student) =>
+      scope === "all" ||
+      (student.role === "student" &&
+        groupMatches(student.class_code, scope, classes))
+  );
+  const visibleIds = visibleStudents
+    .filter((student) => student.role === "student")
+    .map((student) => student.id);
+  const assignClass = async () => {
+    setAssigning(true);
+    try {
+      const r = await adminFetch("/api/admin/users/class-assignment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentIds: selected,
+          classCode: assignment || null,
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw Error(d.error ?? "반 배정에 실패했어요.");
+      toast({
+        type: "success",
+        description: `${d.updatedCount}명의 반 배정을 저장했어요.`,
+      });
+      setSelected([]);
+      load();
+    } catch (e) {
+      toast({
+        type: "error",
+        description: e instanceof Error ? e.message : "반 배정에 실패했어요.",
+      });
+    } finally {
+      setAssigning(false);
+    }
+  };
   return (
     <div className="flex flex-col gap-6">
       <PageIntro
@@ -155,6 +203,20 @@ export default function StudentsPage() {
             placeholder="초기 비밀번호(8자 이상)"
             value={form.password}
           />
+          <select
+            aria-label="학생 반"
+            disabled={readOnly}
+            value={form.classCode}
+            onChange={(e) => setForm({ ...form, classCode: e.target.value })}
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+          >
+            <option value="">반 미배정</option>
+            {classes.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.label} ({c.code})
+              </option>
+            ))}
+          </select>
           <PeriodButton disabled={creating} onClick={createStudent}>
             {creating ? "생성 중..." : "계정 생성"}
           </PeriodButton>
@@ -164,7 +226,8 @@ export default function StudentsPage() {
       <div className="surface p-5">
         <h2 className="mb-1 font-semibold text-[14px]">CSV 일괄 등록</h2>
         <p className="mb-3 text-muted-foreground text-xs">
-          컬럼: 학번,이름,생년월일,메일,비밀번호 (헤더 필수)
+          컬럼: 학번,이름,생년월일,학과,반,메일,비밀번호 (헤더 필수 · 반은 선택
+          입력)
         </p>
         <input
           accept=".csv,text/csv"
@@ -188,13 +251,64 @@ export default function StudentsPage() {
         )}
       </div>
 
+      <GroupScopeSelect
+        value={scope}
+        onChange={(value) => {
+          setScope(value);
+          setSelected([]);
+        }}
+      />
+      {!readOnly && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4 text-sm">
+          <span>선택한 학생 {selected.length}명</span>
+          <select
+            aria-label="일괄 배정할 반"
+            value={assignment}
+            onChange={(e) => setAssignment(e.target.value)}
+            className="rounded-lg border border-border bg-background px-3 py-2"
+          >
+            <option value="">미배정으로 변경</option>
+            {classes.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.label} ({c.code})
+              </option>
+            ))}
+          </select>
+          <PeriodButton
+            disabled={!selected.length || assigning}
+            onClick={() => void assignClass()}
+          >
+            {assigning ? "저장 중…" : "선택 학생 반 배정"}
+          </PeriodButton>
+        </div>
+      )}
       <div className="surface">
         <div className="overflow-x-auto">
           <table className="table w-full min-w-[640px] text-[13px]">
             <thead>
               <tr className="border-border border-b bg-muted/50 text-[12px] text-muted-foreground">
+                {!readOnly && (
+                  <th className="px-4 py-2.5">
+                    <input
+                      aria-label="현재 목록의 학생 전체 선택"
+                      type="checkbox"
+                      checked={
+                        visibleIds.length > 0 &&
+                        visibleIds.every((id) => selected.includes(id))
+                      }
+                      onChange={(e) =>
+                        setSelected(e.target.checked ? visibleIds : [])
+                      }
+                    />
+                  </th>
+                )}
                 <th className="px-4 py-2.5 text-left font-semibold">학번</th>
                 <th className="px-4 py-2.5 text-left font-semibold">이름</th>
+                {!readOnly && (
+                  <th className="px-4 py-2.5 text-left font-semibold">
+                    반 · 학년
+                  </th>
+                )}
                 <th className="px-4 py-2.5 text-left font-semibold">이메일</th>
                 <th className="px-4 py-2.5 text-left font-semibold">수준</th>
                 <th className="px-4 py-2.5 text-left font-semibold">질문 수</th>
@@ -206,23 +320,47 @@ export default function StudentsPage() {
             <tbody>
               {loading && (
                 <tr>
-                  <td className="px-4 py-4 text-muted-foreground" colSpan={6}>
+                  <td
+                    className="px-4 py-4 text-muted-foreground"
+                    colSpan={readOnly ? 6 : 8}
+                  >
                     불러오는 중...
                   </td>
                 </tr>
               )}
-              {!loading && students.length === 0 && (
+              {!loading && visibleStudents.length === 0 && (
                 <tr>
-                  <td className="px-4 py-4 text-muted-foreground" colSpan={6}>
+                  <td
+                    className="px-4 py-4 text-muted-foreground"
+                    colSpan={readOnly ? 6 : 8}
+                  >
                     등록된 학생이 없습니다.
                   </td>
                 </tr>
               )}
-              {students.map((s) => (
+              {visibleStudents.map((s) => (
                 <tr
                   className="border-border border-b last:border-0 hover:bg-accent/50"
                   key={s.id}
                 >
+                  {!readOnly && (
+                    <td className="px-4 py-2">
+                      {s.role === "student" && (
+                        <input
+                          type="checkbox"
+                          aria-label={`${s.name} 선택`}
+                          checked={selected.includes(s.id)}
+                          onChange={(e) =>
+                            setSelected((current) =>
+                              e.target.checked
+                                ? [...current, s.id]
+                                : current.filter((id) => id !== s.id)
+                            )
+                          }
+                        />
+                      )}
+                    </td>
+                  )}
                   <td className="px-4 py-2">
                     <Link className="block" href={`/admin/students/${s.id}`}>
                       {s.student_id ?? "-"}
@@ -238,6 +376,14 @@ export default function StudentsPage() {
                       )}
                     </Link>
                   </td>
+                  {!readOnly && (
+                    <td className="px-4 py-2">
+                      {s.role === "student"
+                        ? (classes.find((c) => c.code === s.class_code)
+                            ?.label ?? "미배정")
+                        : "—"}
+                    </td>
+                  )}
                   <td className="px-4 py-2 text-muted-foreground">{s.email}</td>
                   <td className="px-4 py-2">{s.level}</td>
                   <td className="px-4 py-2">{s.question_count}</td>
