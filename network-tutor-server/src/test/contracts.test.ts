@@ -466,3 +466,19 @@ test("new accounts and CSV imports retain validated class assignments", async ()
 		"1-A",
 	);
 });
+
+test("student learning endpoints stay accessible while admin audit endpoints remain protected", async () => {
+	for (const path of [
+		"/api/exam/attempts",
+		"/api/exam/meta",
+		"/api/bookmarks",
+	]) {
+		const result = await call(path, { user: 2 });
+		assert.equal(result.status, 200, path);
+	}
+	assert.equal((await call("/api/audit", { user: 2 })).status, 403);
+	assert.equal(
+		(await call("/api/audit-summary/stats", { user: 2 })).status,
+		403,
+	);
+});

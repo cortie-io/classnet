@@ -18,7 +18,7 @@ auditRouter.post("/audit/:id/report", requireAuth, async (req, res) => {
 	res.json({ ok: true });
 });
 
-auditRouter.use(requireAdmin, selectAdminPeriod);
+auditRouter.use(["/audit", "/audit-summary"], requireAdmin, selectAdminPeriod);
 
 auditRouter.get("/audit", requireAdmin, async (req, res) => {
 	const status = typeof req.query.status === "string" ? req.query.status : null;
