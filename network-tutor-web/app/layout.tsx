@@ -70,7 +70,10 @@ export default function RootLayout({
           <SessionProvider
             basePath={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/auth`}
           >
-            <TooltipProvider>{children}</TooltipProvider>
+            <TooltipProvider>
+              <div role="status" className="fixed bottom-3 left-1/2 z-50 w-max max-w-[95vw] -translate-x-1/2 rounded-full border border-border bg-background px-4 py-2 text-center text-xs shadow-lg">1차 기록 조회 전용 · 2차 서비스 준비 중</div>
+              {children}
+            </TooltipProvider>
           </SessionProvider>
           {/* 로그인 페이지((auth) 라우트 그룹)에는 자체 Toaster가 없어서 toast()를 호출해도 아무 데도
               렌더링이 안 되는 버그가 있었다(실측 확인됨) — 앱 전체를 덮는 루트 레이아웃에 하나만 둔다. */}

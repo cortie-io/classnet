@@ -13,6 +13,12 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Phase1 is frozen. Auth is allowed so existing records remain accessible.
+  if ((pathname.startsWith("/api/") && !["GET", "HEAD", "OPTIONS"].includes(request.method)) ||
+      pathname === "/api/exam/my-report/analysis" || pathname === "/api/suggestions") {
+    return NextResponse.json({ error: "1차 기록은 조회 전용입니다. 2차 서비스 오픈 후 새 학습을 시작할 수 있어요." }, { status: 403 });
+  }
+
   // public/ 아래 정적 자산(아이콘·매니페스트·문제 이미지 등)은 로그인 여부와 무관하게 항상 열려 있어야
   // 한다 — 브라우저/OS가 PWA 설치 판단이나 <img> 로딩을 할 때 세션 쿠키 없이 요청하는 경우가 흔해서,
   // 이게 막히면 파비콘·홈 화면 아이콘·문제 이미지가 로그인 여부에 따라 깨지는 문제가 생긴다(실측 확인됨).
