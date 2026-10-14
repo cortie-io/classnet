@@ -1,7 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { useActionState, useEffect, useState } from "react";
 
 import { AuthForm } from "@/components/chat/auth-form";
@@ -10,7 +8,6 @@ import { toast } from "@/components/chat/toast";
 import { type LoginActionState, login } from "../actions";
 
 export default function Page() {
-  const router = useRouter();
   const [identifier, setIdentifier] = useState("");
   const [isSuccessful, setIsSuccessful] = useState(false);
   // 접속 도메인으로 학생용/관리자용을 구분한다 — admin.classnet.chat은 이메일 로그인,
@@ -29,9 +26,6 @@ export default function Page() {
     { status: "idle" }
   );
 
-  const { update: updateSession } = useSession();
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: router and updateSession are stable refs
   useEffect(() => {
     // state.status만 의존성으로 두면 연속으로 같은 결과(예: 두 번 다 "failed")가 나올 때 문자열이
     // 안 바뀌었다고 판단해 이펙트가 다시 안 돌아서 두 번째부터는 토스트가 안 뜨는 버그가 있었다
@@ -48,10 +42,11 @@ export default function Page() {
       });
     } else if (state.status === "success") {
       setIsSuccessful(true);
-      updateSession();
-      router.refresh();
+      // The login page stays reachable for stale sessions, so successful sign-in
+      // must navigate explicitly. A full navigation reads the newly issued cookie.
+      window.location.replace(mode === "admin" ? "/admin" : "/");
     }
-  }, [state]);
+  }, [state, mode]);
 
   const handleSubmit = (formData: FormData) => {
     setIdentifier((formData.get(mode === "admin" ? "email" : "studentId") as string) ?? "");
