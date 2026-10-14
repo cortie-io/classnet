@@ -35,6 +35,7 @@ declare module "next-auth/jwt" {
     id: string;
     type: UserType;
     authVersion: number;
+    servicePeriod: "2";
     role: UserRole;
     level: UserLevel;
   }
@@ -52,12 +53,14 @@ export const {
       if (user) {
         token.id = user.id as string;
         token.authVersion = user.authVersion;
+        token.servicePeriod = "2";
         token.type = user.type;
         token.role = user.role;
         token.level = user.level;
       }
 
       if (!user) {
+        if(token.servicePeriod!=="2")return null;
         const state = await getAuthState(Number(token.id));
         if (!state || state.auth_version !== token.authVersion) return null;
         token.role = state.role;

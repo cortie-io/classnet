@@ -10,6 +10,7 @@ import {
   LockIcon,
   WrenchIcon,
 } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
@@ -111,6 +112,7 @@ function PureMultimodalInput({
   isLoading?: boolean;
 }) {
   const router = useRouter();
+  const {data:session}=useSession();
   const { setTheme, resolvedTheme } = useTheme();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
@@ -126,7 +128,7 @@ function PureMultimodalInput({
   }, [width]);
 
   const [localStorageInput, setLocalStorageInput] = useLocalStorage(
-    "input",
+    `classnet:phase2:input:${session?.user?.id??"loading"}`,
     ""
   );
 

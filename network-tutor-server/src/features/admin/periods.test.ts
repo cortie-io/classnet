@@ -48,3 +48,19 @@ test("deleting a phase2 account leaves phase1 identity, history and saved rankin
   assert.equal((await call('/api/admin/users?period=1')).data.find((u:any)=>u.id===2).name,'archive student');
   assert.equal((await call('/api/admin/analytics/ranking?period=1')).data.students[0].rank,7);
 });
+
+test("only admin can read phase1 chat messages; old chat IDs never resolve in phase2",async()=>{
+  for(const database of [active,archive])await database.db.exec(`CREATE TABLE "Chat"(id uuid PRIMARY KEY,title text,"userId" integer,"createdAt" timestamp);
+    CREATE TABLE "Message_v2"(id uuid PRIMARY KEY,"chatId" uuid,role text,parts json,attachments json,"createdAt" timestamp);`);
+  await archive.db.exec(`INSERT INTO "Chat" VALUES('00000000-0000-0000-0000-000000000001','Original student conversation',2,'2026-01-01');
+    INSERT INTO "Message_v2" SELECT md5(n::text)::uuid,'00000000-0000-0000-0000-000000000001','user','[{"type":"text","text":"original question"}]','[]','2026-01-01' FROM generate_series(1,55) n;`);
+  assert.equal((await call('/api/admin/users/2/chats?period=1')).data.total,1);
+  assert.equal((await call('/api/admin/users/2/chats?period=2')).data.total,0);
+  const path='/api/admin/chats/00000000-0000-0000-0000-000000000001/messages';
+  assert.equal((await call(path+'?period=2')).status,404);
+  const first=await call(path+'?period=1&limit=50');
+  const last=await call(path+'?period=1&limit=50&offset=50');
+  assert.equal(first.data.items.length+last.data.items.length,55);
+  assert.equal(new Set([...first.data.items,...last.data.items].map(m=>m.id)).size,55);
+  assert.equal((await call(path+'?period=1','GET',2)).status,401);
+});

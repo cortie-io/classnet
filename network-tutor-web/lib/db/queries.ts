@@ -29,7 +29,7 @@ import {
   vote,
 } from "./schema";
 
-const client = postgres(process.env.POSTGRES_URL ?? "");
+const client = postgres(process.env.DATABASE_URL ?? process.env.POSTGRES_URL ?? "");
 const db = drizzle(client);
 
 // 회원가입 없음, 게스트 없음: 계정은 network-tutor-server의 실제 `users` 테이블(정수 id)이

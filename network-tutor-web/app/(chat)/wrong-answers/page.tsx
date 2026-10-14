@@ -99,7 +99,7 @@ export default function WrongAnswersPage() {
   // 요청 URI 길이 제한에 걸려 414 Request-URI Too Large가 난다(실사용 중 확인된 버그: 기출 회차 전체
   // 풀이 후 종합 분석 요청이 이 경로로 414를 냈다). sessionStorage 큐는 길이 제한이 없다.
   const askInChat = (item: WrongAnswerItem) => {
-    sessionStorage.setItem("classnet:queuedQueries", JSON.stringify([composeQuestionPrompt(item)]));
+    sessionStorage.setItem("classnet:phase2:queuedQueries", JSON.stringify([composeQuestionPrompt(item)]));
     router.push("/");
   };
 
@@ -110,7 +110,7 @@ export default function WrongAnswersPage() {
     if (items.length === 0) return;
     const chunks = chunkItems(items, MAX_BULK_EXPLAIN);
     const queries = chunks.map((c, i) => composeMultiQuestionPrompt(c, i, chunks.length));
-    sessionStorage.setItem("classnet:queuedQueries", JSON.stringify(queries));
+    sessionStorage.setItem("classnet:phase2:queuedQueries", JSON.stringify(queries));
     if (chunks.length > 1) {
       toast({
         type: "success",

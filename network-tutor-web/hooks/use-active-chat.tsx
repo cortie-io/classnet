@@ -223,7 +223,7 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
     // 오답노트 등에서 한 번에 물어보기엔 너무 많은 문제를 여러 턴으로 나눠 순서대로 이어 보낼 때
     // sessionStorage에 담아 온다 — URL 길이 제한을 피하기 위함(use-active-chat.tsx는 모든 채팅
     // 진입점이 공유하므로, 이 큐가 없으면 기존처럼 query 파라미터 단일 전송 그대로 동작한다).
-    const queuedRaw = isNewChat ? sessionStorage.getItem("classnet:queuedQueries") : null;
+    const queuedRaw = isNewChat ? sessionStorage.getItem("classnet:phase2:queuedQueries") : null;
     if (!(query || queuedRaw)) return;
     hasAppendedQueryRef.current = true;
     window.history.replaceState(
@@ -233,7 +233,7 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
     );
     let queue: string[] = [];
     if (queuedRaw) {
-      sessionStorage.removeItem("classnet:queuedQueries");
+      sessionStorage.removeItem("classnet:phase2:queuedQueries");
       try {
         const parsed = JSON.parse(queuedRaw);
         if (Array.isArray(parsed)) queue = parsed.filter((q) => typeof q === "string" && q);

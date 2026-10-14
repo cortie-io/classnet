@@ -55,6 +55,8 @@ sql('CREATE TABLE phase_archive_snapshot(key text PRIMARY KEY,payload jsonb NOT 
 sql("INSERT INTO phase_archive_snapshot VALUES('ranking',"+literal(json.dumps(ranking,ensure_ascii=False))+"::jsonb)")
 sql('GRANT CONNECT ON DATABASE '+OLD+' TO '+READER+'; GRANT USAGE ON SCHEMA public TO '+READER+'; GRANT SELECT ON ALL TABLES IN SCHEMA public TO '+READER)
 sql('ALTER ROLE '+READER+' IN DATABASE '+OLD+' SET default_transaction_read_only=on')
+sql('REVOKE INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER ON ALL TABLES IN SCHEMA public FROM network_tutor_app')
+sql('ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER ON TABLES FROM network_tutor_app')
 for table in ['audit_log','exam_attempts','exam_answers','bookmarks','sessions','student_report_analysis','Chat','Message_v2','Vote_v2','Document','Suggestion','Stream','exam_sets','request_limits']:
     if scalar('SELECT count(*) FROM "'+table+'"',NEW): raise RuntimeError('Phase2 history unexpectedly populated: '+table)
 if scalar('SELECT count(*) FROM users',NEW)!=scalar('SELECT count(*) FROM users'): raise RuntimeError('Identity count mismatch')
@@ -71,7 +73,7 @@ def url(user,pw,database):
     return urllib.parse.urlunsplit((u.scheme,netloc,'/'+database,u.query,u.fragment))
 runtime=ROOT/'phase2-runtime.env'
 with runtime.open('x') as f:
-    f.write('DATABASE_URL='+url(APP,password,NEW)+'\nPHASE1_DATABASE_URL='+url(READER,reader_password,OLD)+'\nACTIVE_SERVICE_PERIOD=2\n')
+    f.write('DATABASE_URL='+url(APP,password,NEW)+'\nPOSTGRES_URL='+url(APP,password,NEW)+'\nPHASE1_DATABASE_URL='+url(READER,reader_password,OLD)+'\nACTIVE_SERVICE_PERIOD=2\n')
 runtime.chmod(0o600)
 print('Phase2 prepared separately. Live service configuration was not changed.')
 print('Students:',scalar("SELECT count(*) FROM users WHERE role='student'",NEW))

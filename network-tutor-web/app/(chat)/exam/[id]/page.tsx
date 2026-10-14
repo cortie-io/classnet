@@ -162,7 +162,7 @@ export default function ExamResultPage({ params }: { params: Promise<{ id: strin
     // 확인된 버그: 기출 회차 전체 풀이 후 종합 분석 요청이 이 경로로 414를 냈다). sessionStorage 큐는
     // 길이 제한이 없으니 항상 이걸로 넘긴다.
     const queries = chunks.map((c, i) => composeWrongAnswersPrompt(c, i, chunks.length));
-    sessionStorage.setItem("classnet:queuedQueries", JSON.stringify(queries));
+    sessionStorage.setItem("classnet:phase2:queuedQueries", JSON.stringify(queries));
     if (chunks.length > 1) {
       toast({
         type: "success",
@@ -176,7 +176,7 @@ export default function ExamResultPage({ params }: { params: Promise<{ id: strin
     // askWrongInChat과 동일한 이유로 URL 쿼리 파라미터 대신 sessionStorage 큐를 쓴다 — 기출문제
     // 회차 전체(최대 50문제)를 풀고 틀린 문제가 많으면 지문 목록이 길어져 URL 길이 제한을 넘길 수
     // 있다(실사용 중 확인된 버그: 414 Request-URI Too Large).
-    sessionStorage.setItem("classnet:queuedQueries", JSON.stringify([composeAnalysisPrompt(data, data.items)]));
+    sessionStorage.setItem("classnet:phase2:queuedQueries", JSON.stringify([composeAnalysisPrompt(data, data.items)]));
     router.push("/");
   };
 
@@ -332,7 +332,7 @@ export default function ExamResultPage({ params }: { params: Promise<{ id: strin
           <Button
             className="mt-3"
             onClick={() => {
-              sessionStorage.setItem("classnet:queuedQueries", JSON.stringify([composeQuestionPrompt(item, i)]));
+              sessionStorage.setItem("classnet:phase2:queuedQueries", JSON.stringify([composeQuestionPrompt(item, i)]));
               router.push("/");
             }}
             size="sm"

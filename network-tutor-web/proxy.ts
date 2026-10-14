@@ -35,14 +35,13 @@ export async function proxy(request: NextRequest) {
 
   const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
-  if (!token && pathname !== "/login") {
+  if ((!token || token.servicePeriod !== "2") && pathname !== "/login") {
     const redirectUrl = encodeURIComponent(new URL(request.url).pathname);
     return NextResponse.redirect(new URL(`${base}/login?redirectUrl=${redirectUrl}`, request.url));
   }
 
-  if (token && pathname === "/login") {
-    return NextResponse.redirect(new URL(`${base}/`, request.url));
-  }
+  // Login must stay reachable for revoked/deleted/stale JWTs. Server authentication
+  // checks the active database; a merely decryptable cookie is not a valid session.
 
   return NextResponse.next();
 }

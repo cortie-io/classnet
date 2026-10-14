@@ -7,6 +7,7 @@ import { periodMetadata, selectAdminPeriod } from "./features/admin/periods.js";
 import { requireAdmin } from "./features/auth/middleware.js";
 import { attachUser } from "./features/auth/middleware.js";
 import { authRouter } from "./features/auth/routes.js";
+import { adminChatHistory } from "./features/admin/chatHistory.js";
 import { adminRouter } from "./features/admin/routes.js";
 import { askRouter } from "./features/tutor/routes/ask.js";
 import { problemRouter } from "./features/tutor/routes/problem.js";
@@ -43,6 +44,7 @@ export function createApp() {
   app.use("/api/admin", requireAdmin, selectAdminPeriod);
   app.use("/api", authRouter);
   app.use("/api", adminRouter);
+  app.use("/api", adminChatHistory);
   app.use("/api", askRouter);
   app.use("/api", problemRouter);
   app.use("/api", calcRouter);

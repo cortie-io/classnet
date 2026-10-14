@@ -1,4 +1,5 @@
 "use client";
+import { StudentChats } from "@/components/admin/student-chats";
 import { StudentProfileEditor } from "@/components/admin/student-profile";
 import { PeriodButton } from "@/components/admin/service-period";
 import { adminFetch } from "@/lib/admin-period";
@@ -183,6 +184,8 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
       <PageIntro description={detail.user.email} icon={UserRoundIcon} title={detail.user.name} />
 
       {detail.user.role==="student"&&<StudentProfileEditor student={detail.user} onSaved={user=>setDetail(current=>current?{...current,user:{...current.user,...user}}:current)} />}
+
+      <StudentChats userId={id} />
 
       <div className="grid grid-cols-2 gap-3 text-[13px] sm:grid-cols-4">
         <div className="rounded-xl border border-border bg-card shadow-[var(--shadow-card)] p-3">
