@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { MessageResponse } from "@/components/ai-elements/message";
+import { loadJson } from "@/components/load-json";
 
 interface SubjectStat {
   subject: string;
@@ -99,15 +100,11 @@ export default function MyReportPage() {
   const [regenerating, setRegenerating] = useState(false);
 
   useEffect(() => {
-    fetch("/api/exam/my-report")
-      .then((r) => r.json())
-      .then(setData)
-      .catch(() => undefined);
-    fetch("/api/exam/my-report/analysis")
-      .then((r) => r.json())
-      .then((d) => setAnalysis(d.content))
-      .catch(() => setAnalysis("분석 글을 불러오지 못했어요."))
-      .finally(() => setAnalysisLoading(false));
+    loadJson("/api/exam/my-report", setData);
+    loadJson<{ content: string }>("/api/exam/my-report/analysis", (d) => setAnalysis(d.content), {
+      quiet: true,
+      onError: () => setAnalysis("분석 글을 불러오지 못했어요."),
+    }).finally(() => setAnalysisLoading(false));
   }, []);
 
   const regenerate = async () => {

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronLeftIcon } from "lucide-react";
 import { ExamRunner, type ExamStartResponse } from "@/components/exam/exam-runner";
 import { toast } from "@/components/chat/toast";
+import { loadJson } from "@/components/load-json";
 
 interface Round {
   roundLabel: string;
@@ -20,10 +21,7 @@ export default function RoundsPage() {
   const [start, setStart] = useState<ExamStartResponse | null>(null);
 
   useEffect(() => {
-    fetch("/api/exam/rounds")
-      .then((r) => r.json())
-      .then(setRounds)
-      .catch(() => setRounds([]));
+    loadJson("/api/exam/rounds", setRounds, { onError: () => setRounds([]) });
   }, []);
 
   const years = useMemo(() => {

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/chat/toast";
-import { loadJson } from "@/components/admin/load-json";
+import { loadJson } from "@/components/load-json";
 
 interface StudentRow {
   id: number;

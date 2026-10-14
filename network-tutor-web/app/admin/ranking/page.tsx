@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/chat/toast";
-import { loadJson } from "@/components/admin/load-json";
+import { loadJson } from "@/components/load-json";
 
 interface RankedStudent {
   id: number;
@@ -57,7 +57,7 @@ export default function RankingPage() {
   const [savingKey, setSavingKey] = useState<string | null>(null);
 
   const load = () => {
-    loadJson("/api/admin/analytics/ranking", setData, { cache: "no-store" });
+    loadJson("/api/admin/analytics/ranking", setData, { init: { cache: "no-store" } });
   };
 
   useEffect(() => {

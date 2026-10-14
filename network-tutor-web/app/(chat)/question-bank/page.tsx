@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { ExamRunner, type ExamStartResponse } from "@/components/exam/exam-runner";
 import { toast } from "@/components/chat/toast";
+import { loadJson } from "@/components/load-json";
 
 const SUBJECTS = [
   "1과목_네트워크_일반",
@@ -57,28 +58,34 @@ export default function QuestionBankPage() {
   const [startingId, setStartingId] = useState<number | null>(null);
   const [start, setStart] = useState<ExamStartResponse | null>(null);
 
+  // 검색어는 "검색"을 눌렀을 때만 반영한다. 예전엔 setPage(0) 직후 load()가 아직 이전 page 값으로 한 번 더
+  // 요청해서, 3페이지에서 검색하면 두 응답 중 늦게 온 쪽이 이겨 결과가 비거나 엉뚱하게 나왔다.
+  const [appliedKeyword, setAppliedKeyword] = useState("");
+  const requestSeqRef = useRef(0);
+
   const load = () => {
+    const seq = ++requestSeqRef.current;
     setLoading(true);
     const params = new URLSearchParams();
     if (subject !== "all") params.set("subject", subject);
     if (questionType !== "all") params.set("questionType", questionType);
-    if (keyword.trim()) params.set("q", keyword.trim());
+    if (appliedKeyword.trim()) params.set("q", appliedKeyword.trim());
     params.set("limit", String(PAGE_SIZE));
     params.set("offset", String(page * PAGE_SIZE));
-    fetch(`/api/exam/bank?${params.toString()}`)
-      .then((r) => r.json())
-      .then((d) => {
-        setItems(d.items ?? []);
-        setTotal(d.total ?? 0);
-      })
-      .finally(() => setLoading(false));
+    loadJson<{ items?: BankItem[]; total?: number }>(`/api/exam/bank?${params.toString()}`, (d) => {
+      if (seq !== requestSeqRef.current) return; // 더 나중에 보낸 요청이 있으면 이 응답은 버린다
+      setItems(d.items ?? []);
+      setTotal(d.total ?? 0);
+    }).finally(() => {
+      if (seq === requestSeqRef.current) setLoading(false);
+    });
   };
 
-  useEffect(load, [subject, questionType, page]);
+  useEffect(load, [subject, questionType, page, appliedKeyword]);
 
   const search = () => {
     setPage(0);
-    load();
+    setAppliedKeyword(keyword);
   };
 
   const solve = async (id: number) => {

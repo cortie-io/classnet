@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ExamRunner, type ExamStartResponse } from "@/components/exam/exam-runner";
 import { toast } from "@/components/chat/toast";
+import { loadJson } from "@/components/load-json";
 
 interface Meta {
   subjects: { subject: string; count: number }[];
@@ -17,10 +18,7 @@ export default function PracticePage() {
   const [start, setStart] = useState<ExamStartResponse | null>(null);
 
   useEffect(() => {
-    fetch("/api/exam/meta")
-      .then((r) => r.json())
-      .then(setMeta)
-      .catch(() => undefined);
+    loadJson("/api/exam/meta", setMeta);
   }, []);
 
   const begin = async () => {

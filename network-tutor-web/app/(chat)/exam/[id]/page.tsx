@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/chat/toast";
+import { loadJson } from "@/components/load-json";
 
 type QuestionType = "multiple_choice" | "short_answer" | "subjective" | "essay";
 
@@ -115,10 +116,8 @@ export default function ExamResultPage({ params }: { params: Promise<{ id: strin
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/api/exam/attempts/${id}`)
-      .then((r) => r.json())
-      .then(setData)
-      .finally(() => setLoading(false));
+    // 없는 응시나 남의 응시면 data가 null로 남아 "찾을 수 없습니다"가 보인다(예전엔 {error}가 들어가 화면이 깨졌다).
+    loadJson(`/api/exam/attempts/${id}`, setData, { quiet: true }).finally(() => setLoading(false));
   }, [id]);
 
   if (loading) return <div className="px-4 py-10 text-center text-muted-foreground">불러오는 중...</div>;

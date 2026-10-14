@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ExamRunner, type ExamStartResponse } from "@/components/exam/exam-runner";
 import { toast } from "@/components/chat/toast";
+import { loadJson } from "@/components/load-json";
 
 type QuestionType = "multiple_choice" | "short_answer" | "subjective" | "essay";
 
@@ -78,10 +79,7 @@ export default function WrongAnswersPage() {
   const [retryingAll, setRetryingAll] = useState(false);
 
   useEffect(() => {
-    fetch("/api/exam/wrong-answers")
-      .then((r) => r.json())
-      .then(setItems)
-      .catch(() => setItems([]));
+    loadJson("/api/exam/wrong-answers", setItems, { onError: () => setItems([]) });
   }, []);
 
   const subjects = useMemo(() => {

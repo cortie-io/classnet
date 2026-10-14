@@ -15,6 +15,7 @@ import { StarIcon } from "lucide-react";
 import { MessageResponse } from "@/components/ai-elements/message";
 import { ExamRunner, type ExamStartResponse } from "@/components/exam/exam-runner";
 import { toast } from "@/components/chat/toast";
+import { loadJson } from "@/components/load-json";
 
 interface TreeNode {
   id: number;
@@ -45,7 +46,7 @@ export default function FlashcardsPage() {
   const [practiceStart, setPracticeStart] = useState<ExamStartResponse | null>(null);
 
   useEffect(() => {
-    fetch("/api/ontology/tree").then((r) => r.json()).then(setTree);
+    loadJson("/api/ontology/tree", setTree);
     fetch("/api/bookmarks")
       .then((r) => r.json())
       .then((rows: { concept_node_id: number }[]) => setBookmarked(new Set(rows.map((r) => r.concept_node_id))))

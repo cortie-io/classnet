@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { loadJson } from "@/components/load-json";
 
 interface AttemptSummary {
   id: number;
@@ -31,10 +32,7 @@ export default function MyExamsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/exam/attempts")
-      .then((r) => r.json())
-      .then(setAttempts)
-      .finally(() => setLoading(false));
+    loadJson("/api/exam/attempts", setAttempts).finally(() => setLoading(false));
   }, []);
 
   return (

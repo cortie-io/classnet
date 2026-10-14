@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ExamRunner, type ExamStartResponse } from "@/components/exam/exam-runner";
 import { toast } from "@/components/chat/toast";
+import { loadJson } from "@/components/load-json";
 
 interface TimedExamRow {
   id: number;
@@ -31,10 +32,7 @@ export default function TimedExamPage() {
   const [start, setStart] = useState<ExamStartResponse | null>(null);
 
   useEffect(() => {
-    fetch("/api/exam/timed")
-      .then((r) => r.json())
-      .then(setRows)
-      .catch(() => setRows([]));
+    loadJson("/api/exam/timed", setRows, { onError: () => setRows([]) });
   }, []);
 
   const begin = async (id: number) => {

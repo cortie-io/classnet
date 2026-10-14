@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/components/chat/toast";
-import { loadJson } from "@/components/admin/load-json";
+import { loadJson } from "@/components/load-json";
 
 const SUBJECTS = [
   "1과목_네트워크_일반",
