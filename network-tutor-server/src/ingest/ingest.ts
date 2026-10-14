@@ -1,7 +1,8 @@
 import { readFileSync, readdirSync } from "node:fs";
-import { pool } from "../db/pool.js";
-import { embed, embedModelId, nodeEmbedInput } from "../llm/embedding.js";
-import { parseReferenceDoc } from "./parseDoc.js";
+import { pathToFileURL } from "node:url";
+import { pool } from "../infrastructure/db/pool.js";
+import { reembedConceptNodes } from "../infrastructure/db/reembedNodes.js";
+import { type ParsedNode, parseReferenceDoc } from "./parseDoc.js";
 
 const REF_DIR = "/home/ubuntu/ref";
 
@@ -18,22 +19,25 @@ function tableName(subjectNum: string, sectionNo: string, index: number, total: 
   return `${base}${String.fromCharCode(97 + index)}`; // a, b, c...
 }
 
-async function main() {
-  const path = findRefFile();
-  console.log(`parsing ${path}`);
-  const raw = readFileSync(path, "utf8");
-  const nodes = parseReferenceDoc(raw);
-  console.log(`parsed ${nodes.length} concept nodes`);
-
+/** Updates section identities in place; student and question references remain valid. */
+export async function ingestNodes(nodes: ParsedNode[]): Promise<void> {
+  if (nodes.length === 0) throw new Error("입력 문서에 개념이 없습니다.");
+  const sections = new Set(nodes.map((node) => node.sectionNo));
+  if (sections.size !== nodes.length) throw new Error("입력 문서의 절 번호가 중복됩니다.");
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    await client.query("TRUNCATE concept_nodes CASCADE");
+    await client.query("SELECT pg_advisory_xact_lock(7240614)");
 
     for (const node of nodes) {
       const nodeRes = await client.query<{ id: number }>(
         `INSERT INTO concept_nodes (subject, category, topic, tag_path, section_no, title, body_md, body_text, order_index)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+         ON CONFLICT (section_no) DO UPDATE SET
+           subject=EXCLUDED.subject, category=EXCLUDED.category, topic=EXCLUDED.topic,
+           tag_path=EXCLUDED.tag_path, title=EXCLUDED.title, body_md=EXCLUDED.body_md,
+           body_text=EXCLUDED.body_text, order_index=EXCLUDED.order_index
+         RETURNING id`,
         [
           node.subject,
           node.category,
@@ -47,6 +51,9 @@ async function main() {
         ],
       );
       const nodeId = nodeRes.rows[0].id;
+      await client.query("DELETE FROM lookup_tables WHERE node_id = $1", [nodeId]);
+      await client.query("DELETE FROM node_embeddings WHERE node_id = $1", [nodeId]);
+      await client.query("DELETE FROM concept_embeddings WHERE node_id = $1", [nodeId]);
 
       for (let t = 0; t < node.tables.length; t++) {
         const table = node.tables[t];
@@ -69,28 +76,18 @@ async function main() {
     client.release();
   }
 
-  // embeddings pass (after commit, so failures here don't roll back the content)
-  const { rows } = await pool.query<{ id: number; title: string; topic: string; subject: string; body_text: string }>(
-    "SELECT id, title, topic, subject, body_text FROM concept_nodes ORDER BY id",
-  );
-  console.log(`embedding ${rows.length} nodes via ${embedModelId}...`);
-  let done = 0;
-  for (const row of rows) {
-    const vector = await embed(nodeEmbedInput(row));
-    await pool.query(
-      `INSERT INTO node_embeddings (node_id, model, embedding) VALUES ($1,$2,$3)
-       ON CONFLICT (node_id) DO UPDATE SET model = EXCLUDED.model, embedding = EXCLUDED.embedding`,
-      [row.id, embedModelId, JSON.stringify(vector)],
-    );
-    done++;
-    if (done % 10 === 0) console.log(`  ${done}/${rows.length}`);
-  }
-  console.log(`embedded ${done} nodes`);
-
+}
+async function main() {
+  const path = findRefFile();
+  const nodes = parseReferenceDoc(readFileSync(path, "utf8"));
+  await ingestNodes(nodes);
+  await reembedConceptNodes({ all: true });
   await pool.end();
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

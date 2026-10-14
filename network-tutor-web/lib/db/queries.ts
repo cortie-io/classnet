@@ -42,6 +42,7 @@ export interface AppUser {
   name: string;
   email: string;
   passwordHash: string;
+  authVersion: number;
   level: "beginner" | "intermediate" | "advanced";
 }
 
@@ -55,9 +56,10 @@ export async function getUserByEmail(email: string): Promise<AppUser | null> {
         name: string;
         email: string;
         password_hash: string;
+        auth_version: number;
         level: "beginner" | "intermediate" | "advanced";
       }[]
-    >`SELECT id, role, student_id, name, email, password_hash, level FROM users WHERE email = ${email}`;
+    >`SELECT id, role, student_id, name, email, password_hash, auth_version, level FROM users WHERE email = ${email}`;
     if (rows.length === 0) {
       return null;
     }
@@ -68,6 +70,7 @@ export async function getUserByEmail(email: string): Promise<AppUser | null> {
       level: r.level,
       name: r.name,
       passwordHash: r.password_hash,
+      authVersion: r.auth_version,
       role: r.role,
       studentId: r.student_id,
     };
@@ -86,9 +89,10 @@ export async function getUserByStudentId(studentId: string): Promise<AppUser | n
         name: string;
         email: string;
         password_hash: string;
+        auth_version: number;
         level: "beginner" | "intermediate" | "advanced";
       }[]
-    >`SELECT id, role, student_id, name, email, password_hash, level FROM users WHERE student_id = ${studentId}`;
+    >`SELECT id, role, student_id, name, email, password_hash, auth_version, level FROM users WHERE student_id = ${studentId}`;
     if (rows.length === 0) {
       return null;
     }
@@ -99,12 +103,33 @@ export async function getUserByStudentId(studentId: string): Promise<AppUser | n
       level: r.level,
       name: r.name,
       passwordHash: r.password_hash,
+      authVersion: r.auth_version,
       role: r.role,
       studentId: r.student_id,
     };
   } catch (error) {
     throw new ChatbotError("bad_request:database", { cause: error });
   }
+}
+
+export async function getAuthState(id: number) {
+  const rows = await client<{auth_version: number; role: "admin" | "student"; level: "beginner" | "intermediate" | "advanced"}[]>
+    `SELECT auth_version, role, level FROM users WHERE id = ${id}`;
+  return rows[0] ?? null;
+}
+
+export async function admitLogin(identifier: string): Promise<boolean> {
+  const { createHash } = await import("node:crypto");
+  const key = "login:" + createHash("sha256").update(identifier.trim().toLowerCase()).digest("hex");
+  const rows = await client<{key: string}[]>`
+    INSERT INTO request_limits (key, bucket, count)
+    VALUES (${key}, floor(extract(epoch FROM now()) / 900)::bigint, 1)
+    ON CONFLICT (key) DO UPDATE
+      SET bucket = EXCLUDED.bucket,
+          count = CASE WHEN request_limits.bucket = EXCLUDED.bucket THEN request_limits.count + 1 ELSE 1 END
+    WHERE request_limits.bucket <> EXCLUDED.bucket OR request_limits.count < 8
+    RETURNING key`;
+  return rows.length > 0;
 }
 
 export async function saveChat({

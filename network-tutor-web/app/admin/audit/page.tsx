@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { auditStatusLabel, auditStatusDescription, displayAuditIntent, auditJsonReplacer } from "@/lib/audit-presentation";
 import { Button } from "@/components/ui/button";
 
 interface AuditRow {
@@ -21,7 +22,7 @@ interface AuditDetail extends AuditRow {
   retrieved_node_ids: number[];
 }
 
-const STATUS_OPTIONS = ["", "verified", "flagged", "cached", "rule_only"];
+const STATUS_OPTIONS = ["", "pending", "verified", "flagged", "cached", "rule_only"];
 
 export default function AuditPage() {
   const [status, setStatus] = useState("");
@@ -61,7 +62,7 @@ export default function AuditPage() {
       <h1 className="font-semibold text-xl">질의응답 감사로그</h1>
       {stats && (
         <p className="text-muted-foreground text-sm">
-          상태별: {stats.byStatus.map((s) => `${s.verification_status}=${s.count}`).join(", ")} · 검수 대기(flagged &
+          상태별: {stats.byStatus.map((s) => `${auditStatusLabel(s.verification_status)}=${s.count}`).join(", ")} · 검수 대기(flagged &
           미검수): {stats.pendingReview}
         </p>
       )}
@@ -74,7 +75,7 @@ export default function AuditPage() {
         >
           {STATUS_OPTIONS.map((s) => (
             <option key={s} value={s}>
-              {s || "전체 상태"}
+              {s ? auditStatusLabel(s) : "전체 상태"}
             </option>
           ))}
         </select>
@@ -111,8 +112,8 @@ export default function AuditPage() {
                 >
                   <td className="px-4 py-2">{row.user_name ?? "-"}</td>
                   <td className="px-4 py-2">{row.question.slice(0, 40)}</td>
-                  <td className="px-4 py-2">{row.intent}</td>
-                  <td className="px-4 py-2">{row.verification_status}</td>
+                  <td className="px-4 py-2">{displayAuditIntent(row.intent)}</td>
+                  <td className="px-4 py-2" title={auditStatusDescription(row.verification_status)}>{auditStatusLabel(row.verification_status)}</td>
                   <td className="px-4 py-2">{row.reviewed ? "✓" : ""}</td>
                   <td className="px-4 py-2 text-muted-foreground">{new Date(row.created_at).toLocaleString("ko-KR")}</td>
                 </tr>
@@ -127,14 +128,7 @@ export default function AuditPage() {
         <div className="rounded-2xl border border-border bg-card p-5">
           <h2 className="mb-2 font-medium text-sm">#{detail.id} — {detail.question}</h2>
           <pre className="max-h-96 overflow-auto whitespace-pre-wrap rounded-lg bg-muted/50 p-3 text-xs">
-            {JSON.stringify(
-              detail,
-              (key, value) =>
-                key === "synthetic_demo" || key.startsWith("demo_")
-                  ? undefined
-                  : value,
-              2
-            )}
+            {JSON.stringify(detail, auditJsonReplacer, 2)}
           </pre>
           <Button className="mt-3" onClick={() => markReviewed(detail.id)} size="sm">
             검수 완료로 표시

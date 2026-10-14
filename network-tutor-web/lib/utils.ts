@@ -65,7 +65,7 @@ export function getDocumentTimestampByIndex(
 }
 
 export function sanitizeText(text: string) {
-  return text.replace('<has_function_call>', '');
+  return text.replace('<has_function_call>', '').replace(/\n*<!--AUDIT_LOG_ID:\d+-->/g, "");
 }
 
 export function convertToUIMessages(messages: DBMessage[]): ChatMessage[] {

@@ -19,6 +19,7 @@ interface HistoryTurn {
 
 interface BackendAskResponse {
   answer: string;
+  auditLogId?: number;
   intent: string;
   verificationStatus: string;
   confidence: number | null;
@@ -57,10 +58,11 @@ async function callBackend(
     method: "POST",
   });
   if (!res.ok) {
-    throw new Error(`network-tutor-server 응답 오류 (${res.status}): ${await res.text()}`);
+    throw new Error("지금 답변을 만들지 못했어요. 잠시 후 다시 시도해 주세요.");
   }
   const data = (await res.json()) as BackendAskResponse;
-  return appendPracticeMarker(data.answer, data.practiceAttempt);
+  const answer = data.auditLogId ? `${data.answer}\n\n<!--AUDIT_LOG_ID:${data.auditLogId}-->` : data.answer;
+  return appendPracticeMarker(answer, data.practiceAttempt);
 }
 
 type PromptMessage = {
@@ -92,6 +94,7 @@ const PRACTICE_ATTEMPT_MARKER_RE = /\n\n<!--PRACTICE_ATTEMPT:([\s\S]*?)-->$/;
 const SOURCE_FOOTNOTE_RE = /\n\n---\n출처:\n[\s\S]*$/;
 
 function humanizeHistoryText(text: string): string {
+  text = text.replace(/\n*<!--AUDIT_LOG_ID:\d+-->/g, "");
   const match = text.match(PRACTICE_ATTEMPT_MARKER_RE);
   if (!match) return text.replace(SOURCE_FOOTNOTE_RE, "");
   const before = text.slice(0, match.index).replace(SOURCE_FOOTNOTE_RE, "");
@@ -196,9 +199,7 @@ export const networkTutorModel: LanguageModel = {
             controller.enqueue({ delta: text, id: "t1", type: "text-delta" });
           } catch (err) {
             controller.enqueue({
-              delta: `죄송합니다, 답변을 생성하는 중 오류가 발생했습니다: ${
-                err instanceof Error ? err.message : String(err)
-              }`,
+              delta: "지금 답변을 만들지 못했어요. 잠시 후 다시 시도해 주세요.",
               id: "t1",
               type: "text-delta",
             });

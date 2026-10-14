@@ -2,7 +2,7 @@ import NextAuth, { type DefaultSession } from "next-auth";
 import type { DefaultJWT } from "next-auth/jwt";
 import Credentials from "next-auth/providers/credentials";
 import { DUMMY_PASSWORD_HASH, verifyPassword } from "@/lib/auth/password";
-import { getUserByEmail, getUserByStudentId } from "@/lib/db/queries";
+import { admitLogin, getAuthState, getUserByEmail, getUserByStudentId } from "@/lib/db/queries";
 import { authConfig } from "./auth.config";
 
 // 게스트 없음: 이 서비스는 로그인 없이는 사용할 수 없다(회원가입도 없음 — 계정은 관리자가 발급).
@@ -24,6 +24,7 @@ declare module "next-auth" {
     email?: string | null;
     id?: string;
     type: UserType;
+    authVersion: number;
     role: UserRole;
     level: UserLevel;
   }
@@ -33,6 +34,7 @@ declare module "next-auth/jwt" {
   interface JWT extends DefaultJWT {
     id: string;
     type: UserType;
+    authVersion: number;
     role: UserRole;
     level: UserLevel;
   }
@@ -46,14 +48,21 @@ export const {
 } = NextAuth({
   ...authConfig,
   callbacks: {
-    jwt({ token, user }) {
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id as string;
+        token.authVersion = user.authVersion;
         token.type = user.type;
         token.role = user.role;
         token.level = user.level;
       }
 
+      if (!user) {
+        const state = await getAuthState(Number(token.id));
+        if (!state || state.auth_version !== token.authVersion) return null;
+        token.role = state.role;
+        token.level = state.level;
+      }
       return token;
     },
     session({ session, token }) {
@@ -76,6 +85,9 @@ export const {
         const studentId = String(credentials.studentId ?? "").trim();
         const email = String(credentials.email ?? "").trim().toLowerCase();
         const password = String(credentials.password ?? "");
+
+        if ((!studentId && !email) || studentId.length > 64 || email.length > 254) return null;
+        if (password.length > 1024 || !(await admitLogin(studentId || email))) return null;
 
         let user: Awaited<ReturnType<typeof getUserByEmail>> = null;
         let expectedRole: "admin" | "student" | null = null;
@@ -102,6 +114,7 @@ export const {
         return {
           email: user.email,
           id: String(user.id),
+          authVersion: user.authVersion,
           level: user.level,
           name: user.name,
           role: user.role,

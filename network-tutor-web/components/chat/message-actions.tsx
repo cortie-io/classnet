@@ -35,12 +35,12 @@ export function PureMessageActions({
 
   const handleCopy = useCallback(async () => {
     if (!textFromParts) {
-      toast.error("There's no text to copy!");
+      toast.error("복사할 내용이 없습니다.");
       return;
     }
 
     await copyToClipboard(textFromParts);
-    toast.success("Copied to clipboard!");
+    toast.success("복사했습니다.");
   }, [copyToClipboard, textFromParts]);
 
   const handleUpvote = useCallback(() => {
@@ -53,12 +53,16 @@ export function PureMessageActions({
           type: "up",
         }),
         method: "PATCH",
+        headers: { "Content-Type": "application/json" },
       }
-    );
+    ).then((response) => {
+      if (!response.ok) throw new Error("평가를 저장하지 못했습니다.");
+      return response;
+    });
 
     toast.promise(upvote, {
-      error: "Failed to upvote response.",
-      loading: "Upvoting Response...",
+      error: "평가를 저장하지 못했습니다.",
+      loading: "평가를 저장하는 중...",
       success: () => {
         mutate<Vote[]>(
           `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/vote?chatId=${chatId}`,
@@ -83,7 +87,7 @@ export function PureMessageActions({
           { revalidate: false }
         );
 
-        return "Upvoted Response!";
+        return "평가를 저장했습니다.";
       },
     });
   }, [chatId, message.id, mutate]);
@@ -98,12 +102,16 @@ export function PureMessageActions({
           type: "down",
         }),
         method: "PATCH",
+        headers: { "Content-Type": "application/json" },
       }
-    );
+    ).then((response) => {
+      if (!response.ok) throw new Error("평가를 저장하지 못했습니다.");
+      return response;
+    });
 
     toast.promise(downvote, {
-      error: "Failed to downvote response.",
-      loading: "Downvoting Response...",
+      error: "평가를 저장하지 못했습니다.",
+      loading: "평가를 저장하는 중...",
       success: () => {
         mutate<Vote[]>(
           `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/vote?chatId=${chatId}`,
@@ -128,7 +136,7 @@ export function PureMessageActions({
           { revalidate: false }
         );
 
-        return "Downvoted Response!";
+        return "평가를 저장했습니다.";
       },
     });
   }, [chatId, message.id, mutate]);
