@@ -127,7 +127,14 @@ export default function AuditPage() {
         <div className="rounded-2xl border border-border bg-card p-5">
           <h2 className="mb-2 font-medium text-sm">#{detail.id} — {detail.question}</h2>
           <pre className="max-h-96 overflow-auto whitespace-pre-wrap rounded-lg bg-muted/50 p-3 text-xs">
-            {JSON.stringify(detail, null, 2)}
+            {JSON.stringify(
+              detail,
+              (key, value) =>
+                key === "synthetic_demo" || key.startsWith("demo_")
+                  ? undefined
+                  : value,
+              2
+            )}
           </pre>
           <Button className="mt-3" onClick={() => markReviewed(detail.id)} size="sm">
             검수 완료로 표시

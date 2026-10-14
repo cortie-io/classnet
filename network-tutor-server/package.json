@@ -8,7 +8,6 @@
     "start": "tsx src/server.ts",
     "migrate": "tsx src/db/migrate.ts",
     "seed:admin": "tsx src/db/seedAdmin.ts",
-    "purge:token-burn": "tsx src/db/purgeTokenBurn.ts",
     "embed:nodes": "tsx src/db/reembedNodes.ts",
     "ingest": "tsx src/ingest/ingest.ts"
   },
