@@ -65,6 +65,12 @@ export function ExamRunner({ start, proctored }: { start: ExamStartResponse; pro
   answerTextsRef.current = answerTexts;
   const savedRef = useRef(saved);
   savedRef.current = saved;
+  // 객관식 저장은 문항별로 한 줄로 세운다 — 보기를 빠르게 ①→② 바꾸면 요청 도착 순서가 뒤바뀌어 서버에 ①이
+  // 남을 수 있었다. 화면의 "저장됨" 표시는 그 문항의 마지막 선택이 저장됐을 때만 켠다.
+  const saveChainRef = useRef<Record<number, Promise<unknown>>>({});
+  const saveSeqRef = useRef<Record<number, number>>({});
+  const [saveFailed, setSaveFailed] = useState<Record<number, boolean>>({});
+  const [confirmingSubmit, setConfirmingSubmit] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [remainingSec, setRemainingSec] = useState<number | null>(timeLimitMinutes ? timeLimitMinutes * 60 : null);
   const deadlineRef = useRef<number | null>(timeLimitMinutes ? Date.now() + timeLimitMinutes * 60_000 : null);
@@ -78,6 +84,7 @@ export function ExamRunner({ start, proctored }: { start: ExamStartResponse; pro
     submittedRef.current = true;
     setSubmitting(true);
     try {
+      await Promise.allSettled(Object.values(saveChainRef.current));
       for (const [qid, text] of Object.entries(answerTextsRef.current)) {
         if (!text.trim() || savedRef.current[Number(qid)]) continue;
         await fetch(`/api/exam/attempts/${attemptId}/answer`, {
@@ -147,9 +154,11 @@ export function ExamRunner({ start, proctored }: { start: ExamStartResponse; pro
     };
     const onCopy = () => postProctorEvent("copy");
     const onPaste = () => postProctorEvent("paste");
+    // 휴대폰에서는 글자를 길게 누르기만 해도 contextmenu가 떠서 우클릭으로 잘못 쌓였다 — 터치 기기에선 막기만 하고 기록하지 않는다.
+    const isTouch = window.matchMedia?.("(pointer: coarse)").matches ?? false;
     const onContextMenu = (e: MouseEvent) => {
       e.preventDefault();
-      postProctorEvent("right_click");
+      if (!isTouch) postProctorEvent("right_click");
     };
 
     document.addEventListener("visibilitychange", onVisibility);
@@ -191,6 +200,17 @@ export function ExamRunner({ start, proctored }: { start: ExamStartResponse; pro
     };
   }, [proctored, postProctorEvent, attemptId]);
 
+  // 제출 전에 새로고침·뒤로가기·탭 닫기를 하면 브라우저 확인창을 띄운다(지정 시험은 다시 열면 이어서 풀 수 있다).
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (submittedRef.current) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, []);
+
   // 서버가 응시 시작 시점을 기준으로 판단하는 마감시각을 그대로 카운트다운으로 표시(클라이언트 시계 조작 방지는
   // 서버가 각 답변 제출 시점마다 만료 여부를 재확인하는 것으로 담보한다).
   useEffect(() => {
@@ -209,19 +229,29 @@ export function ExamRunner({ start, proctored }: { start: ExamStartResponse; pro
 
   // 보기를 고르면 로컬 선택 표시만 바꾸고 조용히 서버에 저장한다 — 정오답은 절대 알려주지 않는다.
   // 제출 전까지는 몇 번이든 다른 보기로 바꿔서 다시 저장할 수 있다.
-  const handleSelect = async (choiceIdx: number) => {
-    setSelected((prev) => ({ ...prev, [current.questionId]: choiceIdx }));
-    try {
-      const res = await fetch(`/api/exam/attempts/${attemptId}/answer`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ questionId: current.questionId, selectedIndex: choiceIdx }),
-      });
-      if (!res.ok) throw new Error((await res.json()).error ?? "답변 저장 실패");
-      setSaved((prev) => ({ ...prev, [current.questionId]: true }));
-    } catch (err) {
-      toast({ type: "error", description: err instanceof Error ? err.message : "오류가 발생했습니다." });
-    }
+  const handleSelect = (choiceIdx: number) => {
+    const qid = current.questionId;
+    const seq = (saveSeqRef.current[qid] ?? 0) + 1;
+    saveSeqRef.current[qid] = seq;
+    setSelected((prev) => ({ ...prev, [qid]: choiceIdx }));
+    setSaved((prev) => ({ ...prev, [qid]: false }));
+    setSaveFailed((prev) => ({ ...prev, [qid]: false }));
+    const send = async () => {
+      try {
+        const res = await fetch(`/api/exam/attempts/${attemptId}/answer`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ questionId: qid, selectedIndex: choiceIdx }),
+        });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "답변 저장 실패");
+        if (saveSeqRef.current[qid] === seq) setSaved((prev) => ({ ...prev, [qid]: true }));
+      } catch (err) {
+        if (saveSeqRef.current[qid] !== seq) return;
+        setSaveFailed((prev) => ({ ...prev, [qid]: true }));
+        toast({ type: "error", description: err instanceof Error ? err.message : "답변 저장 중 오류가 발생했습니다." });
+      }
+    };
+    saveChainRef.current[qid] = (saveChainRef.current[qid] ?? Promise.resolve()).then(send);
   };
 
   const submitTextAnswer = async (): Promise<boolean> => {
@@ -250,15 +280,36 @@ export function ExamRunner({ start, proctored }: { start: ExamStartResponse; pro
     if (index < questions.length - 1) {
       setIndex((i) => i + 1);
     } else {
-      finalize();
+      requestSubmit();
     }
+  };
+
+  const goTo = async (target: number) => {
+    if (!isMC && (answerTexts[current.questionId] ?? "").trim() && !saved[current.questionId]) {
+      await submitTextAnswer();
+    }
+    setConfirmingSubmit(false);
+    setIndex(target);
+  };
+
+  const isAnswered = (q: AttemptQuestionView) =>
+    q.questionType === "multiple_choice" ? selected[q.questionId] !== undefined : !!saved[q.questionId];
+  const unansweredCount = questions.filter((q) => !isAnswered(q)).length;
+
+  // 답하지 않은 문제가 있으면 바로 내지 않고 한 번 확인받는다(실제 시험처럼 건너뛰었다가 돌아올 수 있으므로).
+  const requestSubmit = () => {
+    if (unansweredCount > 0 && !confirmingSubmit) {
+      setConfirmingSubmit(true);
+      return;
+    }
+    finalize();
   };
 
   if (!current) return null;
 
   const minutes = remainingSec !== null ? Math.floor(remainingSec / 60) : null;
   const seconds = remainingSec !== null ? remainingSec % 60 : null;
-  const answered = isMC ? selected[current.questionId] !== undefined : !!saved[current.questionId];
+  const answered = isAnswered(current);
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-3 py-6 sm:px-4 sm:py-8">
@@ -271,6 +322,32 @@ export function ExamRunner({ start, proctored }: { start: ExamStartResponse; pro
             남은 시간 {minutes}:{String(seconds).padStart(2, "0")}
           </span>
         )}
+      </div>
+      <div className="flex flex-wrap gap-1.5" aria-label="문항 이동">
+        {questions.map((q, i) => {
+          const done = isAnswered(q);
+          const failed = saveFailed[q.questionId];
+          const base = "h-7 min-w-7 rounded-md border px-1.5 text-[12px] tabular-nums transition-colors";
+          const tone = failed
+            ? "border-destructive text-destructive"
+            : i === index
+              ? "border-ring bg-accent font-semibold"
+              : done
+                ? "border-border bg-muted text-foreground"
+                : "border-border/60 text-muted-foreground";
+          return (
+            <button
+              aria-current={i === index ? "step" : undefined}
+              aria-label={`${i + 1}번${done ? " (답함)" : ""}`}
+              className={`${base} ${tone}`}
+              key={q.questionId}
+              onClick={() => goTo(i)}
+              type="button"
+            >
+              {i + 1}
+            </button>
+          );
+        })}
       </div>
       {proctored && (
         <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-muted-foreground text-xs">
@@ -314,6 +391,13 @@ export function ExamRunner({ start, proctored }: { start: ExamStartResponse; pro
                 </button>
               );
             })}
+            {selected[current.questionId] !== undefined && (
+              <span
+                className={`self-end text-xs ${saveFailed[current.questionId] ? "text-destructive" : saved[current.questionId] ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}
+              >
+                {saveFailed[current.questionId] ? "저장 실패 — 보기를 다시 눌러 주세요" : saved[current.questionId] ? "저장됨" : "저장 중…"}
+              </span>
+            )}
           </div>
         )}
 
@@ -358,15 +442,44 @@ export function ExamRunner({ start, proctored }: { start: ExamStartResponse; pro
           </div>
         )}
       </div>
-      <div className="flex justify-end gap-2">
-        {!answered && !proctored && (
-          <span className="self-center text-muted-foreground text-xs">
-            {isMC ? "보기를 선택하세요" : "답을 입력하고 저장하세요"}
-          </span>
-        )}
-        <Button disabled={submitting || !answered} onClick={goNext}>
-          {index < questions.length - 1 ? "다음 문제" : "제출하기"}
+      {confirmingSubmit && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-sm">
+          <span>답하지 않은 문제가 {unansweredCount}개 있습니다. 그대로 제출할까요?</span>
+          <div className="flex gap-2">
+            <Button onClick={() => setConfirmingSubmit(false)} size="sm" type="button" variant="outline">
+              계속 풀기
+            </Button>
+            <Button disabled={submitting} onClick={() => finalize()} size="sm" type="button">
+              그대로 제출
+            </Button>
+          </div>
+        </div>
+      )}
+      <div className="flex items-center justify-between gap-2">
+        <Button disabled={submitting || index === 0} onClick={() => goTo(index - 1)} type="button" variant="outline">
+          이전 문제
         </Button>
+        <div className="flex items-center gap-2">
+          {!answered && (
+            <span className="text-muted-foreground text-xs">{isMC ? "건너뛰고 나중에 풀 수 있어요" : "답을 입력하고 저장하세요"}</span>
+          )}
+          {index < questions.length - 1 && (
+            <Button disabled={submitting} onClick={goNext} type="button">
+              다음 문제
+            </Button>
+          )}
+          <Button
+            disabled={submitting}
+            onClick={async () => {
+              if (!isMC && (answerTexts[current.questionId] ?? "").trim() && !saved[current.questionId]) await submitTextAnswer();
+              requestSubmit();
+            }}
+            type="button"
+            variant={index < questions.length - 1 ? "outline" : "default"}
+          >
+            {submitting ? "제출 중…" : "제출하기"}
+          </Button>
+        </div>
       </div>
     </div>
   );
