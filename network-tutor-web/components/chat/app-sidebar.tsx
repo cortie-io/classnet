@@ -1,5 +1,7 @@
 "use client";
 
+import { SHOW_OFFICIAL_EXAMS } from "@/lib/student-features";
+
 import {
   AwardIcon,
   LibraryBigIcon,
@@ -61,7 +63,9 @@ type NavItem = { href: string; label: string; icon: LucideIcon };
 
 const STUDY_NAV: NavItem[] = [
   { href: "/textbook", label: "교재", icon: LibraryBigIcon },
-  { href: "/official-exams", label: "공식 모의시험", icon: AwardIcon },
+  ...(SHOW_OFFICIAL_EXAMS
+    ? [{ href: "/official-exams", label: "공식 모의시험", icon: AwardIcon }]
+    : []),
   { href: "/practice", label: "과목별 문제 연습", icon: BookOpenCheckIcon },
   { href: "/mock-exam", label: "모의고사", icon: TimerIcon },
   { href: "/rounds", label: "기출문제", icon: CalendarClockIcon },

@@ -1,9 +1,23 @@
+import { SHOW_OFFICIAL_EXAMS } from "@/lib/student-features";
 import { type NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 
 // 게스트 없음, 회원가입 없음: 로그인 안 된 사용자는 무조건 /login으로 보낸다.
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Hide new student entry points without interrupting existing attempts/results.
+  if (
+    !SHOW_OFFICIAL_EXAMS &&
+    ["/official-exams", "/api/official-exams"].includes(
+      pathname.replace(/\/$/, "")
+    )
+  ) {
+    return new NextResponse("Not Found", {
+      status: 404,
+      headers: { "Cache-Control": "no-store" },
+    });
+  }
 
   if (pathname.startsWith("/ping")) {
     return new Response("pong", { status: 200 });
