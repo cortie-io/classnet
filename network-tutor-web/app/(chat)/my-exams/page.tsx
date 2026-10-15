@@ -71,12 +71,12 @@ export default function MyExamsPage() {
       {loading && <PageLoading />}
       {!loading && attempts.length === 0 && (
         <PageNotice
-          description="문제 연습이나 모의고사를 풀면 여기에 기록이 쌓여요."
+          description="과목별 문제 연습이나 모의고사를 풀면 여기에 기록이 쌓여요."
           icon={ClipboardListIcon}
           title="아직 응시한 기록이 없어요"
         >
           <Button asChild className="rounded-xl bg-brand">
-            <Link href="/practice">문제 연습 시작하기</Link>
+            <Link href="/practice">과목별 문제 연습 시작하기</Link>
           </Button>
         </PageNotice>
       )}

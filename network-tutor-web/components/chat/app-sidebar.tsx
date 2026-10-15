@@ -2,7 +2,6 @@
 
 import {
   AwardIcon,
-  GraduationCapIcon,
   LibraryBigIcon,
   BarChart3Icon,
   BookOpenCheckIcon,
@@ -61,12 +60,11 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 type NavItem = { href: string; label: string; icon: LucideIcon };
 
 const STUDY_NAV: NavItem[] = [
-  { href: "/learn", label: "처음부터 배우기", icon: GraduationCapIcon },
   { href: "/textbook", label: "교재", icon: LibraryBigIcon },
   { href: "/official-exams", label: "공식 모의시험", icon: AwardIcon },
-  { href: "/practice", label: "문제 연습", icon: BookOpenCheckIcon },
+  { href: "/practice", label: "과목별 문제 연습", icon: BookOpenCheckIcon },
   { href: "/mock-exam", label: "모의고사", icon: TimerIcon },
-  { href: "/rounds", label: "기출문제 회차별 풀이", icon: CalendarClockIcon },
+  { href: "/rounds", label: "기출문제", icon: CalendarClockIcon },
   { href: "/flashcards", label: "플래시카드", icon: LayersIcon },
 ];
 

@@ -79,7 +79,7 @@ export default function RoundsPage() {
       <PageIntro
         description="실제로 출제됐던 회차를 골라 50문제를 원래 순서 그대로 풀어봐요. 시간 제한은 없고, 제출하면 채점 결과와 해설을 한 번에 확인할 수 있어요."
         icon={CalendarClockIcon}
-        title="기출문제 회차별 풀이"
+        title="기출문제"
       />
 
       {rounds === null ? (

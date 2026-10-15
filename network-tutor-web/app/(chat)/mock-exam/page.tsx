@@ -55,7 +55,7 @@ export default function MockExamPage() {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-8 sm:py-12">
       <PageIntro
-        description="실제 네트워크관리사 2급 필기시험과 똑같은 구성으로 실전 감각을 길러보세요."
+        description="실제 네트워크관리사 2급 필기시험과 똑같은 구성으로 실전 감각을 길러보세요. 매번 과목별 문항 수에 맞춰 문제를 무작위로 출제하고, 출제된 문제의 순서도 무작위로 배치해요."
         icon={TimerIcon}
         title="모의고사"
       />

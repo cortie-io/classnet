@@ -3,14 +3,14 @@
 import {
   ArrowRightIcon,
   BookOpenIcon,
-  CheckIcon,
   GraduationCapIcon,
   ListChecksIcon,
   PartyPopperIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { ALL_LESSONS, CURRICULUM } from "@/lib/textbook/curriculum";
-import { cn } from "@/lib/utils";
+import { ALL_LESSONS } from "@/lib/textbook/curriculum";
+import { TextbookToc } from "./textbook-toc";
+import { ContinueReading } from "./continue-reading";
 import { useLearnProgress } from "./use-learn-progress";
 
 function ProgressRing({ value, total }: { value: number; total: number }) {
@@ -52,13 +52,13 @@ function ProgressRing({ value, total }: { value: number; total: number }) {
   );
 }
 
-// 처음부터 배우기 첫 화면: 전체 진도, 지금 할 단원, 과목별 단계 목록.
+// 교재 첫 화면: 전체 진도, 지금 할 단원, 과목별 단계 목록.
 export function LearnOverview({
   minutes,
 }: {
   minutes: Record<string, number>;
 }) {
-  const { bySlug, isLoading } = useLearnProgress();
+  const { bySlug } = useLearnProgress();
   const done = ALL_LESSONS.filter((l) => bySlug.get(l.slug)?.completedAt);
   const current =
     ALL_LESSONS.find((l) => !bySlug.get(l.slug)?.completedAt) ?? null;
@@ -79,7 +79,7 @@ export function LearnOverview({
           <div className="min-w-0">
             <p className="inline-flex items-center gap-1.5 font-semibold text-[12.5px] text-primary">
               <GraduationCapIcon className="size-4" />
-              처음부터 배우기
+              교재
             </p>
             <h1 className="mt-1.5 font-bold text-[24px] tracking-[-0.035em] md:text-[26px]">
               {done.length === 0
@@ -94,10 +94,11 @@ export function LearnOverview({
               10~15분이면 충분해요.
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
+              <ContinueReading />
               {current ? (
                 <Link
                   className="inline-flex h-11 max-w-full items-center gap-2 rounded-xl bg-brand px-5 font-semibold text-[14px] text-white shadow-[var(--shadow-brand)] transition-opacity hover:opacity-90"
-                  href={`/learn/${current.slug}`}
+                  href={`/textbook/${current.slug}`}
                 >
                   <span className="truncate">
                     {done.length === 0
@@ -117,7 +118,7 @@ export function LearnOverview({
               )}
               <Link
                 className="inline-flex h-11 items-center gap-1.5 rounded-xl border border-border bg-background px-4 font-semibold text-[13.5px] transition-colors hover:bg-accent"
-                href="/textbook"
+                href="#textbook-contents"
               >
                 <BookOpenIcon className="size-4" />
                 교재 목차
@@ -177,111 +178,8 @@ export function LearnOverview({
         ))}
       </div>
 
-      <div className="mt-8 space-y-6">
-        {CURRICULUM.map((part) => {
-          const partDone = part.lessons.filter(
-            (l) => bySlug.get(l.slug)?.completedAt
-          ).length;
-          return (
-            <section
-              className="rounded-[1.125rem] border border-border bg-card px-5 py-5"
-              key={part.id}
-            >
-              <header className="flex items-end justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="font-semibold text-[12px] text-primary">
-                    {part.label}
-                  </p>
-                  <h2 className="font-bold text-[17px] tracking-tight">
-                    {part.title}
-                  </h2>
-                </div>
-                <span className="shrink-0 text-[12.5px] text-muted-foreground tabular-nums">
-                  {partDone}/{part.lessons.length} 완료
-                </span>
-              </header>
-              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full bg-brand transition-[width] duration-700"
-                  style={{
-                    width: `${(partDone / part.lessons.length) * 100}%`,
-                  }}
-                />
-              </div>
-              <ol className="mt-4">
-                {part.lessons.map((l, i) => {
-                  const step = ALL_LESSONS.find((x) => x.slug === l.slug)!;
-                  const p = bySlug.get(l.slug);
-                  const isDone = Boolean(p?.completedAt);
-                  const isCurrent = !isLoading && current?.slug === l.slug;
-                  const last = i === part.lessons.length - 1;
-                  return (
-                    <li className="relative flex gap-4" key={l.slug}>
-                      {!last ? (
-                        <span
-                          className={cn(
-                            "absolute top-9 bottom-0 left-[15px] w-0.5",
-                            isDone ? "bg-emerald-200" : "bg-border"
-                          )}
-                        />
-                      ) : null}
-                      <span
-                        className={cn(
-                          "relative z-10 mt-1 flex size-8 shrink-0 items-center justify-center rounded-full font-semibold text-[12px] tabular-nums",
-                          isDone
-                            ? "bg-emerald-500 text-white"
-                            : isCurrent
-                              ? "bg-brand text-white shadow-[var(--shadow-brand)] ring-4 ring-primary/15"
-                              : p?.firstReadAt
-                                ? "border-2 border-primary/40 bg-background text-primary"
-                                : "border border-border bg-background text-muted-foreground"
-                        )}
-                      >
-                        {isDone ? (
-                          <CheckIcon className="size-4" />
-                        ) : (
-                          step.index + 1
-                        )}
-                      </span>
-                      <Link
-                        className={cn(
-                          "group mb-3 flex min-w-0 flex-1 items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-accent/60",
-                          isCurrent && "bg-accent/70"
-                        )}
-                        href={`/learn/${l.slug}`}
-                      >
-                        <span className="min-w-0 flex-1">
-                          <span className="flex flex-wrap items-center gap-2">
-                            <span className="font-semibold text-[14.5px] group-hover:text-primary">
-                              {l.title}
-                            </span>
-                            {isCurrent ? (
-                              <span className="rounded-full bg-brand px-2 py-0.5 font-semibold text-[10.5px] text-white">
-                                지금 할 차례
-                              </span>
-                            ) : null}
-                          </span>
-                          <span className="mt-0.5 block truncate text-[12.5px] text-muted-foreground">
-                            {l.summary}
-                          </span>
-                        </span>
-                        {p?.quizTotal ? (
-                          <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 font-semibold text-[11.5px] text-emerald-700 tabular-nums">
-                            {p.quizCorrect}/{p.quizTotal}
-                          </span>
-                        ) : minutes[l.slug] ? (
-                          <span className="hidden shrink-0 text-[12px] text-muted-foreground sm:block">
-                            {minutes[l.slug]}분
-                          </span>
-                        ) : null}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ol>
-            </section>
-          );
-        })}
+      <div className="mt-8 scroll-mt-20" id="textbook-contents">
+        <TextbookToc minutes={minutes} />
       </div>
     </div>
   );

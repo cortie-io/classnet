@@ -32,5 +32,5 @@ export default function TextbookLessonPage({
 
 async function Lesson({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  return <LessonPage mode="read" slug={slug} />;
+  return <LessonPage slug={slug} />;
 }

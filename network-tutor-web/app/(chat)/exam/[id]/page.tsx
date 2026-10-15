@@ -16,6 +16,16 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/chat/toast";
 import { loadJson } from "@/components/load-json";
 
+import {
+  ExamRunner,
+  type ExamStartResponse,
+} from "@/components/exam/exam-runner";
+import {
+  readPracticeSelection,
+  savePracticeSelection,
+  type PracticeSelection,
+} from "@/lib/practice-continuation";
+
 type QuestionType = "multiple_choice" | "short_answer" | "subjective" | "essay";
 
 const QUESTION_TYPE_LABEL: Record<QuestionType, string> = {
@@ -145,14 +155,57 @@ export default function ExamResultPage({
   const router = useRouter();
   const [data, setData] = useState<AttemptResult | null>(null);
   const [loading, setLoading] = useState(true);
-
+  const [selection, setSelection] = useState<PracticeSelection | null>(null);
+  const [nextStart, setNextStart] = useState<ExamStartResponse | null>(null);
+  const [startingMore, setStartingMore] = useState(false);
   useEffect(() => {
+    setSelection(readPracticeSelection(id));
+    setNextStart(null);
+  }, [id]);
+  const morePractice = async () => {
+    if (!selection || startingMore) return;
+    setStartingMore(true);
+    try {
+      const response = await fetch("/api/exam/practice/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subject: selection.subject || undefined,
+          count: selection.count,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok)
+        throw new Error(result.error ?? "문제를 불러오지 못했어요.");
+      savePracticeSelection(result.attemptId, selection);
+      setNextStart(result);
+      window.scrollTo({ top: 0 });
+    } catch (error) {
+      toast({
+        type: "error",
+        description:
+          error instanceof Error ? error.message : "문제를 불러오지 못했어요.",
+      });
+    } finally {
+      setStartingMore(false);
+    }
+  };
+  useEffect(() => {
+    setLoading(true);
     // 없는 응시나 남의 응시면 data가 null로 남아 "찾을 수 없습니다"가 보인다(예전엔 {error}가 들어가 화면이 깨졌다).
     loadJson(`/api/exam/attempts/${id}`, setData, { quiet: true }).finally(() =>
       setLoading(false)
     );
   }, [id]);
 
+  if (nextStart)
+    return (
+      <ExamRunner
+        key={nextStart.attemptId}
+        proctored={false}
+        start={nextStart}
+      />
+    );
   if (loading) return <PageLoading />;
   if (!data)
     return (
@@ -291,6 +344,21 @@ export default function ExamResultPage({
             </p>
           )}
           <div className="mt-5 flex flex-wrap justify-center gap-2">
+            {selection ? (
+              <Button
+                className="rounded-xl bg-brand"
+                disabled={startingMore}
+                onClick={morePractice}
+              >
+                {startingMore
+                  ? "문제를 고르는 중…"
+                  : `${selection.subject ? selection.subject.replace(/^\d과목_/, "") : "전체 과목"} ${selection.count}문제 더 풀기`}
+              </Button>
+            ) : (
+              <Button asChild className="rounded-xl" variant="outline">
+                <Link href="/practice">과목별 문제 더 풀기</Link>
+              </Button>
+            )}
             {!isSingleQuestion && (
               <Button
                 className="rounded-xl bg-brand"

@@ -3,7 +3,6 @@ import {
   ArrowRightIcon,
   ClockIcon,
   GraduationCapIcon,
-  LibraryBigIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -13,20 +12,13 @@ import { HeadingList, LessonBody } from "./lesson-body";
 import { LessonFlow } from "./lesson-flow";
 import { ReadTracker } from "./read-tracker";
 
-// 교재 읽기(/textbook/[slug])와 처음부터 배우기(/learn/[slug])가 같은 본문 화면을 쓴다.
-// 배우기 쪽은 맨 아래에 확인 문제·완료 흐름이 붙고, 이전·다음 이동이 학습 경로 안에서 이어진다.
-export function LessonPage({
-  slug,
-  mode,
-}: {
-  slug: string;
-  mode: "read" | "learn";
-}) {
+// 교재 본문과 단원 확인 문제·완료 흐름을 한 화면에서 제공한다.
+export function LessonPage({ slug }: { slug: string }) {
   const lesson = findLesson(slug);
   const parsed = lesson ? loadLesson(slug) : null;
   if (!lesson || !parsed) notFound();
   const { prev, next } = neighbors(slug);
-  const base = mode === "learn" ? "/learn" : "/textbook";
+  const base = "/textbook";
   const partLessons = lesson.part.lessons;
 
   return (
@@ -34,7 +26,7 @@ export function LessonPage({
       <article className="mx-auto w-full min-w-0 max-w-[46rem] flex-1">
         <nav className="flex flex-wrap items-center gap-1.5 text-[12.5px] text-muted-foreground">
           <Link className="hover:text-primary" href={base}>
-            {mode === "learn" ? "처음부터 배우기" : "교재"}
+            교재
           </Link>
           <span>/</span>
           <span>
@@ -43,12 +35,12 @@ export function LessonPage({
         </nav>
 
         <header className="mt-3 border-border border-b pb-6">
-          {mode === "learn" ? (
+          {
             <p className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-brand-soft px-2.5 py-1 font-semibold text-[12px] text-primary">
               <GraduationCapIcon className="size-3.5" />
               STEP {lesson.index + 1} / {ALL_LESSONS.length}
             </p>
-          ) : null}
+          }
           <h1 className="font-bold text-[28px] leading-tight tracking-[-0.04em] md:text-[32px]">
             {lesson.title}
           </h1>
@@ -63,23 +55,6 @@ export function LessonPage({
             <span>
               단원 {lesson.index + 1} / {ALL_LESSONS.length}
             </span>
-            {mode === "read" ? (
-              <Link
-                className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
-                href={`/learn/${slug}`}
-              >
-                <GraduationCapIcon className="size-3.5" />
-                학습 경로에서 보기
-              </Link>
-            ) : (
-              <Link
-                className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
-                href={`/textbook/${slug}`}
-              >
-                <LibraryBigIcon className="size-3.5" />
-                교재로 보기
-              </Link>
-            )}
           </div>
         </header>
 
@@ -87,29 +62,11 @@ export function LessonPage({
           <LessonBody segments={parsed.segments} />
         </div>
 
-        {mode === "learn" ? (
-          <LessonFlow
-            hasQuiz={Boolean(lesson.quiz)}
-            next={next ? { slug: next.slug, title: next.title } : null}
-            slug={slug}
-          />
-        ) : (
-          <div className="mt-12 rounded-2xl border border-primary/15 bg-brand-soft px-5 py-4">
-            <p className="font-semibold text-[14px]">이 단원을 다 읽었다면</p>
-            <p className="mt-1 text-[13px] text-muted-foreground">
-              {lesson.quiz
-                ? "학습 경로에서 확인 문제를 풀고 완료로 표시해 보세요."
-                : "학습 경로에서 완료로 표시하고 다음 단원으로 넘어가세요."}
-            </p>
-            <Link
-              className="mt-3 inline-flex h-9 items-center gap-1.5 rounded-xl bg-brand px-3.5 font-semibold text-[13px] text-white"
-              href={`/learn/${slug}`}
-            >
-              {lesson.quiz ? "확인 문제 풀기" : "완료하러 가기"}
-              <ArrowRightIcon className="size-3.5" />
-            </Link>
-          </div>
-        )}
+        <LessonFlow
+          hasQuiz={Boolean(lesson.quiz)}
+          next={next ? { slug: next.slug, title: next.title } : null}
+          slug={slug}
+        />
 
         <nav className="mt-10 grid gap-3 sm:grid-cols-2">
           {prev ? (
@@ -146,8 +103,8 @@ export function LessonPage({
         <ReadTracker slug={slug} />
       </article>
 
-      <aside className="hidden w-56 shrink-0 xl:block">
-        <div className="sticky top-20 space-y-6">
+      <aside className="hidden w-56 shrink-0 self-stretch xl:block">
+        <div className="sticky top-6 max-h-[calc(100dvh-3rem)] space-y-6 overflow-y-auto overscroll-contain pb-4">
           <div>
             <p className="mb-2 font-semibold text-[12px] text-foreground">
               이 단원에서

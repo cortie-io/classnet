@@ -10,11 +10,13 @@ import { useSidebar } from "@/components/ui/sidebar";
 // (실사용 스크린샷으로 확인된 버그: "어떤 페이지에서든 사이드 패널 띄울수 있는 버튼은 무조건 있어야 해").
 // 데스크톱은 사이드바 자체에 토글이 있어 트리거를 md:hidden으로 모바일 전용으로만 노출한다.
 const PAGE_TITLES: [prefix: string, title: string][] = [
+  ["/textbook", "교재"],
+  ["/learn", "교재"],
   ["/question-bank", "문제은행"],
-  ["/practice", "문제 연습"],
+  ["/practice", "과목별 문제 연습"],
   ["/mock-exam", "모의고사"],
   ["/timed-exam", "지정 시험"],
-  ["/rounds", "기출문제 회차별 풀이"],
+  ["/rounds", "기출문제"],
   ["/my-exams", "내 응시 기록"],
   ["/wrong-answers", "오답노트"],
   ["/my-report", "나의 학습 리포트"],

@@ -12,6 +12,8 @@ import {
 import { toast } from "@/components/chat/toast";
 import { loadJson } from "@/components/load-json";
 
+import { savePracticeSelection } from "@/lib/practice-continuation";
+
 interface Meta {
   subjects: { subject: string; count: number }[];
 }
@@ -37,6 +39,7 @@ export default function PracticePage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "시작할 수 없습니다.");
+      savePracticeSelection(data.attemptId, { subject, count });
       setStart(data);
     } catch (err) {
       toast({
@@ -62,7 +65,7 @@ export default function PracticePage() {
       <PageIntro
         description="과목과 문항 수를 골라 바로 풀어보세요. 모두 풀고 제출하면 채점 결과와 해설을 한 번에 확인할 수 있어요."
         icon={BookOpenCheckIcon}
-        title="문제 연습"
+        title="과목별 문제 연습"
       />
 
       <div className="surface flex flex-col gap-7 p-5 sm:p-7">

@@ -153,11 +153,11 @@
 @layer base {
   body {
     position: relative;
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 
   html {
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 
   h1,
