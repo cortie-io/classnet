@@ -18,6 +18,8 @@ import { PageIntro, PageLoading } from "@/components/chat/page-intro";
 import { Button } from "@/components/ui/button";
 import { MessageResponse } from "@/components/ai-elements/message";
 import { loadJson } from "@/components/load-json";
+import { matchLesson, type LessonMatch } from "@/lib/textbook/lesson-match";
+import { attemptTitle } from "@/lib/study-summary";
 
 interface SubjectStat {
   subject: string;
@@ -41,6 +43,7 @@ interface RecentAttempt {
   score: number | null;
   total: number;
   setKind: string | null;
+  setTitle: string | null;
   submittedAt: string | null;
 }
 interface StudentReport {
@@ -149,6 +152,41 @@ export default function MyReportPage() {
   const [analysis, setAnalysis] = useState<string | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(true);
   const [regenerating, setRegenerating] = useState(false);
+
+  // 복습 중인 오답을 교재 단원별로 묶어 "자주 틀리는 단원" — 과목보다 구체적이고 바로 읽으러 갈 수 있다
+  const [weakLessons, setWeakLessons] = useState<
+    { lesson: LessonMatch; n: number }[]
+  >([]);
+  useEffect(() => {
+    loadJson<
+      {
+        stem: string;
+        choices: string[] | null;
+        subject: string;
+        reviewState: string;
+      }[]
+    >(
+      "/api/exam/wrong-answers",
+      (items) => {
+        const counts = new Map<string, { lesson: LessonMatch; n: number }>();
+        for (const i of items) {
+          if (i.reviewState === "mastered") {
+            continue;
+          }
+          const l = matchLesson(i.stem, i.choices, i.subject);
+          if (l) {
+            const c = counts.get(l.slug) ?? { lesson: l, n: 0 };
+            c.n += 1;
+            counts.set(l.slug, c);
+          }
+        }
+        setWeakLessons(
+          [...counts.values()].sort((a, b) => b.n - a.n).slice(0, 5)
+        );
+      },
+      { quiet: true }
+    );
+  }, []);
 
   useEffect(() => {
     loadJson("/api/exam/my-report", setData);
@@ -292,7 +330,13 @@ export default function MyReportPage() {
                 >
                   <span className="min-w-0 truncate">
                     <span className="font-medium text-foreground">
-                      {SET_KIND_LABEL[a.setKind ?? ""] ?? "연습"}
+                      {a.setKind === "practice_custom" &&
+                      a.setTitle &&
+                      !a.setTitle.startsWith("연습 문제")
+                        ? a.setTitle
+                        : a.setKind === "past_exam_round"
+                          ? attemptTitle(a.setTitle)
+                          : (SET_KIND_LABEL[a.setKind ?? ""] ?? "연습")}
                     </span>
                     {a.submittedAt ? (
                       <span className="text-muted-foreground">
@@ -311,6 +355,38 @@ export default function MyReportPage() {
           )}
         </div>
       </div>
+
+      {weakLessons.length > 0 && (
+        <div className={card}>
+          <h2 className={cardTitle}>자주 틀리는 단원</h2>
+          <p className="mt-1 mb-4 text-[12.5px] text-muted-foreground">
+            아직 극복하지 못한 오답이 많이 몰린 교재 단원이에요. 개념을 다시
+            읽고 확인 문제를 풀어 보세요.
+          </p>
+          <div className="flex flex-col gap-1.5">
+            {weakLessons.map(({ lesson, n }) => (
+              <Link
+                className="group flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-[13px] transition-colors hover:bg-accent"
+                href={`/textbook/${lesson.slug}`}
+                key={lesson.slug}
+              >
+                <span className="min-w-0 truncate">
+                  <span className="mr-1.5 text-muted-foreground">
+                    {lesson.partLabel}
+                  </span>
+                  <span className="font-medium text-foreground">
+                    {lesson.title}
+                  </span>
+                </span>
+                <span className="flex shrink-0 items-center gap-1 font-semibold text-destructive tabular-nums">
+                  {n}문제
+                  <ChevronRightIcon className="size-3.5 text-muted-foreground/50 group-hover:text-primary" />
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {data.weakTopics.length > 0 && (
         <div className={card}>

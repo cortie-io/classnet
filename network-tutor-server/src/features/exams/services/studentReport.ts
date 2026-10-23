@@ -96,6 +96,7 @@ export interface StudentReport {
 		score: number | null;
 		total: number;
 		setKind: string | null;
+		setTitle: string | null;
 		submittedAt: Date | null;
 	}[];
 }
@@ -143,7 +144,7 @@ export async function getStudentReport(userId: number): Promise<StudentReport> {
 	);
 
 	const { rows: attemptRows } = await pool.query(
-		`SELECT a.id, a.score, array_length(a.question_ids, 1) AS total, s.kind AS set_kind, a.submitted_at
+		`SELECT a.id, a.score, array_length(a.question_ids, 1) AS total, s.kind AS set_kind, s.title AS set_title, a.submitted_at
      FROM exam_attempts a LEFT JOIN exam_sets s ON s.id = a.exam_set_id
      WHERE a.user_id = $1 AND NOT a.is_official AND a.status IN ('submitted','auto_submitted')
      ORDER BY a.submitted_at DESC LIMIT 10`,
@@ -168,6 +169,7 @@ export async function getStudentReport(userId: number): Promise<StudentReport> {
 			score: r.score !== null ? Number(r.score) : null,
 			total: r.total ?? 0,
 			setKind: r.set_kind,
+			setTitle: r.set_title,
 			submittedAt: r.submitted_at,
 		})),
 	};

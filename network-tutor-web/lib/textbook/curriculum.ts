@@ -325,6 +325,7 @@ export const CURRICULUM: Part[] = [
           topic: "tcpip",
           terms: [
             "클래스",
+            "Class",
             "사설",
             "IPv4",
             "루프백",
@@ -514,7 +515,7 @@ export const CURRICULUM: Part[] = [
           topic: "tcpip",
           terms: [
             "IPv6",
-            "128",
+            "128비트",
             "듀얼 스택",
             "터널링",
             "애니캐스트",
@@ -575,7 +576,7 @@ export const CURRICULUM: Part[] = [
           terms: [
             "Windows Server",
             "서버 관리자",
-            "역할",
+            "역할 추가",
             "Server Core",
             "PowerShell",
             "에디션",
@@ -608,6 +609,7 @@ export const CURRICULUM: Part[] = [
           terms: [
             "NTFS",
             "공유 권한",
+            "그룹 권한",
             "FAT32",
             "ReFS",
             "EFS",

@@ -3,6 +3,7 @@
 import { subjectLabel } from "@/lib/subject";
 import {
   BookOpenIcon,
+  LibraryBigIcon,
   NotebookPenIcon,
   PartyPopperIcon,
   RepeatIcon,
@@ -23,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { handOffAttempt } from "@/lib/attempt-handoff";
 import { toast } from "@/components/chat/toast";
 import { loadJson } from "@/components/load-json";
+import { matchLesson, type LessonMatch } from "@/lib/textbook/lesson-match";
 import { MessageResponse } from "@/components/ai-elements/message";
 import { daysFromToday, type ReviewState } from "@/lib/study-summary";
 
@@ -134,6 +136,33 @@ export default function WrongAnswersPage() {
     (i) => i.reviewState === "mastered"
   ).length;
   const dueCount = (items ?? []).filter((i) => i.reviewState === "due").length;
+
+  // 문제마다 관련 교재 단원(지문의 주제어로 추정), 그리고 복습 중인 문제가 많이 몰린 단원
+  const lessonOf = useMemo(() => {
+    const map = new Map<number, LessonMatch | null>();
+    for (const i of items ?? []) {
+      map.set(i.answerId, matchLesson(i.stem, i.choices, i.subject));
+    }
+    return map;
+  }, [items]);
+  const weakLessons = useMemo(() => {
+    const counts = new Map<string, { lesson: LessonMatch; n: number }>();
+    for (const i of items ?? []) {
+      if (i.reviewState === "mastered") {
+        continue;
+      }
+      const l = lessonOf.get(i.answerId);
+      if (l) {
+        const c = counts.get(l.slug) ?? { lesson: l, n: 0 };
+        c.n += 1;
+        counts.set(l.slug, c);
+      }
+    }
+    return [...counts.values()]
+      .filter((c) => c.n >= 2)
+      .sort((a, b) => b.n - a.n)
+      .slice(0, 4);
+  }, [items, lessonOf]);
 
   const subjects = useMemo(
     () => [...new Set(inView.map((i) => i.subject))].sort(),
@@ -323,6 +352,30 @@ export default function WrongAnswersPage() {
               정답 가리고 풀어보기
             </label>
           </div>
+
+          {view === "review" && weakLessons.length > 0 && (
+            <div className="surface flex flex-col gap-2.5 px-4 py-3.5">
+              <p className="flex items-center gap-2 font-semibold text-[13px] text-foreground">
+                <LibraryBigIcon className="size-4 text-primary" />
+                자주 틀리는 단원
+                <span className="font-normal text-[12px] text-muted-foreground">
+                  · 교재로 개념부터 다시 잡아 보세요
+                </span>
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {weakLessons.map(({ lesson, n }) => (
+                  <Link
+                    className="rounded-full border border-border bg-card px-3 py-1.5 text-[12.5px] text-foreground transition-colors hover:border-primary/40 hover:bg-accent"
+                    href={`/textbook/${lesson.slug}`}
+                    key={lesson.slug}
+                  >
+                    {lesson.title.split(" — ")[0]}{" "}
+                    <span className="text-destructive">{n}문제</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
 
           {subjects.length > 1 && (
             <div className="flex flex-wrap gap-2">
@@ -559,6 +612,17 @@ export default function WrongAnswersPage() {
                           ? "준비 중..."
                           : "다시 풀어보기"}
                       </Button>
+                      {lessonOf.get(item.answerId) ? (
+                        <Button asChild size="sm" variant="ghost">
+                          <Link
+                            href={`/textbook/${lessonOf.get(item.answerId)?.slug}`}
+                            title={lessonOf.get(item.answerId)?.title}
+                          >
+                            <LibraryBigIcon className="size-3.5" />
+                            관련 단원
+                          </Link>
+                        </Button>
+                      ) : null}
                       {item.conceptNodeId !== null && (
                         <Button asChild size="sm" variant="ghost">
                           <Link

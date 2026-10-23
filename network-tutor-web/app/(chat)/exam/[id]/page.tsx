@@ -4,6 +4,7 @@ import { subjectLabel } from "@/lib/subject";
 import {
   CheckIcon,
   ClockIcon,
+  LibraryBigIcon,
   MessageCircleQuestionIcon,
   SparklesIcon,
   XIcon,
@@ -17,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/chat/toast";
 import { loadJson } from "@/components/load-json";
 import { MessageResponse } from "@/components/ai-elements/message";
+import { matchLesson } from "@/lib/textbook/lesson-match";
 
 import {
   ExamRunner,
@@ -54,6 +56,9 @@ interface ResultItem {
   explanation: string;
   stemImageUrl: string | null;
 }
+
+const lessonFor = (item: ResultItem) =>
+  matchLesson(item.stem, item.choices, item.subject);
 
 interface AttemptResult {
   status: string;
@@ -567,6 +572,14 @@ export default function ExamResultPage({
               <MessageCircleQuestionIcon className="size-4" />
               채팅에서 더 물어보기
             </Button>
+            {item.isCorrect === false && lessonFor(item) ? (
+              <Button asChild className="mt-3" size="sm" variant="ghost">
+                <Link href={`/textbook/${lessonFor(item)?.slug}`}>
+                  <LibraryBigIcon className="size-4" />
+                  관련 단원 읽기 · {lessonFor(item)?.title.split(" — ")[0]}
+                </Link>
+              </Button>
+            ) : null}
           </div>
         )
       )}
