@@ -1,5 +1,4 @@
 import { generateChat, type ProviderChoice } from "../llm/provider.js";
-import { OPENAI_CHAT_MODEL_HIGH } from "../llm/openai.js";
 import type { CalcResult } from "../rules/calculators.js";
 import { tokenize } from "../search/textIndex.js";
 
@@ -146,14 +145,14 @@ ${question}
 
 [답변]
 ${answer}`;
-    // 팩트체크 검증은 정확도가 제일 중요한 단계라 항상 상위 모델을 쓴다(2026-08-18 결정).
+    // 팩트체크 검증은 정확도가 제일 중요한 단계라 항상 상위 모델(accurate)을 쓴다(2026-08-18 결정).
     const { text: raw } = await generateChat(
       [
         { role: "system", content: "You are a strict domain fact-checker. Respond with JSON only." },
         { role: "user", content: verifierPrompt },
       ],
       provider,
-      { temperature: 0, model: OPENAI_CHAT_MODEL_HIGH },
+      { temperature: 0, tier: "accurate" },
     );
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (jsonMatch) {

@@ -263,3 +263,19 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS last_token_burn_at TIMESTAMPTZ;
 -- 바로 정오답을 보여주는 연습에서 "정답 확인"으로 정답을 공개한 시각. 공개한 문항은 답을 바꿀 수 없고,
 -- 진행 중인 응시의 답은 공개된 것만 오답노트에 나온다(examService.submitAnswer, studentReport.getWrongAnswers).
 ALTER TABLE exam_answers ADD COLUMN IF NOT EXISTS revealed_at TIMESTAMPTZ;
+
+-- ===== 2026-10-14 서비스 복구: 검색 임베딩을 모델별로 저장 =====
+-- node_embeddings는 노드당 벡터 1개(PK node_id)라 임베딩 모델을 바꾸려면 기존 벡터를 덮어써야 했고,
+-- 그 경로(ingest)는 concept_nodes를 TRUNCATE ... CASCADE해서 문제은행·학생 답안까지 지울 수 있었다.
+-- 여기에는 (node_id, model)마다 벡터를 따로 둔다 — model은 llm/embedding.ts의 activeEmbeddingModelId()
+-- (예: openai:text-embedding-3-small:1536). 채우는 것은 `npm run embed:nodes`이고 concept_nodes는 읽기만
+-- 한다. 기존 node_embeddings의 bge-m3 벡터는 그대로 둔다(corpus.ts가 재임베딩 전까지 함께 읽는다).
+CREATE TABLE IF NOT EXISTS concept_embeddings (
+  node_id     INT NOT NULL REFERENCES concept_nodes(id) ON DELETE CASCADE,
+  model       TEXT NOT NULL,
+  dims        INT NOT NULL,
+  embedding   JSONB NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (node_id, model)
+);
+-- ===== 끝: 검색 임베딩을 모델별로 저장 =====

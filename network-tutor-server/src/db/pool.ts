@@ -7,7 +7,17 @@ import { config } from "../config.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // cortie-db(RDS)는 Amazon 자체 CA로 서명돼 있어 Node 기본 신뢰 체인에 없다 — 이 번들로 명시 검증한다.
 const rdsCaPath = path.join(__dirname, "../../certs/rds-global-bundle.pem");
-const ssl = existsSync(rdsCaPath)
+// 같은 머신의 Postgres(로컬 개발 DB, 테스트용 PGlite)는 TLS를 쓰지 않는다 — 여기에 RDS용 ssl 설정을
+// 그대로 걸면 "server does not support SSL"로 연결 자체가 안 된다.
+const isLoopbackDb = (() => {
+  try {
+    const host = new URL(config.databaseUrl).hostname;
+    return host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "[::1]" || host === "";
+  } catch {
+    return false;
+  }
+})();
+const ssl = !isLoopbackDb && existsSync(rdsCaPath)
   ? { ca: readFileSync(rdsCaPath, "utf8"), rejectUnauthorized: true }
   : undefined;
 

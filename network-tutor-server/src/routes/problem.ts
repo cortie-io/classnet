@@ -4,13 +4,14 @@ import { answerQuestion, type RequesterContext } from "../pipeline/answerPipelin
 import { requireAuth } from "../auth/middleware.js";
 import { decryptSecret } from "../auth/crypto.js";
 import type { ProviderChoice } from "../llm/provider.js";
+import { sendAskError } from "../pipeline/askError.js";
 
 export const problemRouter = Router();
 
 const CHOICE_MARKS = ["①", "②", "③", "④", "⑤"];
 
 problemRouter.post("/problem/explain", requireAuth, async (req, res) => {
-  const { stem, choices, extraQuestion, imageBase64, useOwnKey } = req.body ?? {};
+  const { stem, choices, extraQuestion, imageBase64, imageMime, useOwnKey } = req.body ?? {};
   if (typeof stem !== "string" || stem.trim().length === 0) {
     return res.status(400).json({ error: "stem(문제 지문)이 필요합니다." });
   }
@@ -45,11 +46,11 @@ problemRouter.post("/problem/explain", requireAuth, async (req, res) => {
       level: req.user!.level,
       provider,
       imageBase64: typeof imageBase64 === "string" ? imageBase64 : undefined,
+      imageMime: typeof imageMime === "string" ? imageMime : undefined,
     };
     const result = await answerQuestion(composed, ctx);
     res.json(result);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    sendAskError(res, err, "problem/explain");
   }
 });

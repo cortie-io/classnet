@@ -4,6 +4,7 @@ import { answerQuestion, type RequesterContext } from "../pipeline/answerPipelin
 import { requireAuth } from "../auth/middleware.js";
 import { decryptSecret } from "../auth/crypto.js";
 import type { ProviderChoice } from "../llm/provider.js";
+import { sendAskError } from "../pipeline/askError.js";
 
 export const askRouter = Router();
 
@@ -26,6 +27,7 @@ async function buildRequesterContext(
   useOwnKey: boolean,
   imageBase64?: string,
   history?: RequesterContext["history"],
+  imageMime?: string,
 ): Promise<RequesterContext> {
   let provider: ProviderChoice = { provider: "default" };
   if (useOwnKey) {
@@ -36,11 +38,11 @@ async function buildRequesterContext(
     const encrypted = rows[0]?.openai_api_key_encrypted;
     if (encrypted) provider = { provider: "openai", openaiApiKey: decryptSecret(encrypted) };
   }
-  return { userId, level, provider, imageBase64, history };
+  return { userId, level, provider, imageBase64, imageMime, history };
 }
 
 askRouter.post("/ask", requireAuth, async (req, res) => {
-  const { question, imageBase64, useOwnKey, history } = req.body ?? {};
+  const { question, imageBase64, imageMime, useOwnKey, history } = req.body ?? {};
   if (typeof question !== "string" || question.trim().length === 0) {
     return res.status(400).json({ error: "question(string)이 필요합니다." });
   }
@@ -51,11 +53,12 @@ askRouter.post("/ask", requireAuth, async (req, res) => {
       useOwnKey !== false && req.user!.hasOpenaiKey,
       typeof imageBase64 === "string" ? imageBase64 : undefined,
       parseHistory(history),
+      typeof imageMime === "string" ? imageMime : undefined,
     );
     const result = await answerQuestion(question, ctx);
     res.json(result);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    // 예전에는 err.message를 그대로 돌려줘서 학생 화면에 'fetch failed'나 OpenAI 오류 본문이 떴다.
+    sendAskError(res, err, "ask");
   }
 });

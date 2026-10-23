@@ -18,6 +18,7 @@ import { examRouter } from "./routes/exam.js";
 import { adminExamRouter } from "./routes/adminExam.js";
 import { bookmarksRouter } from "./routes/bookmarks.js";
 import { settingsRouter } from "./routes/settings.js";
+import { readyHandler } from "./routes/ready.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -38,6 +39,8 @@ async function main() {
   app.get("/health", (_req, res) => {
     res.json({ status: "ok", nodesLoaded: getCorpus().length });
   });
+  // 실제로 답을 만들 수 있는지(DB·답변 공급자·검색 모드) — routes/ready.ts
+  app.get("/ready", readyHandler);
 
   app.use("/api", authRouter);
   app.use("/api", adminRouter);

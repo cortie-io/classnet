@@ -1,14 +1,16 @@
-import type { ChatMessage } from "../llm/ollama.js";
+import { describeLlmError } from "../llm/http.js";
 import { generateChat, type ProviderChoice } from "../llm/provider.js";
-import { OPENAI_CHAT_MODEL_HIGH } from "../llm/openai.js";
+import { normalizeImage, type ChatMessage, type ChatProviderName } from "../llm/types.js";
 import { extractCalcRequest } from "../router/calcExtractor.js";
-import { hybridRetrieve } from "../search/hybridSearch.js";
+import { hybridRetrieve, type HybridRetrieveResult } from "../search/hybridSearch.js";
 import { scanForLookupHit } from "../search/lookupSearch.js";
 import { getNode } from "../search/corpus.js";
 import { assembleContext, type SourceFootnote } from "./context.js";
 import { verifyCalcAnswer, verifyGroundedness, verifyStructuredAnswer } from "./verify.js";
 import { writeAuditLog, updateAuditLogVerification } from "./audit.js";
 import { cacheKeyOf, getCachedAnswer, setCachedAnswer } from "./cache.js";
+import { ASK_ERROR_MESSAGES, askErrorCode, type AskErrorCode } from "./askError.js";
+import { confidentTopic } from "./topicGate.js";
 import {
   getWeakAreas,
   getWeakTopics,
@@ -36,6 +38,8 @@ export interface RequesterContext {
   level: StudentLevel;
   provider: ProviderChoice;
   imageBase64?: string;
+  /** 첨부 이미지 형식(image/png 등). 없으면 base64 시그니처로 추정한다(llm/types.ts normalizeImage). */
+  imageMime?: string;
   // 채팅 UI의 이전 대화(직전 턴들)를 함께 보내 꼬리질문("그거 좀 더 쉽게", "왜 그런데?")을 이해하게 한다.
   // /problem 같은 단발성 입력에는 없다.
   history?: HistoryTurn[];
@@ -78,7 +82,10 @@ export interface AnswerResponse {
   verificationStatus: VerificationStatus;
   cached: boolean;
   auditLogId: number | null;
-  providerUsed: "gemma" | "openai" | null;
+  providerUsed: ChatProviderName | null;
+  // 답을 만들지 못하고 대체 문구를 돌려준 경우에만 채운다. 채팅 화면(network-tutor-model.ts)은 이 값이
+  // 있으면 고정된 안내 문구를 보여 주고, 그 턴을 다음 질문의 이전 대화로 다시 보내지 않는다.
+  errorCode?: AskErrorCode;
   // practice_request일 때만 채워진다 — 채팅 안에서 바로 풀어볼 수 있는 실제 문제은행 문제(연습 응시로 미리 생성됨).
   practiceAttempt?: { attemptId: number; questions: AttemptQuestionView[] } | null;
 }
@@ -104,6 +111,72 @@ function footnoteBlock(sources: SourceFootnote[], ontologyPath: string[]): strin
   return `\n\n---\n출처:\n${lines.join("\n")}${pathLine}`;
 }
 
+// 검색 상태를 감사 로그(verification_detail)에 남기는 형태 — "이 답은 임베딩 없이 BM25만으로 찾은
+// 근거로 만들었다"를 교사·운영자가 바로 알 수 있게 한다.
+function retrievalDetail(r: HybridRetrieveResult): Record<string, unknown> {
+  return {
+    retrievalMode: r.mode,
+    ...(r.degradedReason ? { degradedReason: r.degradedReason } : {}),
+    topVectorScore: r.topVectorScore === null ? null : Number(r.topVectorScore.toFixed(3)),
+    topBm25: r.topBm25 === null ? null : Number(r.topBm25.toFixed(3)),
+  };
+}
+
+// 임베딩 모델이 설정돼 있는데 BM25만으로 찾은 답(임베딩 장애 중이거나 재임베딩 전)은 캐시하지 않는다.
+// 캐시 키에는 임베딩 모델이 들어가므로(cache.ts), 여기서 캐시하면 벡터 검색이 돌아온 뒤에도 같은
+// 질문마다 이 답이 계속 나간다. 임베딩을 아예 안 쓰는 설정(embeddings_disabled)은 그 자체가 정상 상태다.
+function retrievalCacheable(r: HybridRetrieveResult): boolean {
+  return r.mode === "hybrid" || r.degradedReason === "embeddings_disabled";
+}
+
+/**
+ * 검색이나 생성 중 예외로 답을 만들지 못했을 때의 공통 처리 — 정해진 안내 문구로 답하고, 교사 확인 큐에
+ * 올라가도록 flagged 감사 로그를 남긴다. 예전에는 검색(hybridRetrieve)이 try 밖에 있어서 임베딩 장애가
+ * 그대로 500으로 올라갔고, 감사 로그도 안 남아 교사는 장애를 전혀 볼 수 없었다.
+ * 오류 원문은 학생에게 보내지 않는다(describeLlmError가 키·응답 본문을 걸러 요약만 남긴다).
+ */
+async function failedAnswer(params: {
+  question: string;
+  ctx: RequesterContext;
+  intent: Intent;
+  err: unknown;
+  sources?: SourceFootnote[];
+  ontologyPath?: string[];
+  detail?: Record<string, unknown>;
+}): Promise<AnswerResponse> {
+  const { question, ctx, intent, err } = params;
+  const errorCode = askErrorCode(err);
+  const sources = params.sources ?? [];
+  const finalAnswer = `${ASK_ERROR_MESSAGES[errorCode]} (이 오류는 자동으로 교사에게 기록됩니다.)`;
+  console.warn(`[answer] ${intent} 답변 실패(${errorCode}) user=${ctx.userId}:`, err);
+  const auditLogId = await writeAuditLog({
+    userId: ctx.userId,
+    question,
+    intent,
+    retrievedNodeIds: sources.map((s) => s.nodeId),
+    ruleEngineTrace: null,
+    llmRawAnswer: null,
+    verificationStatus: "flagged",
+    verificationDetail: { error: describeLlmError(err), errorCode, ...params.detail },
+    finalAnswer,
+    confidence: 0,
+  });
+  return {
+    question,
+    intent,
+    answer: finalAnswer,
+    sources,
+    ontologyPath: params.ontologyPath ?? [],
+    calcTrace: null,
+    confidence: 0,
+    verificationStatus: "flagged",
+    cached: false,
+    auditLogId,
+    providerUsed: null,
+    errorCode,
+  };
+}
+
 async function runCalc(question: string, ctx: RequesterContext): Promise<AnswerResponse> {
   const match = extractCalcRequest(question)!;
   const { kind, result } = match;
@@ -120,23 +193,26 @@ async function runCalc(question: string, ctx: RequesterContext): Promise<AnswerR
 
   let rawAnswer: string;
   let verification;
-  let providerUsed: "gemma" | "openai" = "gemma";
+  let providerUsed: ChatProviderName | null = null;
+  // 규칙엔진 결과만 보여 주는 대체 답(rule_only)이 LLM 장애 때문인지 — 그런 답은 캐시하지 않는다.
+  let llmFailed = false;
   try {
-    // 계산 문제 해설 — 정확도가 중요한 "문제 해설"류라 상위 모델을 쓴다(2026-08-18 결정).
+    // 계산 문제 해설 — 정확도가 중요한 "문제 해설"류라 상위 모델(accurate)을 쓴다(2026-08-18 결정).
     const gen = await generateChat(
       [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
       ctx.provider,
-      { temperature: 0.2, model: OPENAI_CHAT_MODEL_HIGH },
+      { temperature: 0.2, tier: "accurate" },
     );
     rawAnswer = gen.text;
     providerUsed = gen.providerUsed;
     verification = verifyCalcAnswer(result, rawAnswer);
   } catch (err) {
     rawAnswer = "";
-    verification = { grounded: false, confidence: 0, detail: { error: err instanceof Error ? err.message : String(err) } };
+    llmFailed = true;
+    verification = { grounded: false, confidence: 0, detail: { error: describeLlmError(err) } };
   }
 
   const stepsText = result.steps.map((s) => `**${s.label}**\n${s.detail}`).join("\n\n");
@@ -167,7 +243,9 @@ async function runCalc(question: string, ctx: RequesterContext): Promise<AnswerR
     confidence,
   });
 
-  if ((ctx.history?.length ?? 0) === 0) {
+  // LLM 장애로 나간 대체 답은 캐시하지 않는다 — 예전에는 장애 중에 나간 "결과 요약만" 답이 같은 질문마다
+  // 영구히 다시 나갔다(캐시에 만료가 없다).
+  if ((ctx.history?.length ?? 0) === 0 && !llmFailed) {
     await setCachedAnswer({
       key: cacheKeyOf(question, ctx.level, ctx.cacheTag),
       question,
@@ -194,7 +272,15 @@ async function runCalc(question: string, ctx: RequesterContext): Promise<AnswerR
 }
 
 async function runRetrieval(question: string, ctx: RequesterContext): Promise<AnswerResponse> {
-  const { primary, expanded, topScore } = await hybridRetrieve(retrievalQueryFor(question, ctx.history));
+  // 임베딩 장애는 hybridRetrieve 안에서 BM25로 넘어가므로 여기까지 오는 예외는 드물지만(DB·버그),
+  // 와도 500 대신 안내 문구 + 감사 로그로 끝낸다.
+  let retrieval: HybridRetrieveResult;
+  try {
+    retrieval = await hybridRetrieve(retrievalQueryFor(question, ctx.history));
+  } catch (err) {
+    return failedAnswer({ question, ctx, intent: "explain", err, detail: { stage: "retrieval" } });
+  }
+  const { primary, expanded } = retrieval;
 
   // 조회형 우선 시도: 상위 랭크 노드들을 훑어 질문이 표의 특정 행(들)에 정확히 걸리는지 확인한다.
   // 단, 오답노트/시험결과에서 붙여넣은 여러 문제 묶음(①②③④ 보기 마커 포함)은 건너뛴다 — IP 주소·
@@ -239,11 +325,12 @@ async function runRetrieval(question: string, ctx: RequesterContext): Promise<An
   const userMessage: ChatMessage = {
     role: "user",
     content: `[컨텍스트]\n${contextText}${historyBlock(ctx.history)}\n\n[학생 질문]\n${question}`,
-    ...(ctx.imageBase64 ? { images: [ctx.imageBase64] } : {}),
+    ...(ctx.imageBase64 ? { images: [normalizeImage(ctx.imageBase64, ctx.imageMime)] } : {}),
   };
 
   let rawAnswer: string;
-  let providerUsed: "gemma" | "openai" = "gemma";
+  let providerUsed: ChatProviderName;
+  let fallbackUsed: boolean;
   try {
     // 학생이 실제 문제 지문을 붙여넣고 설명을 구하는 "문제 해설"(looksLikePastedQuestions)만 상위
     // 모델을 쓰고, 일반 개념 질문은 기본 모델로 충분하다고 보고 비용을 아낀다(2026-08-18 결정).
@@ -254,39 +341,21 @@ async function runRetrieval(question: string, ctx: RequesterContext): Promise<An
     const gen = await generateChat(
       [{ role: "system", content: systemPrompt }, userMessage],
       ctx.provider,
-      { temperature: 0.3, reasoningEffort: "low", ...(looksLikePastedQuestions ? { model: OPENAI_CHAT_MODEL_HIGH } : {}) },
+      { temperature: 0.3, reasoningEffort: "low", tier: looksLikePastedQuestions ? "accurate" : "fast" },
     );
     rawAnswer = gen.text;
     providerUsed = gen.providerUsed;
+    fallbackUsed = gen.fallbackUsed;
   } catch (err) {
-    const finalAnswer =
-      "죄송합니다, 지금 AI 서버에 일시적으로 연결할 수 없습니다. 잠시 후 다시 시도해 주세요. " +
-      "(이 오류는 자동으로 교사에게 기록됩니다.)";
-    const auditLogId = await writeAuditLog({
-      userId: ctx.userId,
+    return failedAnswer({
       question,
+      ctx,
       intent,
-      retrievedNodeIds: sources.map((s) => s.nodeId),
-      ruleEngineTrace: null,
-      llmRawAnswer: null,
-      verificationStatus: "flagged",
-      verificationDetail: { error: err instanceof Error ? err.message : String(err) },
-      finalAnswer,
-      confidence: 0,
-    });
-    return {
-      question,
-      intent,
-      answer: finalAnswer,
+      err,
       sources,
       ontologyPath,
-      calcTrace: null,
-      confidence: 0,
-      verificationStatus: "flagged",
-      cached: false,
-      auditLogId,
-      providerUsed: null,
-    };
+      detail: { stage: "generation", ...retrievalDetail(retrieval) },
+    });
   }
 
   // 실서비스 정책: 검증에서 우려가 표시돼도 답변 자체는 항상 즉시 제공한다(응답 지연·회피가 더 큰 리스크).
@@ -304,7 +373,7 @@ async function runRetrieval(question: string, ctx: RequesterContext): Promise<An
     ruleEngineTrace: null,
     llmRawAnswer: rawAnswer,
     verificationStatus: "verified",
-    verificationDetail: null,
+    verificationDetail: { ...retrievalDetail(retrieval), providerUsed },
     finalAnswer,
     confidence: 1,
   });
@@ -312,7 +381,6 @@ async function runRetrieval(question: string, ctx: RequesterContext): Promise<An
   void (async () => {
     try {
       const verification = await verifyGroundedness(contextText, question, rawAnswer, ctx.provider);
-      const normalizedTopScore = Math.max(0, Math.min(1, topScore));
       const confidence = Number(verification.confidence.toFixed(3));
       let bgFinalAnswer = finalAnswer;
       let status: "verified" | "flagged" = "verified";
@@ -322,11 +390,18 @@ async function runRetrieval(question: string, ctx: RequesterContext): Promise<An
       }
       await updateAuditLogVerification(auditLogId, {
         verificationStatus: status,
-        verificationDetail: { ...verification.detail, topScore: normalizedTopScore, providerUsed },
+        verificationDetail: { ...verification.detail, ...retrievalDetail(retrieval), providerUsed },
         finalAnswer: bgFinalAnswer,
         confidence,
       });
-      if (status === "verified" && !ctx.imageBase64 && (ctx.history?.length ?? 0) === 0) {
+      // 1순위 공급자가 아닌 대체 공급자가 만든 답(fallbackUsed)도 캐시하지 않는다 — 캐시 키의 모델 표시와 다르다.
+      if (
+        status === "verified" &&
+        !ctx.imageBase64 &&
+        (ctx.history?.length ?? 0) === 0 &&
+        retrievalCacheable(retrieval) &&
+        !fallbackUsed
+      ) {
         await setCachedAnswer({
           key: cacheKeyOf(question, ctx.level, ctx.cacheTag),
           question,
@@ -389,7 +464,9 @@ async function runLookup(
   const userPrompt = `[정규화 표 데이터: ${lookupHit.tableName}]\n${trustedFacts}${historyBlock(ctx.history)}\n\n[학생 질문]\n${question}`;
 
   let rawAnswer = "";
-  let providerUsed: "gemma" | "openai" = "gemma";
+  let providerUsed: ChatProviderName | null = null;
+  // 표 데이터만 보여 주는 대체 답(rule_only)이 LLM 장애 때문인지 — 그런 답은 캐시하지 않는다.
+  let llmError: unknown = null;
   try {
     const gen = await generateChat(
       [
@@ -397,16 +474,17 @@ async function runLookup(
         { role: "user", content: userPrompt },
       ],
       ctx.provider,
-      { temperature: 0.1 },
+      { temperature: 0.1, tier: "fast" },
     );
     rawAnswer = gen.text;
     providerUsed = gen.providerUsed;
-  } catch {
+  } catch (err) {
     rawAnswer = "";
+    llmError = err;
   }
   const verification = rawAnswer
     ? verifyStructuredAnswer(trustedFacts, rawAnswer)
-    : { grounded: false, confidence: 0, detail: {} };
+    : { grounded: false, confidence: 0, detail: llmError ? { error: describeLlmError(llmError) } : {} };
 
   let finalAnswer: string;
   let status: VerificationStatus;
@@ -433,7 +511,7 @@ async function runLookup(
     finalAnswer,
     confidence,
   });
-  if ((ctx.history?.length ?? 0) === 0) {
+  if ((ctx.history?.length ?? 0) === 0 && !llmError) {
     await setCachedAnswer({
       key: cacheKeyOf(question, ctx.level, ctx.cacheTag),
       question,
@@ -529,7 +607,7 @@ async function generateFallbackQuestion(
         { role: "user", content: genPrompt },
       ],
       provider,
-      { temperature: 0.2, model: OPENAI_CHAT_MODEL_HIGH },
+      { temperature: 0.2, tier: "accurate" },
     );
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return null;
@@ -566,7 +644,7 @@ async function generateFallbackQuestion(
         { role: "user", content: verifyPrompt },
       ],
       provider,
-      { temperature: 0, model: OPENAI_CHAT_MODEL_HIGH },
+      { temperature: 0, tier: "accurate" },
     );
     const verifyMatch = verifyRaw.match(/\{[\s\S]*\}/);
     if (!verifyMatch) return null;
@@ -591,7 +669,6 @@ async function generateFallbackQuestion(
  * 채팅 화면은 이 attemptId로 곧바로 이어서 풀 수 있는 카드를 렌더링한다. */
 async function runPracticeRequest(question: string, ctx: RequesterContext): Promise<AnswerResponse> {
   const count = requestedPracticeCount(question);
-  const MIN_TOPIC_SCORE = 0.5;
 
   // 이번 메시지 자체에 이미 명확한 주제가 있는지 먼저 본다(예: "osi 7계층 관련 문제"). 있으면 그것만
   // 쓰고 이전 대화는 무시한다 — 실사용 중 확인된 버그: "2진수 변환" 얘기를 한참 하다가 전혀 다른 주제
@@ -599,24 +676,39 @@ async function runPracticeRequest(question: string, ctx: RequesterContext): Prom
   // 새 요청보다 텍스트 분량이 많아 그대로 눌러버렸다(단독 질문 topScore 0.62 vs 대화 포함 0.48).
   // "관련 문제 뽑아줘"처럼 이번 메시지에 주제가 아예 없을 때만(대화 없이도 topScore가 낮음) 아래에서
   // 직전 대화를 검색어에 섞는 기존 방식으로 넘어간다.
+  // "주제가 있다"의 기준(예전 MIN_TOPIC_SCORE=0.5)은 이제 검색 모드마다 다르다 — pipeline/topicGate.ts.
   const questionOnlyKeywords = extractKeywordTokens(question);
   const hasQuestionOnlyKeyword = questionOnlyKeywords.bounded.length > 0 || questionOnlyKeywords.unbounded.length > 0;
-  const { primary: questionOnlyPrimary, topScore: questionOnlyScore } = await hybridRetrieve(question);
-  const questionHasOwnTopic = hasQuestionOnlyKeyword || questionOnlyScore >= MIN_TOPIC_SCORE;
 
   // "관련 문제 뽑아줄 수 있어?"처럼 요청 자체에는 주제가 없는 경우가 많다 — 직전 대화(예: 방금 물어본
   // "포트 443은 무슨 서비스야?")를 검색어에 함께 넣지 않으면 엉뚱한 개념의 문제를 찾아온다(실사용 중
   // 확인된 버그: 포트/HTTPS 얘기 다음 "관련 문제"를 물었더니 링크상태 라우팅 문제가 나왔다).
-  const retrievalQuery = questionHasOwnTopic ? question : retrievalQueryFor(question, ctx.history);
-  const { primary, topScore } = questionHasOwnTopic
-    ? { primary: questionOnlyPrimary, topScore: questionOnlyScore }
-    : await hybridRetrieve(retrievalQuery);
-  // topScore(최상위 후보의 벡터 유사도)가 낮으면 topNode 자체가 사실상 무관한 노드다 — 이걸 그대로
+  // 1순위 노드의 점수가 낮으면 topNode 자체가 사실상 무관한 노드다 — 이걸 그대로
   // concept_node_match/subject_fallback에 쓰면 완전히 다른 주제의 문제가 "관련 문제"로 나가버린다
   // (실사용 중 확인된 버그: "173을 2진수로 변환" 다음 "관련 문제"를 물었더니 vi 편집기 명령어 문제가
-  // 나왔다 — 이때 topScore가 0.44로, 실제 좋은 매칭(0.6대)에 한참 못 미쳤다). 진짜 주제 매칭일 때만
+  // 나왔다 — 이때 bge-m3 유사도가 0.44로, 실제 좋은 매칭(0.6대)에 한참 못 미쳤다). 진짜 주제 매칭일 때만
   // topNode를 신뢰하고, 아니면 차라리 키워드 매칭 결과만 쓰거나 정직하게 "못 찾음"으로 넘긴다.
-  const topNode = topScore >= MIN_TOPIC_SCORE ? (primary[0]?.node ?? null) : null;
+  let questionHasOwnTopic: boolean;
+  let retrievalQuery: string;
+  let retrieval: HybridRetrieveResult;
+  let topic: ReturnType<typeof confidentTopic>;
+  try {
+    const questionOnly = await hybridRetrieve(question);
+    const questionOnlyTopic = confidentTopic(questionOnly, question);
+    questionHasOwnTopic = hasQuestionOnlyKeyword || questionOnlyTopic.node !== null;
+    retrievalQuery = questionHasOwnTopic ? question : retrievalQueryFor(question, ctx.history);
+    retrieval = questionHasOwnTopic ? questionOnly : await hybridRetrieve(retrievalQuery);
+    topic = questionHasOwnTopic ? questionOnlyTopic : confidentTopic(retrieval, retrievalQuery);
+  } catch (err) {
+    return failedAnswer({ question, ctx, intent: "practice_request", err, detail: { stage: "retrieval" } });
+  }
+  const { primary } = retrieval;
+  const topNode = topic.node;
+  const topicDetail = {
+    ...retrievalDetail(retrieval),
+    topicBasis: topic.basis,
+    topicScore: topic.score === null ? null : Number(topic.score.toFixed(3)),
+  };
 
   let questionIds: number[] = [];
   let method = "";
@@ -642,7 +734,7 @@ async function runPracticeRequest(question: string, ctx: RequesterContext): Prom
   // 2순위: 개념 노드 태깅 일치. 후보 2·3순위 노드까지 쓰면 주제가 살짝 옆길로 새는 사례가 실사용
   // 중 확인돼서(예: "ext4 저널링" 다음 관련 문제에 침입방지시스템 문제가 섞여 나옴), 정확도를 위해
   // 최상위 후보 하나만 쓴다 — 개수가 부족하게 나올 수는 있어도 무관한 문제가 섞이는 것보다 낫다.
-  // topNode가 null이면(위 MIN_TOPIC_SCORE 미달) 아예 이 단계를 건너뛴다.
+  // topNode가 null이면(위 주제 기준 미달) 아예 이 단계를 건너뛴다.
   if (questionIds.length < count && topNode) {
     const { rows } = await pool.query<{ id: number }>(
       `SELECT id FROM exam_questions WHERE status = 'approved' AND concept_node_id = $1
@@ -700,7 +792,7 @@ async function runPracticeRequest(question: string, ctx: RequesterContext): Prom
       ruleEngineTrace: null,
       llmRawAnswer: null,
       verificationStatus: "rule_only",
-      verificationDetail: { method: "practice_request_no_match" },
+      verificationDetail: { method: "practice_request_no_match", ...topicDetail },
       finalAnswer,
       confidence: 1,
     });
@@ -745,7 +837,7 @@ async function runPracticeRequest(question: string, ctx: RequesterContext): Prom
     ruleEngineTrace: null,
     llmRawAnswer: null,
     verificationStatus: "rule_only",
-    verificationDetail: { method, attemptId, questionIds, requestedCount: count },
+    verificationDetail: { method, attemptId, questionIds, requestedCount: count, ...topicDetail },
     finalAnswer,
     confidence: 1,
   });

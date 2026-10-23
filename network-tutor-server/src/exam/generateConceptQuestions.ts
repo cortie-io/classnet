@@ -1,5 +1,5 @@
 import { pool } from "../db/pool.js";
-import { chat } from "../llm/ollama.js";
+import { generateChat } from "../llm/provider.js";
 import type { GeneratedQuestion } from "./questionTypes.js";
 
 interface NodeRow {
@@ -28,12 +28,15 @@ async function generateOne(node: NodeRow): Promise<RawGenerated | null> {
   const userPrompt = `[개념: ${node.subject} > ${node.title}]\n[교재 내용]\n${node.body_text.slice(0, 3000)}`;
 
   try {
-    const raw = await chat(
+    // 예전에는 Ollama를 직접 불러서 OPENAI_API_KEY가 있어도 Ollama 없이는 실패했다 — 다른 호출과 같은
+    // 공급자 순서(학교 공용 키 → Ollama)를 따르고, 문제 생성은 정확도가 중요한 호출이라 accurate를 쓴다.
+    const { text: raw } = await generateChat(
       [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      { temperature: 0.4 },
+      { provider: "default" },
+      { temperature: 0.4, tier: "accurate" },
     );
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return null;
@@ -76,12 +79,13 @@ ${q.stem}
 지정된 정답: ${q.correctIndex + 1}) ${q.choices[q.correctIndex]}`;
 
   try {
-    const raw = await chat(
+    const { text: raw } = await generateChat(
       [
         { role: "system", content: "You are a strict exam question reviewer. Respond with JSON only." },
         { role: "user", content: verifierPrompt },
       ],
-      { temperature: 0 },
+      { provider: "default" },
+      { temperature: 0, tier: "accurate" },
     );
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return { ok: false, reason: "검증 응답 파싱 실패" };
