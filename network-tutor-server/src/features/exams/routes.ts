@@ -15,12 +15,19 @@ import {
 	lockedQuestionIdsForUser,
 	LOCKED_QUESTION_MESSAGE,
 	attemptDeadline,
+	listPastRoundProgress,
+	resumeOwnAttempt,
 } from "./services/examService.js";
 import {
 	getWrongAnswers,
 	getStudentReport,
 	getOrCreateReportAnalysis,
 } from "./services/studentReport.js";
+import {
+	getReviewEntries,
+	getStudySummary,
+	pickDueQuestions,
+} from "./services/reviewSchedule.js";
 import {
 	getWeakAreas,
 	getWeakTopics,
@@ -227,11 +234,12 @@ examRouter.post(
 	requireAuth,
 	startLimit,
 	async (req, res) => {
-		const { subject, count } = req.body ?? {};
+		const { subject, count, unseenFirst } = req.body ?? {};
 		try {
 			const result = await createAttempt({
 				userId: req.user!.id,
 				kind: "practice_custom",
+				unseenFirst: unseenFirst === true,
 				subject: typeof subject === "string" ? subject : null,
 				count:
 					typeof count === "number" ? Math.min(Math.max(count, 1), 50) : 10,
@@ -264,6 +272,11 @@ examRouter.get("/exam/rounds", requireAuth, async (_req, res) => {
 	res.json(await listPastExamRounds());
 });
 
+// 기출 회차 목록 옆에 붙는 내 기록(이어 풀 회차, 마지막·최고 점수)
+examRouter.get("/exam/rounds/progress", requireAuth, async (req, res) => {
+	res.json(await listPastRoundProgress(req.user!.id));
+});
+
 examRouter.post(
 	"/exam/round/:roundLabel/start",
 	requireAuth,
@@ -276,6 +289,7 @@ examRouter.post(
 				userId: req.user!.id,
 				kind: "past_exam_round",
 				roundLabel: req.params.roundLabel,
+				fresh: req.body?.fresh === true,
 			});
 			res.json(result);
 		} catch (err) {
@@ -355,7 +369,14 @@ examRouter.post(
 	startLimit,
 	async (req, res) => {
 		const wrongAnswers = await getWrongAnswers(req.user!.id, 200);
-		const allQuestionIds = [...new Set(wrongAnswers.map((w) => w.questionId))];
+		// 틀린 뒤 연속으로 맞혀 극복한 문제는 "전체 복습"에서도 뺀다
+		const allQuestionIds = [
+			...new Set(
+				wrongAnswers
+					.filter((w) => w.reviewState !== "mastered")
+					.map((w) => w.questionId),
+			),
+		];
 
 		// 오답이 RETRY_ALL_LIMIT개보다 많으면 한 번에 다 담을 수 없다. 누를 때마다 같은 것만 계속 나오면
 		// 나머지는 영영 "전체 복습" 세트로 못 묶으므로, 바로 직전 "오답 복습" 응시에 포함됐던 문제는 이번엔
@@ -395,6 +416,38 @@ examRouter.post(
 	},
 );
 
+// 홈 "오늘의 학습" 카드 — 연속 학습일, 오늘 푼 문제, 오늘 복습할 오답 수(reviewSchedule.ts)
+examRouter.get("/exam/study-summary", requireAuth, async (req, res) => {
+	res.json(await getStudySummary(req.user!.id));
+});
+
+// "오늘의 복습" — 복습 때가 된 오답만 모아(최대 20문제) 연습 응시로 시작한다. 연습이라 한 문제씩 바로
+// 채점·해설이 나오고, 맞히면 그 문제의 다음 복습이 3일 뒤로 밀린다.
+examRouter.post("/exam/review/start", requireAuth, startLimit, async (req, res) => {
+	const entries = await getReviewEntries(req.user!.id);
+	const questionIds = pickDueQuestions(entries);
+	if (questionIds.length === 0) {
+		return res
+			.status(400)
+			.json({ error: "오늘 복습할 문제가 없어요. 내일 다시 확인해 주세요." });
+	}
+	try {
+		const result = await createAttempt({
+			userId: req.user!.id,
+			kind: "practice_custom",
+			questionIds,
+			title: "오늘의 복습",
+		});
+		res.json({
+			...result,
+			dueCount: entries.filter((e) => e.state === "due").length,
+			includedCount: questionIds.length,
+		});
+	} catch (err) {
+		res.status(400).json({ error: userMessage(err) });
+	}
+});
+
 examRouter.get("/exam/my-report", requireAuth, async (req, res) => {
 	res.json(await getStudentReport(req.user!.id));
 });
@@ -433,14 +486,32 @@ examRouter.get("/exam/attempts/:id", requireAuth, async (req, res) => {
 	await autoSubmitIfExpired(attemptId);
 	const attempt = (await getAttempt(attemptId))!;
 	if (attempt.status === "in_progress") {
+		// 이어 풀기 화면이 모의고사면 감독 모드로 다시 열 수 있게 종류를 알려 준다
+		const { rows: kindRows } = await pool.query<{ kind: string }>(
+			"SELECT kind FROM exam_sets WHERE id = $1",
+			[attempt.exam_set_id],
+		);
 		return res.json({
 			status: attempt.status,
 			deadline: attemptDeadline(attempt),
 			questionCount: attempt.question_ids.length,
+			setKind: kindRows[0]?.kind ?? null,
 		});
 	}
 	const results = await getAttemptResults(attemptId, req.user!.id);
 	res.json(results);
+});
+
+// 풀다 만 응시를 이어서 연다 — 결과 화면(/exam/:id)을 새로고침하거나 홈의 "이어서 풀기"로 왔을 때
+examRouter.post("/exam/attempts/:id/resume", requireAuth, async (req, res) => {
+	const attemptId = routeId(req.params.id);
+	if (attemptId === null)
+		return res.status(404).json({ error: "응시 기록을 찾을 수 없습니다." });
+	try {
+		res.json(await resumeOwnAttempt(req.user!.id, attemptId));
+	} catch (err) {
+		res.status(400).json({ error: userMessage(err) });
+	}
 });
 
 examRouter.post(

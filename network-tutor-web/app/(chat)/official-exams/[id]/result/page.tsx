@@ -1,5 +1,6 @@
 "use client";
 
+import { subjectLabel } from "@/lib/subject";
 import { AwardIcon, CheckIcon, ClockIcon, XIcon } from "lucide-react";
 import Link from "next/link";
 import { use, useEffect, useState } from "react";
@@ -134,7 +135,7 @@ export default function OfficialExamResultPage({
               Q{i + 1}
             </span>
             <span className="text-[12px] text-muted-foreground">
-              {item.subject.replace(/^\d과목_/, "").replace(/_/g, " ")}
+              {subjectLabel(item.subject)}
             </span>
           </div>
           <p className="mb-4 whitespace-pre-wrap font-semibold text-[14.5px] leading-relaxed">

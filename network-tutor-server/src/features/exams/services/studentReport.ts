@@ -1,4 +1,5 @@
 import { lockedQuestionIdsForUser } from "./examService.js";
+import { getReviewEntries, type ReviewState } from "./reviewSchedule.js";
 import { consumeLimit } from "../../auth/limits.js";
 import { pool } from "../../../infrastructure/db/pool.js";
 import {
@@ -22,17 +23,26 @@ export interface WrongAnswerItem {
 	answerText: string | null;
 	explanation: string;
 	answeredAt: Date;
+	/** 이 문제를 틀린 횟수(오답노트는 문제마다 한 줄 — 가장 최근에 틀린 답) */
+	wrongCount: number;
+	/** 복습 일정(reviewSchedule.ts) — due: 오늘 복습, waiting: 아직 때가 안 됨, mastered: 틀린 뒤 연속으로 맞혀 극복 */
+	reviewState: ReviewState;
+	reviewDueAt: Date | null;
 }
 
-/** 학생이 지금까지(연습/모의고사/기출회차/관리자시험 전부 포함) 틀린 문제를 최신순으로 모은 오답노트. */
+/** 학생이 지금까지(연습/모의고사/기출회차/관리자시험 전부 포함) 틀린 문제를 최신순으로 모은 오답노트.
+ * 같은 문제를 여러 번 틀렸으면 한 줄로 묶고(가장 최근 답) 틀린 횟수와 복습 상태를 함께 붙인다. */
 export async function getWrongAnswers(
 	userId: number,
 	limit = 100,
 ): Promise<WrongAnswerItem[]> {
 	const locked = [...(await lockedQuestionIdsForUser(userId))];
-	const { rows } = await pool.query(
-		`SELECT a.id AS answer_id, a.question_id, a.selected_index, a.answer_text, a.answered_at,
-            q.subject, q.stem, q.question_type, q.choices, q.correct_index, q.explanation, q.concept_node_id
+	const [{ rows }, review] = await Promise.all([
+		pool.query(
+			`SELECT * FROM (
+       SELECT DISTINCT ON (a.question_id) a.id AS answer_id, a.question_id, a.selected_index, a.answer_text, a.answered_at,
+            q.subject, q.stem, q.question_type, q.choices, q.correct_index, q.explanation, q.concept_node_id,
+            count(*) OVER (PARTITION BY a.question_id) AS wrong_count
      FROM exam_answers a
      JOIN exam_questions q ON q.id = a.question_id
      JOIN exam_attempts att ON att.id = a.attempt_id
@@ -40,9 +50,13 @@ export async function getWrongAnswers(
      -- 여기서 보여주면 정답을 보고 고쳐 낼 수 있었다. 무효 처리(invalidated)된 응시는 뺀다.
      WHERE att.user_id = $1 AND NOT att.is_official AND att.status <> 'invalidated' AND a.is_correct = false AND NOT (a.question_id = ANY($3::int[]))
        AND (att.status IN ('submitted', 'auto_submitted') OR a.revealed_at IS NOT NULL)
-     ORDER BY a.answered_at DESC LIMIT $2`,
-		[userId, limit, locked],
-	);
+     ORDER BY a.question_id, a.answered_at DESC
+     ) latest ORDER BY answered_at DESC LIMIT $2`,
+			[userId, limit, locked],
+		),
+		getReviewEntries(userId),
+	]);
+	const byQuestion = new Map(review.map((e) => [e.questionId, e]));
 	return rows.map((r) => ({
 		answerId: r.answer_id,
 		questionId: r.question_id,
@@ -56,6 +70,10 @@ export async function getWrongAnswers(
 		answerText: r.answer_text,
 		explanation: r.explanation,
 		answeredAt: r.answered_at,
+		wrongCount: Number(r.wrong_count),
+		// 검수에서 내려간 문제는 일정에 없다 — 다시 낼 수 없으니 "기다림"으로 둔다
+		reviewState: byQuestion.get(r.question_id)?.state ?? "waiting",
+		reviewDueAt: byQuestion.get(r.question_id)?.dueAt ?? null,
 	}));
 }
 
@@ -116,7 +134,8 @@ export async function getStudentReport(userId: number): Promise<StudentReport> {
 		day: string;
 		count: string;
 	}>(
-		`SELECT to_char(date_trunc('day', answered_at), 'YYYY-MM-DD') AS day, count(*)
+		// 한국 날짜로 묶는다 — UTC로 묶으면 새벽(0~9시)에 푼 문제가 화면에서 전날 칸에 찍혔다
+		`SELECT to_char(answered_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS day, count(*)
      FROM exam_answers a JOIN exam_attempts att ON att.id = a.attempt_id
      WHERE att.user_id = $1 AND NOT att.is_official AND a.answered_at > now() - interval '14 days'
      GROUP BY 1 ORDER BY 1`,
@@ -161,15 +180,49 @@ export async function getOrCreateReportAnalysis(
 	force = false,
 ): Promise<{ content: string; generatedAt: Date }> {
 	if (!force) {
-		const { rows } = await pool.query<{ content: string; generated_at: Date }>(
-			"SELECT content, generated_at FROM student_report_analysis WHERE user_id = $1",
+		const { rows } = await pool.query<{
+			content: string;
+			generated_at: Date;
+			new_answers: string;
+		}>(
+			`SELECT r.content, r.generated_at,
+              (SELECT count(*) FROM exam_answers a JOIN exam_attempts att ON att.id = a.attempt_id
+               WHERE att.user_id = r.user_id AND NOT att.is_official AND a.is_correct IS NOT NULL
+                 AND a.answered_at > r.generated_at) AS new_answers
+       FROM student_report_analysis r WHERE r.user_id = $1`,
 			[userId],
 		);
-		if (rows.length > 0)
-			return { content: rows[0].content, generatedAt: rows[0].generated_at };
+		const cached = rows[0];
+		// 예전엔 캐시를 한 번 만들면 학생이 "다시 생성"을 누르기 전까지 그대로였다 — 처음 들어와 본 "아직 채점된
+		// 문제가 없어요" 분석이 문제를 수십 개 푼 뒤에도 남아 있었다(2026-10-23). 새로 푼 문제가 쌓이면 다시 만든다.
+		const newAnswers = Number(cached?.new_answers ?? 0);
+		const stale =
+			cached !== undefined &&
+			(newAnswers >= ANALYSIS_REFRESH_AFTER ||
+				(newAnswers > 0 && cached.content.startsWith(EMPTY_ANALYSIS_PREFIX)));
+		if (cached && !stale)
+			return { content: cached.content, generatedAt: cached.generated_at };
+		if (cached && stale) {
+			try {
+				await consumeLimit(`user:${userId}:report-analysis`, 5, 3600);
+			} catch {
+				return { content: cached.content, generatedAt: cached.generated_at };
+			}
+			return regenerateAnalysis(userId);
+		}
 	}
 
 	await consumeLimit("user:" + userId + ":report-analysis", 5, 3600);
+	return regenerateAnalysis(userId);
+}
+
+/** 새로 푼 문제가 이만큼 쌓이면 AI 분석을 저절로 다시 만든다 */
+const ANALYSIS_REFRESH_AFTER = 10;
+const EMPTY_ANALYSIS_PREFIX = "아직 채점된 문제가 없어서";
+
+async function regenerateAnalysis(
+	userId: number,
+): Promise<{ content: string; generatedAt: Date }> {
 	const [report, weakAreas] = await Promise.all([
 		getStudentReport(userId),
 		getWeakAreas(userId),

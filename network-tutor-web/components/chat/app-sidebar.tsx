@@ -11,6 +11,7 @@ import {
   LayersIcon,
   type LucideIcon,
   NotebookPenIcon,
+  RepeatIcon,
   PanelLeftIcon,
   PlusIcon,
   ShieldIcon,
@@ -73,6 +74,7 @@ const STUDY_NAV: NavItem[] = [
 ];
 
 const RECORD_NAV: NavItem[] = [
+  { href: "/review", label: "오늘의 복습", icon: RepeatIcon },
   { href: "/wrong-answers", label: "오답노트", icon: NotebookPenIcon },
   { href: "/my-exams", label: "내 응시 기록", icon: BarChart3Icon },
   { href: "/my-report", label: "나의 학습 리포트", icon: TrendingUpIcon },

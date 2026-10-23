@@ -1,5 +1,6 @@
 "use client";
 
+import { subjectLabel } from "@/lib/subject";
 import {
   ActivityIcon,
   CheckCircle2Icon,
@@ -63,10 +64,14 @@ function AccuracyBar({
   label,
   accuracy,
   total,
+  subject,
+  weakest,
 }: {
   label: string;
   accuracy: number;
   total: number;
+  subject: string;
+  weakest: boolean;
 }) {
   const color =
     accuracy >= 80
@@ -77,7 +82,14 @@ function AccuracyBar({
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-baseline justify-between gap-2 text-[13px]">
-        <span className="font-medium text-foreground">{label}</span>
+        <span className="flex items-center gap-2 font-medium text-foreground">
+          {label}
+          {weakest && (
+            <span className="rounded-full bg-destructive/10 px-1.5 py-px font-semibold text-[10.5px] text-destructive">
+              가장 약함
+            </span>
+          )}
+        </span>
         <span className="text-muted-foreground">
           <b className="font-bold text-[14px] text-foreground tabular-nums">
             {accuracy}%
@@ -91,6 +103,12 @@ function AccuracyBar({
           style={{ width: `${Math.min(100, accuracy)}%` }}
         />
       </div>
+      <Link
+        className="self-end font-medium text-[12px] text-primary hover:underline"
+        href={`/practice?subject=${encodeURIComponent(subject)}`}
+      >
+        이 과목 연습하기 →
+      </Link>
     </div>
   );
 }
@@ -239,8 +257,19 @@ export default function MyReportPage() {
                 <AccuracyBar
                   accuracy={s.accuracy}
                   key={s.subject}
-                  label={s.subject.replace(/^\d과목_/, "")}
+                  label={subjectLabel(s.subject)}
+                  subject={s.subject}
                   total={s.total}
+                  weakest={
+                    data.bySubject.length > 1 &&
+                    s.total >= 5 &&
+                    s.accuracy ===
+                      Math.min(
+                        ...data.bySubject
+                          .filter((x) => x.total >= 5)
+                          .map((x) => x.accuracy)
+                      )
+                  }
                 />
               ))}
             </div>

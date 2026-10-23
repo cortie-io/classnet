@@ -1,4 +1,6 @@
 "use client";
+
+import { subjectLabel } from "@/lib/subject";
 import { StudentChats } from "@/components/admin/student-chats";
 import { StudentProfileEditor } from "@/components/admin/student-profile";
 import { PeriodButton } from "@/components/admin/service-period";
@@ -286,7 +288,7 @@ export default function StudentDetailPage({
           <p className="text-muted-foreground text-xs">과목별 질문 분포</p>
           <p>
             {detail.categoryStats
-              .map((c) => `${c.subject.replace(/^\d과목_/, "")}(${c.count})`)
+              .map((c) => `${subjectLabel(c.subject)}(${c.count})`)
               .join(", ") || "없음"}
           </p>
         </div>
@@ -375,8 +377,7 @@ export default function StudentDetailPage({
                 className="rounded-full bg-destructive/10 px-2.5 py-1 text-[12px] text-destructive"
                 key={w.subject}
               >
-                {w.subject.replace(/^\d과목_/, "")}{" "}
-                {Math.round(w.accuracy * 100)}%
+                {subjectLabel(w.subject)} {Math.round(w.accuracy * 100)}%
               </span>
             ))}
             {detail.weakTopics.slice(0, 5).map((w) => (

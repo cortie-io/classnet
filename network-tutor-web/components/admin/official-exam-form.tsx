@@ -1,4 +1,6 @@
 "use client";
+
+import { subjectLabel } from "@/lib/subject";
 import { adminFetch } from "@/lib/admin-period";
 
 import {
@@ -25,7 +27,7 @@ export const OFFICIAL_SUBJECTS = [
   "4과목_네트워크_운용기기",
   "5과목_정보보호개론",
 ] as const;
-const subjectName = (s: string) => s.replace(/^\d과목_/, "").replace(/_/g, " ");
+const subjectName = (s: string) => subjectLabel(s);
 
 export interface PickedQuestion {
   id: number;

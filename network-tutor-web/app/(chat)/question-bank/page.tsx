@@ -1,5 +1,6 @@
 "use client";
 
+import { subjectLabel } from "@/lib/subject";
 import { LibraryIcon, SearchIcon, SearchXIcon } from "lucide-react";
 import {
   PageIntro,
@@ -17,10 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  ExamRunner,
-  type ExamStartResponse,
-} from "@/components/exam/exam-runner";
+import { handOffAttempt } from "@/lib/attempt-handoff";
+import { useRouter } from "next/navigation";
 import { toast } from "@/components/chat/toast";
 import { loadJson } from "@/components/load-json";
 
@@ -57,6 +56,7 @@ interface BankItem {
 const PAGE_SIZE = 20;
 
 export default function QuestionBankPage() {
+  const router = useRouter();
   const [subject, setSubject] = useState("all");
   const [questionType, setQuestionType] = useState("all");
   const [keyword, setKeyword] = useState("");
@@ -65,7 +65,6 @@ export default function QuestionBankPage() {
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [startingId, setStartingId] = useState<number | null>(null);
-  const [start, setStart] = useState<ExamStartResponse | null>(null);
 
   // 검색어는 "검색"을 눌렀을 때만 반영한다. 예전엔 setPage(0) 직후 load()가 아직 이전 page 값으로 한 번 더
   // 요청해서, 3페이지에서 검색하면 두 응답 중 늦게 온 쪽이 이겨 결과가 비거나 엉뚱하게 나왔다.
@@ -106,7 +105,7 @@ export default function QuestionBankPage() {
       const res = await fetch(`/api/exam/bank/${id}/start`, { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "시작할 수 없습니다.");
-      setStart(data);
+      router.push(handOffAttempt(data));
     } catch (err) {
       toast({
         type: "error",
@@ -117,10 +116,6 @@ export default function QuestionBankPage() {
       setStartingId(null);
     }
   };
-
-  if (start) {
-    return <ExamRunner proctored={false} start={start} />;
-  }
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -147,7 +142,7 @@ export default function QuestionBankPage() {
             <SelectItem value="all">전체 과목</SelectItem>
             {SUBJECTS.map((s) => (
               <SelectItem key={s} value={s}>
-                {s.replace(/^\d과목_/, "")}
+                {subjectLabel(s)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -213,7 +208,7 @@ export default function QuestionBankPage() {
               <div className="min-w-0">
                 <div className="mb-2 flex flex-wrap items-center gap-1.5">
                   <Badge variant="secondary">
-                    {item.subject.replace(/^\d과목_/, "")}
+                    {subjectLabel(item.subject)}
                   </Badge>
                   <Badge variant="outline">
                     {QUESTION_TYPE_LABEL[item.question_type] ??

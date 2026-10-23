@@ -179,6 +179,10 @@ export async function createAttempt(params: {
 	examSetId?: number; // admin_timed일 때 이미 만들어진 세트를 지정
 	title?: string;
 	roundLabel?: string; // past_exam_round일 때 "연도-월-일" 형식으로 회차 지정
+	/** past_exam_round: 풀다 만 같은 회차가 있어도 이어 풀지 않고 새로 시작 */
+	fresh?: boolean;
+	/** practice_custom(무작위): 이 학생이 아직 안 푼 문제부터 뽑고, 모자라면 푼 문제로 채운다 */
+	unseenFirst?: boolean;
 	questionIds?: number[]; // practice_custom일 때 무작위 대신 특정 문제로 고정하고 싶으면(예: 채팅에서 뽑아준 문제)
 	/** 검수 전(pending_review)이지만 이 응시에만 내보내도 되는 문제 — 채팅에서 이 학생을 위해 AI가 만든 문제. */
 	allowPendingIds?: number[];
@@ -190,6 +194,8 @@ export async function createAttempt(params: {
 		number,
 		{ selectedIndex?: number; answerText?: string }
 	>;
+	/** 풀다 만 응시를 이어서 열었을 때 true */
+	resumed?: boolean;
 }> {
 	let questionIds: number[];
 	let timeLimitMinutes: number | null = null;
@@ -220,10 +226,23 @@ export async function createAttempt(params: {
 			);
 		}
 		timeLimitMinutes = null;
+		const title = pastRoundTitle(params.roundLabel);
+		// 50문제를 한 번에 다 풀지 못하고 나갔다 오면 예전엔 새 응시가 만들어져 고른 답이 전부 사라졌다
+		// (기출 응시 114건 중 39건이 미제출, 2026-10-23). 같은 회차를 풀다 만 게 있으면 그걸 이어서 연다.
+		if (!params.fresh) {
+			const { rows: open } = await pool.query<AttemptRow>(
+				`SELECT att.* FROM exam_attempts att JOIN exam_sets s ON s.id = att.exam_set_id
+         WHERE att.user_id = $1 AND s.kind = 'past_exam_round' AND s.title = $2
+           AND att.status = 'in_progress' AND NOT att.is_official
+         ORDER BY att.started_at DESC LIMIT 1`,
+				[params.userId, title],
+			);
+			if (open[0]) return { ...(await resumeAttempt(open[0])), resumed: true };
+		}
 		const setRes = await pool.query<{ id: number }>(
 			`INSERT INTO exam_sets (kind, title, created_by, question_ids, is_published)
        VALUES ('past_exam_round', $1, $2, $3, true) RETURNING id`,
-			[`기출문제 ${params.roundLabel} 회차`, params.userId, questionIds],
+			[title, params.userId, questionIds],
 		);
 		examSetId = setRes.rows[0].id;
 	} else if (params.kind === "admin_timed") {
@@ -313,9 +332,29 @@ export async function createAttempt(params: {
 			questionIds = params.questionIds;
 		} else {
 			const count = params.count ?? 10;
-			questionIds = await drawRandomApprovedIds(params.subject ?? null, count, [
-				...locked,
-			]);
+			const exclude = [...locked];
+			questionIds = [];
+			if (params.unseenFirst) {
+				const { rows: seen } = await pool.query<{ question_id: number }>(
+					`SELECT DISTINCT a.question_id FROM exam_answers a JOIN exam_attempts att ON att.id = a.attempt_id
+           WHERE att.user_id = $1`,
+					[params.userId],
+				);
+				const seenIds = seen.map((r) => r.question_id);
+				questionIds = await drawRandomApprovedIds(params.subject ?? null, count, [
+					...exclude,
+					...seenIds,
+				]);
+			}
+			if (questionIds.length < count) {
+				questionIds.push(
+					...(await drawRandomApprovedIds(
+						params.subject ?? null,
+						count - questionIds.length,
+						[...exclude, ...questionIds],
+					)),
+				);
+			}
 		}
 		const setRes = await pool.query<{ id: number }>(
 			`INSERT INTO exam_sets (kind, title, created_by, question_ids, is_published)
@@ -959,12 +998,16 @@ export async function listMyAttempts(
 		submittedAt: Date | null;
 		setKind: string | null;
 		setTitle: string | null;
+		correct: number;
+		total: number;
 	}[]
 > {
 	// 끝까지 응시(제출 또는 시간초과 자동제출)한 것만 기록에 남긴다 — 중간에 그만둔 응시는 학생 화면에
 	// 아예 안 보이는 게 맞다는 피드백이 있었다. (부정행위 검토용 관리자 화면은 별도 쿼리라 여기 영향 없음)
 	const { rows } = await pool.query(
-		`SELECT a.id, a.status, a.score, a.started_at, a.submitted_at, s.kind AS set_kind, s.title AS set_title
+		`SELECT a.id, a.status, a.score, a.started_at, a.submitted_at, s.kind AS set_kind, s.title AS set_title,
+            array_length(a.question_ids, 1) AS total,
+            (SELECT count(*) FROM exam_answers ea WHERE ea.attempt_id = a.id AND ea.is_correct) AS correct
      FROM exam_attempts a LEFT JOIN exam_sets s ON s.id = a.exam_set_id
      WHERE a.user_id = $1 AND a.status IN ('submitted', 'auto_submitted') AND NOT a.is_official
      ORDER BY a.started_at DESC LIMIT $2`,
@@ -978,6 +1021,8 @@ export async function listMyAttempts(
 		submittedAt: r.submitted_at,
 		setKind: r.set_kind,
 		setTitle: r.set_title,
+		correct: Number(r.correct),
+		total: r.total ?? 0,
 	}));
 }
 
@@ -1098,4 +1143,92 @@ export async function autoSubmitIfExpired(attemptId: number): Promise<void> {
 		"UPDATE exam_attempts SET status = 'auto_submitted', submitted_at = now(), score = $1 WHERE id = $2 AND status = 'in_progress'",
 		[score, attemptId],
 	);
+}
+
+export function pastRoundTitle(roundLabel: string): string {
+	return `기출문제 ${roundLabel} 회차`;
+}
+
+/** 학생이 직접 시작한 응시(연습·기출·모의고사·지정 시험)를 이어서 연다 — 새로고침하거나 다른 화면에
+ * 갔다 와도 고른 답을 잃지 않게. 공식 시험은 감독 절차가 따로 있어 여기서 열지 않는다. */
+export async function resumeOwnAttempt(userId: number, attemptId: number) {
+	const attempt = await getAttempt(attemptId);
+	if (!attempt || attempt.user_id !== userId)
+		throw new Error("응시 기록을 찾을 수 없습니다.");
+	if (attempt.is_official)
+		throw new Error("공식 시험은 시험 화면에서 이어서 응시해 주세요.");
+	await autoSubmitIfExpired(attemptId);
+	const current = (await getAttempt(attemptId))!;
+	if (current.status !== "in_progress")
+		throw new Error("이미 제출된 응시예요. 결과 화면에서 확인해 주세요.");
+	return { ...(await resumeAttempt(current)), resumed: true };
+}
+
+export interface PastRoundProgress {
+	roundLabel: string;
+	inProgress: { attemptId: number; answered: number; total: number } | null;
+	last: {
+		attemptId: number;
+		correct: number;
+		total: number;
+		submittedAt: Date;
+	} | null;
+	bestCorrect: number | null;
+	timesSubmitted: number;
+}
+
+/** 기출 회차 목록에 붙일 "내 기록" — 이어 풀 회차, 마지막·최고 점수 */
+export async function listPastRoundProgress(
+	userId: number,
+): Promise<PastRoundProgress[]> {
+	const { rows } = await pool.query<{
+		title: string;
+		id: number;
+		status: string;
+		total: number;
+		submitted_at: Date | null;
+		answered: string;
+		correct: string;
+	}>(
+		`SELECT s.title, att.id, att.status, array_length(att.question_ids, 1) AS total, att.submitted_at,
+            count(a.id) FILTER (WHERE a.selected_index IS NOT NULL OR a.answer_text IS NOT NULL) AS answered,
+            count(a.id) FILTER (WHERE a.is_correct) AS correct
+     FROM exam_attempts att
+     JOIN exam_sets s ON s.id = att.exam_set_id
+     LEFT JOIN exam_answers a ON a.attempt_id = att.id
+     WHERE att.user_id = $1 AND s.kind = 'past_exam_round' AND NOT att.is_official AND att.status <> 'invalidated'
+     GROUP BY s.title, att.id
+     ORDER BY att.started_at DESC`,
+		[userId],
+	);
+	const byRound = new Map<string, PastRoundProgress>();
+	for (const r of rows) {
+		const label = r.title.replace(/^기출문제 /, "").replace(/ 회차$/, "");
+		const p = byRound.get(label) ?? {
+			roundLabel: label,
+			inProgress: null,
+			last: null,
+			bestCorrect: null,
+			timesSubmitted: 0,
+		};
+		if (r.status === "in_progress") {
+			p.inProgress ??= {
+				attemptId: r.id,
+				answered: Number(r.answered),
+				total: r.total,
+			};
+		} else {
+			const correct = Number(r.correct);
+			p.timesSubmitted += 1;
+			p.last ??= {
+				attemptId: r.id,
+				correct,
+				total: r.total,
+				submittedAt: r.submitted_at ?? new Date(0),
+			};
+			p.bestCorrect = Math.max(p.bestCorrect ?? 0, correct);
+		}
+		byRound.set(label, p);
+	}
+	return [...byRound.values()];
 }

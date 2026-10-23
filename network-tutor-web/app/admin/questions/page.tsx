@@ -1,4 +1,6 @@
 "use client";
+
+import { subjectLabel } from "@/lib/subject";
 import { PeriodButton } from "@/components/admin/service-period";
 import { adminFetch } from "@/lib/admin-period";
 
@@ -242,7 +244,7 @@ export default function QuestionsReviewPage() {
             <SelectItem value="all">전체 과목</SelectItem>
             {SUBJECTS.map((s) => (
               <SelectItem key={s} value={s}>
-                {s.replace(/^\d과목_/, "")}
+                {subjectLabel(s)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -274,7 +276,7 @@ export default function QuestionsReviewPage() {
             <div className="surface p-5" key={q.id}>
               <div className="mb-2 flex items-center gap-2 text-muted-foreground text-xs">
                 <span className="rounded-full bg-muted px-2 py-0.5">
-                  {q.subject.replace(/^\d과목_/, "")}
+                  {subjectLabel(q.subject)}
                 </span>
                 <span>
                   {q.source === "ai_generated"
@@ -374,7 +376,7 @@ export default function QuestionsReviewPage() {
                     <SelectContent>
                       {SUBJECTS.map((s) => (
                         <SelectItem key={s} value={s}>
-                          {s.replace(/^\d과목_/, "")}
+                          {subjectLabel(s)}
                         </SelectItem>
                       ))}
                     </SelectContent>

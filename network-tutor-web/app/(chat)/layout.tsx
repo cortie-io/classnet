@@ -27,7 +27,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
 async function SidebarShell({ children }: { children: React.ReactNode }) {
   const [session, cookieStore] = await Promise.all([auth(), cookies()]);
-  const isCollapsed = cookieStore.get("sidebar_state")?.value !== "true";
+  // 처음 들어온 학생에게 아이콘만 보이면 메뉴가 뭔지 알 수 없다 — 직접 접은 경우에만 접힌 채로 연다
+  const isCollapsed = cookieStore.get("sidebar_state")?.value === "false";
 
   return (
     <SidebarProvider defaultOpen={!isCollapsed}>

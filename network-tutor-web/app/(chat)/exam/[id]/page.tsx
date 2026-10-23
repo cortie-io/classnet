@@ -1,5 +1,6 @@
 "use client";
 
+import { subjectLabel } from "@/lib/subject";
 import {
   CheckIcon,
   ClockIcon,
@@ -15,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/chat/toast";
 import { loadJson } from "@/components/load-json";
+import { MessageResponse } from "@/components/ai-elements/message";
 
 import {
   ExamRunner,
@@ -25,6 +27,7 @@ import {
   savePracticeSelection,
   type PracticeSelection,
 } from "@/lib/practice-continuation";
+import { handOffAttempt, takeHandedAttempt } from "@/lib/attempt-handoff";
 
 type QuestionType = "multiple_choice" | "short_answer" | "subjective" | "essay";
 
@@ -60,6 +63,7 @@ interface AttemptResult {
   items: ResultItem[];
   deadline?: number;
   questionCount?: number;
+  setKind?: string | null;
 }
 
 // 채팅에서 바로 이어서 꼬리질문할 수 있도록, 결과 화면에서 자체적으로 해설을 붙들고 있지 않고 항상
@@ -123,8 +127,7 @@ function composeAnalysisPrompt(
   }
   const subjectLines = [...bySubject.entries()]
     .map(
-      ([subject, s]) =>
-        `- ${subject.replace(/^\d과목_/, "")}: ${s.correct}/${s.total}`
+      ([subject, s]) => `- ${subjectLabel(subject)}: ${s.correct}/${s.total}`
     )
     .join("\n");
 
@@ -132,7 +135,7 @@ function composeAnalysisPrompt(
   const wrongLines = wrongItems
     .map(
       (i) =>
-        `- [${i.subject.replace(/^\d과목_/, "")}] ${i.stem.slice(0, 60)}${i.stem.length > 60 ? "…" : ""}`
+        `- [${subjectLabel(i.subject)}] ${i.stem.slice(0, 60)}${i.stem.length > 60 ? "…" : ""}`
     )
     .join("\n");
 
@@ -156,11 +159,10 @@ export default function ExamResultPage({
   const [data, setData] = useState<AttemptResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [selection, setSelection] = useState<PracticeSelection | null>(null);
-  const [nextStart, setNextStart] = useState<ExamStartResponse | null>(null);
   const [startingMore, setStartingMore] = useState(false);
+  const [onlyWrong, setOnlyWrong] = useState(false);
   useEffect(() => {
     setSelection(readPracticeSelection(id));
-    setNextStart(null);
   }, [id]);
   const morePractice = async () => {
     if (!selection || startingMore) return;
@@ -172,14 +174,14 @@ export default function ExamResultPage({
         body: JSON.stringify({
           subject: selection.subject || undefined,
           count: selection.count,
+          unseenFirst: selection.unseenFirst !== false,
         }),
       });
       const result = await response.json();
       if (!response.ok)
         throw new Error(result.error ?? "문제를 불러오지 못했어요.");
       savePracticeSelection(result.attemptId, selection);
-      setNextStart(result);
-      window.scrollTo({ top: 0 });
+      router.push(handOffAttempt(result));
     } catch (error) {
       toast({
         type: "error",
@@ -190,22 +192,49 @@ export default function ExamResultPage({
       setStartingMore(false);
     }
   };
+  const [reloadKey, setReloadKey] = useState(0);
+  const [resumeStart, setResumeStart] = useState<ExamStartResponse | null>(
+    null
+  );
+  const [resumeError, setResumeError] = useState<string | null>(null);
   useEffect(() => {
+    setResumeError(null);
+    // 방금 시작한 화면이 문제를 맡겨 두고 넘어왔으면 서버에 다시 묻지 않고 바로 푼다
+    const handed = takeHandedAttempt(Number(id));
+    if (handed) {
+      setResumeStart(handed);
+      setData({ status: "in_progress" } as AttemptResult);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
+    setData(null); // 제출 직후 다시 불러올 때 예전 "진행 중" 상태로 이어 풀기를 또 부르지 않게
+    setResumeStart(null);
     // 없는 응시나 남의 응시면 data가 null로 남아 "찾을 수 없습니다"가 보인다(예전엔 {error}가 들어가 화면이 깨졌다).
     loadJson(`/api/exam/attempts/${id}`, setData, { quiet: true }).finally(() =>
       setLoading(false)
     );
-  }, [id]);
+  }, [id, reloadKey]);
 
-  if (nextStart)
-    return (
-      <ExamRunner
-        key={nextStart.attemptId}
-        proctored={false}
-        start={nextStart}
-      />
-    );
+  // 진행 중인 응시(새로고침, 다른 화면에 갔다 옴, 홈의 "이어서 풀기")면 고른 답 그대로 이어서 연다.
+  // 예전엔 "문제 화면은 다시 불러올 수 없어 처음부터 다시 시작해야 해요"였다.
+  useEffect(() => {
+    if (data?.status !== "in_progress" || resumeStart) {
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/exam/attempts/${id}/resume`, { method: "POST" })
+      .then(async (r) => {
+        const body = await r.json().catch(() => ({}));
+        if (cancelled) return;
+        if (r.ok) setResumeStart(body);
+        else setResumeError(body.error ?? "이어서 열 수 없어요.");
+      })
+      .catch(() => !cancelled && setResumeError("이어서 열 수 없어요."));
+    return () => {
+      cancelled = true;
+    };
+  }, [data?.status, id, resumeStart]);
   if (loading) return <PageLoading />;
   if (!data)
     return (
@@ -215,10 +244,20 @@ export default function ExamResultPage({
     );
 
   if (data.status === "in_progress") {
+    if (resumeStart)
+      return (
+        <ExamRunner
+          key={resumeStart.attemptId}
+          onSubmitted={() => setReloadKey((k) => k + 1)}
+          proctored={data.setKind === "mock"}
+          start={resumeStart}
+        />
+      );
+    if (!resumeError) return <PageLoading />;
     return (
       <div className="mx-auto w-full max-w-2xl px-4 py-12">
         <PageNotice
-          description="연습/모의고사를 시작했던 탭에서 계속 진행해 주세요. 새로고침으로 이 화면에 왔다면, 안타깝게도 문제 화면은 다시 불러올 수 없어 처음부터 다시 시작해야 해요."
+          description={resumeError}
           icon={ClockIcon}
           title="아직 진행 중인 응시예요"
         >
@@ -352,7 +391,7 @@ export default function ExamResultPage({
               >
                 {startingMore
                   ? "문제를 고르는 중…"
-                  : `${selection.subject ? selection.subject.replace(/^\d과목_/, "") : "전체 과목"} ${selection.count}문제 더 풀기`}
+                  : `${selection.subject ? subjectLabel(selection.subject) : "전체 과목"} ${selection.count}문제 더 풀기`}
               </Button>
             ) : (
               <Button asChild className="rounded-xl" variant="outline">
@@ -381,130 +420,156 @@ export default function ExamResultPage({
         </div>
       </div>
 
-      <h2 className="mt-3 px-1 font-bold text-[17px] text-foreground tracking-tight">
-        문제별 해설
-      </h2>
-      {data.items.map((item, i) => (
-        <div className="surface p-5 sm:p-6" key={item.questionId}>
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            <span
-              className={`flex items-center gap-1 rounded-lg px-2.5 py-1 font-bold text-[12px] ${
-                item.isCorrect === true
-                  ? "bg-emerald-500/12 text-emerald-700"
-                  : item.isCorrect === false
-                    ? "bg-destructive/10 text-destructive"
-                    : "bg-muted text-muted-foreground"
-              }`}
-            >
-              {item.isCorrect === true ? (
-                <CheckIcon className="size-3.5" strokeWidth={3} />
-              ) : item.isCorrect === false ? (
-                <XIcon className="size-3.5" strokeWidth={3} />
-              ) : null}
-              Q{i + 1}
-            </span>
-            {item.questionType !== "multiple_choice" && (
-              <Badge variant="secondary">
-                {QUESTION_TYPE_LABEL[item.questionType]}
-              </Badge>
-            )}
-            <span className="text-muted-foreground text-xs">
-              {item.score !== null
-                ? `${item.score} / ${item.maxScore}점`
-                : `채점 대기 (${item.maxScore}점 만점)`}
-            </span>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 px-1">
+        <h2 className="font-bold text-[17px] text-foreground tracking-tight">
+          문제별 해설
+        </h2>
+        {wrongItems.length > 0 && wrongItems.length < data.items.length && (
+          <div className="flex gap-1 rounded-full bg-muted p-1">
+            {(
+              [
+                [false, `전체 ${data.items.length}`],
+                [true, `틀린 문제 ${wrongItems.length}`],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                className={`rounded-full px-3 py-1 font-medium text-[12.5px] transition-colors ${onlyWrong === value ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                key={label}
+                onClick={() => setOnlyWrong(value)}
+                type="button"
+              >
+                {label}
+              </button>
+            ))}
           </div>
-          <p className="mb-4 whitespace-pre-wrap font-semibold text-[14.5px] text-foreground leading-relaxed">
-            {item.stem}
-          </p>
-          {item.stemImageUrl ? (
-            // biome-ignore lint/performance/noImgElement: 문제 지문 이미지는 public/exam-images의 고정 자산
-            <img
-              src={item.stemImageUrl}
-              alt="문제 지문 이미지"
-              className="mb-4 max-h-80 w-fit max-w-full rounded-xl border"
-            />
-          ) : null}
-
-          {item.questionType === "multiple_choice" ? (
-            <div className="flex flex-col gap-1.5">
-              {item.choices.map((choice, ci) => {
-                let stateClass = "border-border/70 text-muted-foreground";
-                let mark: string | null = null;
-                if (ci === item.correctIndex) {
-                  stateClass =
-                    "border-emerald-500/50 bg-emerald-500/8 font-medium text-emerald-900";
-                  mark = ci === item.selectedIndex ? "정답 · 내 답" : "정답";
-                } else if (ci === item.selectedIndex) {
-                  stateClass =
-                    "border-destructive/40 bg-destructive/6 text-destructive";
-                  mark = "내 답";
-                }
-                return (
-                  <div
-                    className={`flex items-center justify-between gap-2 rounded-xl border px-3.5 py-2.5 text-[13.5px] ${stateClass}`}
-                    key={ci}
-                  >
-                    <span>
-                      {String.fromCharCode(9312 + ci)} {choice}
-                    </span>
-                    {mark ? (
-                      <span className="shrink-0 font-semibold text-[11px]">
-                        {mark}
-                      </span>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div
-              className={`whitespace-pre-wrap rounded-xl border px-3.5 py-2.5 text-[13.5px] ${
-                item.isCorrect === true
-                  ? "border-emerald-500/50 bg-emerald-500/8"
-                  : item.isCorrect === false
-                    ? "border-destructive/40 bg-destructive/6"
-                    : "border-border"
-              }`}
-            >
-              {item.answerText || (
-                <span className="text-muted-foreground">(미응답)</span>
+        )}
+      </div>
+      {data.items.map((item, i) =>
+        onlyWrong && item.isCorrect !== false ? null : (
+          <div className="surface p-5 sm:p-6" key={item.questionId}>
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <span
+                className={`flex items-center gap-1 rounded-lg px-2.5 py-1 font-bold text-[12px] ${
+                  item.isCorrect === true
+                    ? "bg-emerald-500/12 text-emerald-700"
+                    : item.isCorrect === false
+                      ? "bg-destructive/10 text-destructive"
+                      : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {item.isCorrect === true ? (
+                  <CheckIcon className="size-3.5" strokeWidth={3} />
+                ) : item.isCorrect === false ? (
+                  <XIcon className="size-3.5" strokeWidth={3} />
+                ) : null}
+                Q{i + 1}
+              </span>
+              {item.questionType !== "multiple_choice" && (
+                <Badge variant="secondary">
+                  {QUESTION_TYPE_LABEL[item.questionType]}
+                </Badge>
               )}
+              <span className="text-muted-foreground text-xs">
+                {item.score !== null
+                  ? `${item.score} / ${item.maxScore}점`
+                  : `채점 대기 (${item.maxScore}점 만점)`}
+              </span>
             </div>
-          )}
+            <p className="mb-4 whitespace-pre-wrap font-semibold text-[14.5px] text-foreground leading-relaxed">
+              {item.stem}
+            </p>
+            {item.stemImageUrl ? (
+              // biome-ignore lint/performance/noImgElement: 문제 지문 이미지는 public/exam-images의 고정 자산
+              <img
+                src={item.stemImageUrl}
+                alt="문제 지문 이미지"
+                className="mb-4 max-h-80 w-fit max-w-full rounded-xl border"
+              />
+            ) : null}
 
-          {item.graderFeedback && (
-            <p className="mt-3 whitespace-pre-wrap rounded-xl border border-primary/15 bg-accent/60 p-3 text-[12.5px] text-foreground/80">
-              <span className="font-semibold text-primary">교사 피드백 · </span>
-              {item.graderFeedback}
-            </p>
-          )}
+            {item.questionType === "multiple_choice" ? (
+              <div className="flex flex-col gap-1.5">
+                {item.choices.map((choice, ci) => {
+                  let stateClass = "border-border/70 text-muted-foreground";
+                  let mark: string | null = null;
+                  if (ci === item.correctIndex) {
+                    stateClass =
+                      "border-emerald-500/50 bg-emerald-500/8 font-medium text-emerald-900";
+                    mark = ci === item.selectedIndex ? "정답 · 내 답" : "정답";
+                  } else if (ci === item.selectedIndex) {
+                    stateClass =
+                      "border-destructive/40 bg-destructive/6 text-destructive";
+                    mark = "내 답";
+                  }
+                  return (
+                    <div
+                      className={`flex items-center justify-between gap-2 rounded-xl border px-3.5 py-2.5 text-[13.5px] ${stateClass}`}
+                      key={ci}
+                    >
+                      <span>
+                        {String.fromCharCode(9312 + ci)} {choice}
+                      </span>
+                      {mark ? (
+                        <span className="shrink-0 font-semibold text-[11px]">
+                          {mark}
+                        </span>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div
+                className={`whitespace-pre-wrap rounded-xl border px-3.5 py-2.5 text-[13.5px] ${
+                  item.isCorrect === true
+                    ? "border-emerald-500/50 bg-emerald-500/8"
+                    : item.isCorrect === false
+                      ? "border-destructive/40 bg-destructive/6"
+                      : "border-border"
+                }`}
+              >
+                {item.answerText || (
+                  <span className="text-muted-foreground">(미응답)</span>
+                )}
+              </div>
+            )}
 
-          <div className="mt-4 rounded-xl bg-muted/70 p-3.5">
-            <p className="mb-1 font-semibold text-[12px] text-foreground">
-              해설
-            </p>
-            <p className="whitespace-pre-wrap text-[13px] text-muted-foreground leading-relaxed">
-              {item.explanation}
-            </p>
+            {item.graderFeedback && (
+              <p className="mt-3 whitespace-pre-wrap rounded-xl border border-primary/15 bg-accent/60 p-3 text-[12.5px] text-foreground/80">
+                <span className="font-semibold text-primary">
+                  교사 피드백 ·{" "}
+                </span>
+                {item.graderFeedback}
+              </p>
+            )}
+
+            <div className="mt-4 rounded-xl bg-muted/70 p-3.5">
+              <p className="mb-1 font-semibold text-[12px] text-foreground">
+                해설
+              </p>
+              {/* 해설은 마크다운(**굵게**, 목록)으로 저장돼 있다 — 예전엔 기호가 그대로 보였다 */}
+              <MessageResponse className="text-[13px] text-muted-foreground leading-relaxed">
+                {item.explanation}
+              </MessageResponse>
+            </div>
+            <Button
+              className="mt-3"
+              onClick={() => {
+                sessionStorage.setItem(
+                  "classnet:phase2:queuedQueries",
+                  JSON.stringify([composeQuestionPrompt(item, i)])
+                );
+                router.push("/");
+              }}
+              size="sm"
+              variant="ghost"
+            >
+              <MessageCircleQuestionIcon className="size-4" />
+              채팅에서 더 물어보기
+            </Button>
           </div>
-          <Button
-            className="mt-3"
-            onClick={() => {
-              sessionStorage.setItem(
-                "classnet:phase2:queuedQueries",
-                JSON.stringify([composeQuestionPrompt(item, i)])
-              );
-              router.push("/");
-            }}
-            size="sm"
-            variant="ghost"
-          >
-            <MessageCircleQuestionIcon className="size-4" />
-            채팅에서 더 물어보기
-          </Button>
-        </div>
-      ))}
+        )
+      )}
     </div>
   );
 }

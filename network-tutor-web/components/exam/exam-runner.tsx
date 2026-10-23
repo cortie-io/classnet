@@ -47,6 +47,8 @@ export interface ExamStartResponse {
     { selectedIndex?: number; answerText?: string }
   >;
   error?: string;
+  /** 풀다 만 응시를 이어서 열었을 때 true */
+  resumed?: boolean;
 }
 
 const PROCTORED_EVENTS_HELP =
@@ -69,7 +71,12 @@ export function ExamRunner({
 }) {
   const router = useRouter();
   const { attemptId, questions, timeLimitMinutes, savedAnswers } = start;
-  const [index, setIndex] = useState(0);
+  // 이어서 열었으면 아직 안 푼 첫 문제부터
+  const [index, setIndex] = useState(() => {
+    if (!savedAnswers) return 0;
+    const first = questions.findIndex((q) => !savedAnswers[q.questionId]);
+    return first === -1 ? 0 : first;
+  });
   const [selected, setSelected] = useState<Record<number, number>>(() => {
     const init: Record<number, number> = {};
     for (const [qid, a] of Object.entries(savedAnswers ?? {}))
@@ -374,6 +381,49 @@ export function ExamRunner({
     setIndex(target);
   };
 
+  // 이어서 열었을 때(새로고침, 홈의 "이어서 풀기") 저장해 둔 답이 있으면 알려 준다
+  useEffect(() => {
+    const n = Object.keys(savedAnswers ?? {}).length;
+    if (!start.resumed || n === 0) {
+      return;
+    }
+    toast({
+      type: "success",
+      description: `풀던 문제를 이어서 열었어요 — 저장된 답 ${n}개를 불러왔어요.`,
+    });
+  }, [start.resumed, savedAnswers]);
+
+  // PC 키보드: 1~9로 보기 고르기, ←/→로 문항 이동(입력창에 쓰는 중에는 무시)
+  const keyRef = useRef<(e: KeyboardEvent) => void>(() => undefined);
+  keyRef.current = (e: KeyboardEvent) => {
+    if (submitting || e.altKey || e.ctrlKey || e.metaKey) return;
+    const el = e.target as HTMLElement | null;
+    if (
+      el &&
+      (el.isContentEditable ||
+        ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName))
+    )
+      return;
+    if (isMC && /^[1-9]$/.test(e.key)) {
+      const i = Number(e.key) - 1;
+      if (i < current.choices.length) {
+        e.preventDefault();
+        handleSelect(i);
+      }
+    } else if (e.key === "ArrowRight" && index < questions.length - 1) {
+      e.preventDefault();
+      goTo(index + 1);
+    } else if (e.key === "ArrowLeft" && index > 0) {
+      e.preventDefault();
+      goTo(index - 1);
+    }
+  };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => keyRef.current(e);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   const isAnswered = (q: AttemptQuestionView) =>
     q.questionType === "multiple_choice"
       ? selected[q.questionId] !== undefined
@@ -636,7 +686,7 @@ export function ExamRunner({
           {!answered && (
             <span className="hidden text-muted-foreground text-xs sm:inline">
               {isMC
-                ? "건너뛰고 나중에 풀 수 있어요"
+                ? "건너뛰고 나중에 풀 수 있어요 · 키보드 1~4로 고르고 ←→로 이동"
                 : "답을 입력하고 저장하세요"}
             </span>
           )}

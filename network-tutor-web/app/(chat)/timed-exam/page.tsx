@@ -13,10 +13,8 @@ import {
   PageNotice,
 } from "@/components/chat/page-intro";
 import { Button } from "@/components/ui/button";
-import {
-  ExamRunner,
-  type ExamStartResponse,
-} from "@/components/exam/exam-runner";
+import { handOffAttempt } from "@/lib/attempt-handoff";
+import { useRouter } from "next/navigation";
 import { toast } from "@/components/chat/toast";
 import { loadJson } from "@/components/load-json";
 
@@ -42,9 +40,9 @@ const STATUS_CLASS: Record<TimedExamRow["status"], string> = {
 };
 
 export default function TimedExamPage() {
+  const router = useRouter();
   const [rows, setRows] = useState<TimedExamRow[] | null>(null);
   const [startingId, setStartingId] = useState<number | null>(null);
-  const [start, setStart] = useState<ExamStartResponse | null>(null);
 
   useEffect(() => {
     loadJson("/api/exam/timed", setRows, { onError: () => setRows([]) });
@@ -58,7 +56,7 @@ export default function TimedExamPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "시작할 수 없습니다.");
-      setStart(data);
+      router.push(handOffAttempt(data));
     } catch (err) {
       toast({
         type: "error",
@@ -69,10 +67,6 @@ export default function TimedExamPage() {
       setStartingId(null);
     }
   };
-
-  if (start) {
-    return <ExamRunner proctored={false} start={start} />;
-  }
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:py-12">

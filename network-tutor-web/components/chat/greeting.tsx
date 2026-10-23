@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { useSession } from "next-auth/react";
 import { BrandMark } from "@/components/brand/logo";
+import { TodayStudy } from "@/components/chat/today-study";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -44,6 +45,7 @@ export const Greeting = () => {
         개념 설명부터 서브넷 계산, 기출 해설까지 네트워크관리사 2급 공부를
         함께할게요.
       </motion.p>
+      {name ? <TodayStudy /> : null}
     </div>
   );
 };

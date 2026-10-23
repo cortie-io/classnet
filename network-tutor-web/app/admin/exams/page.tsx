@@ -1,4 +1,6 @@
 "use client";
+
+import { subjectLabel } from "@/lib/subject";
 import { PeriodButton } from "@/components/admin/service-period";
 import { adminFetch } from "@/lib/admin-period";
 
@@ -407,7 +409,7 @@ export default function ExamsAdminPage() {
               <SelectContent>
                 {SUBJECTS.map((s) => (
                   <SelectItem key={s} value={s}>
-                    {s.replace(/^\d과목_/, "")}
+                    {subjectLabel(s)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -605,7 +607,7 @@ export default function ExamsAdminPage() {
               <SelectItem value="all">전체 과목</SelectItem>
               {SUBJECTS.map((s) => (
                 <SelectItem key={s} value={s}>
-                  {s.replace(/^\d과목_/, "")}
+                  {subjectLabel(s)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -637,7 +639,7 @@ export default function ExamsAdminPage() {
               />
               <span className="min-w-0">
                 <span className="mr-2 text-muted-foreground">
-                  [{q.subject.replace(/^\d과목_/, "")}]
+                  [{subjectLabel(q.subject)}]
                 </span>
                 <Badge className="mr-2 align-middle" variant="secondary">
                   {QUESTION_TYPE_LABEL[q.question_type] ?? q.question_type}
@@ -763,9 +765,7 @@ export default function ExamsAdminPage() {
               key={q.id}
             >
               <div className="mb-1 flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
-                <Badge variant="secondary">
-                  {q.subject.replace(/^\d과목_/, "")}
-                </Badge>
+                <Badge variant="secondary">{subjectLabel(q.subject)}</Badge>
                 <Badge variant="outline">
                   {QUESTION_TYPE_LABEL[q.question_type] ?? q.question_type}
                 </Badge>
@@ -807,7 +807,7 @@ export default function ExamsAdminPage() {
                   <Badge variant="secondary">
                     {QUESTION_TYPE_LABEL[g.question_type]}
                   </Badge>
-                  <span>{g.subject.replace(/^\d과목_/, "")}</span>
+                  <span>{subjectLabel(g.subject)}</span>
                   <span>
                     · {g.user_name} ({g.user_email})
                   </span>

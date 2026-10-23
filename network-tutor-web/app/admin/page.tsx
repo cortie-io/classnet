@@ -1,4 +1,6 @@
 "use client";
+
+import { subjectLabel } from "@/lib/subject";
 import { ServiceLaunchPanel } from "@/components/admin/service-launch";
 import { PeriodButton } from "@/components/admin/service-period";
 import { adminFetch } from "@/lib/admin-period";
@@ -197,7 +199,7 @@ export default function AdminDashboardPage() {
                 return (
                   <div className="flex flex-col gap-1" key={s.subject}>
                     <div className="flex items-center justify-between text-[12.5px]">
-                      <span>{s.subject.replace(/^\d과목_/, "")}</span>
+                      <span>{subjectLabel(s.subject)}</span>
                       <span className="text-muted-foreground">
                         {p}% ({s.total}건)
                       </span>
@@ -235,7 +237,7 @@ export default function AdminDashboardPage() {
                 >
                   <div className="mb-0.5 flex items-center justify-between gap-2">
                     <span className="text-muted-foreground">
-                      {q.subject.replace(/^\d과목_/, "")}
+                      {subjectLabel(q.subject)}
                     </span>
                     <span className="font-medium text-destructive">
                       {pct(q.correct, q.total)}% ({q.correct}/{q.total})

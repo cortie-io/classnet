@@ -1,6 +1,8 @@
 export interface PracticeSelection {
   subject: string;
   count: number;
+  /** 아직 안 푼 문제부터 */
+  unseenFirst?: boolean;
 }
 const prefix = "classnet:phase2:practice:";
 export function savePracticeSelection(
@@ -23,8 +25,12 @@ export function readPracticeSelection(
     return value &&
       typeof value.subject === "string" &&
       value.subject.length < 100 &&
-      [5, 10, 20].includes(value.count)
-      ? { subject: value.subject, count: value.count }
+      [5, 10, 20, 30].includes(value.count)
+      ? {
+          subject: value.subject,
+          count: value.count,
+          unseenFirst: value.unseenFirst !== false,
+        }
       : null;
   } catch {
     return null;

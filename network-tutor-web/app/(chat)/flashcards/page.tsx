@@ -1,5 +1,6 @@
 "use client";
 
+import { subjectLabel } from "@/lib/subject";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -24,10 +25,8 @@ import {
   PageNotice,
 } from "@/components/chat/page-intro";
 import { MessageResponse } from "@/components/ai-elements/message";
-import {
-  ExamRunner,
-  type ExamStartResponse,
-} from "@/components/exam/exam-runner";
+import { handOffAttempt } from "@/lib/attempt-handoff";
+import { useRouter } from "next/navigation";
 import { toast } from "@/components/chat/toast";
 import { loadJson } from "@/components/load-json";
 
@@ -45,6 +44,7 @@ interface FlatCard extends TreeNode {
 }
 
 export default function FlashcardsPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const targetNodeId = searchParams.get("nodeId");
   const jumpedRef = useRef(false);
@@ -57,9 +57,6 @@ export default function FlashcardsPage() {
   const [flipped, setFlipped] = useState(false);
   const [bodyMd, setBodyMd] = useState<string | null>(null);
   const [startingPractice, setStartingPractice] = useState(false);
-  const [practiceStart, setPracticeStart] = useState<ExamStartResponse | null>(
-    null
-  );
 
   useEffect(() => {
     loadJson("/api/ontology/tree", setTree);
@@ -159,7 +156,7 @@ export default function FlashcardsPage() {
       );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "시작할 수 없습니다.");
-      setPracticeStart(data);
+      router.push(handOffAttempt(data));
     } catch (err) {
       toast({
         type: "error",
@@ -170,10 +167,6 @@ export default function FlashcardsPage() {
       setStartingPractice(false);
     }
   };
-
-  if (practiceStart) {
-    return <ExamRunner proctored={false} start={practiceStart} />;
-  }
 
   if (!tree) return <PageLoading />;
 
@@ -200,7 +193,7 @@ export default function FlashcardsPage() {
             <SelectItem value="all">전체 과목</SelectItem>
             {subjects.map((s) => (
               <SelectItem key={s} value={s}>
-                {s.replace(/^\d과목_/, "")}
+                {subjectLabel(s)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -259,7 +252,7 @@ export default function FlashcardsPage() {
               >
                 <span className="absolute inset-0 bg-dots opacity-60 [mask-image:radial-gradient(closest-side,transparent_40%,black)]" />
                 <span className="relative rounded-full bg-white/80 px-3 py-1 font-medium text-[12px] text-primary shadow-[var(--shadow-card)]">
-                  {current.subject.replace(/^\d과목_/, "")} · {current.topic}
+                  {subjectLabel(current.subject)} · {current.topic}
                 </span>
                 <span className="relative font-bold text-[26px] text-foreground tracking-[-0.03em]">
                   {current.title}

@@ -14,6 +14,8 @@ import {
   PageNotice,
 } from "@/components/chat/page-intro";
 import { Button } from "@/components/ui/button";
+import { ChoiceChip } from "@/components/ui/choice-chip";
+import { attemptTitle } from "@/lib/study-summary";
 
 interface AttemptSummary {
   id: number;
@@ -23,6 +25,8 @@ interface AttemptSummary {
   submittedAt: string | null;
   setKind: string | null;
   setTitle: string | null;
+  correct: number;
+  total: number;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -49,11 +53,34 @@ const KIND_LABEL: Record<string, string> = {
   practice_custom: "연습",
   mock: "모의고사",
   admin_timed: "지정 시험",
+  past_exam_round: "기출",
 };
+
+const FILTERS: { key: string; label: string }[] = [
+  { key: "all", label: "전체" },
+  { key: "practice_custom", label: "연습·복습" },
+  { key: "past_exam_round", label: "기출" },
+  { key: "mock", label: "모의고사" },
+  { key: "admin_timed", label: "지정 시험" },
+];
+
+const WHEN = new Intl.DateTimeFormat("ko-KR", {
+  month: "long",
+  day: "numeric",
+  weekday: "short",
+  hour: "numeric",
+  minute: "2-digit",
+});
 
 export default function MyExamsPage() {
   const [attempts, setAttempts] = useState<AttemptSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("all");
+  const kinds = new Set(attempts.map((a) => a.setKind ?? "practice_custom"));
+  const shown =
+    filter === "all"
+      ? attempts
+      : attempts.filter((a) => (a.setKind ?? "practice_custom") === filter);
 
   useEffect(() => {
     loadJson("/api/exam/attempts", setAttempts).finally(() =>
@@ -80,8 +107,23 @@ export default function MyExamsPage() {
           </Button>
         </PageNotice>
       )}
+      {kinds.size > 1 && (
+        <div className="flex flex-wrap gap-2">
+          {FILTERS.filter((f) => f.key === "all" || kinds.has(f.key)).map(
+            (f) => (
+              <ChoiceChip
+                active={filter === f.key}
+                key={f.key}
+                onClick={() => setFilter(f.key)}
+              >
+                {f.label}
+              </ChoiceChip>
+            )
+          )}
+        </div>
+      )}
       <div className="flex flex-col gap-2.5">
-        {attempts.map((a) => (
+        {shown.map((a) => (
           <Link
             className="surface surface-hover group flex items-center gap-4 px-4 py-3.5 sm:px-5"
             href={`/exam/${a.id}`}
@@ -92,7 +134,10 @@ export default function MyExamsPage() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate font-semibold text-[14px] text-foreground">
-                {a.setTitle ?? (a.setKind ? KIND_LABEL[a.setKind] : "연습")}
+                {a.setKind === "past_exam_round"
+                  ? attemptTitle(a.setTitle)
+                  : (a.setTitle ??
+                    (a.setKind ? KIND_LABEL[a.setKind] : "연습"))}
               </p>
               <p className="mt-0.5 flex flex-wrap items-center gap-2 text-[12px] text-muted-foreground">
                 <span
@@ -100,7 +145,12 @@ export default function MyExamsPage() {
                 >
                   {STATUS_LABEL[a.status] ?? a.status}
                 </span>
-                {new Date(a.startedAt).toLocaleString("ko-KR")}
+                {WHEN.format(new Date(a.startedAt))}
+                {a.total > 0 && (
+                  <span>
+                    · {a.correct}/{a.total} 정답
+                  </span>
+                )}
               </p>
             </div>
             {a.score !== null && (

@@ -2,14 +2,15 @@ import { NextResponse } from "next/server";
 import { callBackend, BackendAuthError } from "@/lib/backend";
 
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ roundLabel: string }> }
 ) {
   const { roundLabel } = await params;
+  const { fresh } = await request.json().catch(() => ({}));
   try {
     const data = await callBackend(
       `/api/exam/round/${encodeURIComponent(roundLabel)}/start`,
-      { method: "POST", body: {} }
+      { method: "POST", body: { fresh: fresh === true } }
     );
     return NextResponse.json(data);
   } catch (err) {
