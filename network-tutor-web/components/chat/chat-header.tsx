@@ -4,6 +4,7 @@ import { PanelLeftIcon } from "lucide-react";
 import { memo } from "react";
 import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/components/ui/sidebar";
+import { SHOW_CHAT_SHARING } from "@/lib/student-features";
 import { VisibilitySelector, type VisibilityType } from "./visibility-selector";
 
 function PureChatHeader({
@@ -22,7 +23,9 @@ function PureChatHeader({
   }
 
   return (
-    <header className="sticky top-0 flex h-14 items-center gap-2 bg-sidebar px-3">
+    <header
+      className={`sticky top-0 flex h-14 items-center gap-2 bg-sidebar px-3 ${SHOW_CHAT_SHARING ? "" : "md:hidden"}`}
+    >
       <Button
         className="md:hidden"
         onClick={toggleSidebar}
@@ -32,7 +35,7 @@ function PureChatHeader({
         <PanelLeftIcon className="size-4" />
       </Button>
 
-      {!isReadonly && (
+      {SHOW_CHAT_SHARING && !isReadonly && (
         <VisibilitySelector
           chatId={chatId}
           selectedVisibilityType={selectedVisibilityType}

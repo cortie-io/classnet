@@ -45,7 +45,7 @@ export function ServiceLaunchPanel() {
   if (period === "1")
     return (
       <section className="surface p-5 text-sm">
-        1차 보관 기록 · 조회 전용입니다. 2차 정식 시작이나 초기화의 영향을 받지
+        1차 보관 기록 · 조회 전용입니다. 2차 정식 시작의 영향을 받지
         않습니다.
       </section>
     );
@@ -86,9 +86,9 @@ export function ServiceLaunchPanel() {
       {launch?.stage === "beta" && (
         <>
           <p className="text-sm text-muted-foreground">
-            지금은 사전 운영입니다. 정식 시작 시 대화·응시·점수·활동·북마크가
-            초기화되어 순위도 새로 계산됩니다. 계정·비밀번호·학생 기본정보·반
-            배정·문제은행·시험 설정은 유지됩니다. 1차 기록은 계속 관리자 조회가
+            지금은 사전 운영입니다. 정식 시작 후에도 대화·응시·점수·활동·북마크와
+            현재 순위를 그대로 이어갑니다. 계정·비밀번호·학생 기본정보·반
+            배정·문제은행·시험 설정도 유지됩니다. 1차 기록은 계속 관리자 조회가
             가능합니다.
           </p>
           {launch.last_error && (
@@ -103,8 +103,8 @@ export function ServiceLaunchPanel() {
           ) : (
             <div className="flex flex-col gap-3 rounded-lg border p-4">
               <p className="text-sm">
-                사전 운영 기록을 백업한 뒤 초기화합니다. 전환 중에는 접속이 잠시
-                중단되고 모든 사용자가 다시 로그인해야 합니다. 정식 시작은 한
+                사전 운영 기록을 백업하고 모든 학생의 현재 데이터를 보존합니다. 전환 중에는 접속이 잠시
+                중단될 수 있습니다. 정식 시작은 한
                 번만 가능합니다.
               </p>
               <label className="text-sm" htmlFor="launch-confirmation">
@@ -118,11 +118,11 @@ export function ServiceLaunchPanel() {
               />
               <div className="flex gap-2">
                 <Button
-                  variant="destructive"
+                  variant="default"
                   disabled={busy || confirmation !== "2차 정식 시작"}
                   onClick={start}
                 >
-                  {busy ? "요청 중…" : "학습 기록 초기화 후 정식 시작"}
+                  {busy ? "요청 중…" : "현재 기록을 유지하고 정식 시작"}
                 </Button>
                 <Button
                   variant="outline"
@@ -141,7 +141,7 @@ export function ServiceLaunchPanel() {
       )}
       {launch?.stage === "starting" && (
         <p role="status" className="text-sm">
-          백업과 초기화를 진행하고 있습니다. 접속이 잠시 끊길 수 있습니다. 잠시
+          기존 기록을 보존하고 정식 운영으로 전환하고 있습니다. 접속이 잠시 끊길 수 있습니다. 잠시
           후 새로고침하고 다시 로그인해 주세요. 1차 보관 기록은 유지됩니다.
         </p>
       )}
@@ -152,7 +152,7 @@ export function ServiceLaunchPanel() {
                 timeZone: "Asia/Seoul",
               })
             : ""}{" "}
-          정식 운영을 시작했습니다. 추가 초기화는 제공하지 않습니다. 1차 기록은
+          기존 학생 기록을 유지한 채 정식 운영을 시작했습니다. 1차 기록은
           차수 선택에서 조회할 수 있습니다.
         </p>
       )}

@@ -8,7 +8,7 @@ export interface SessionUser {
 	role: "admin" | "student";
 	studentId: string | null;
 	name: string;
-	email: string;
+	email: string | null;
 	level: "beginner" | "intermediate" | "advanced";
 	hasOpenaiKey: boolean;
 }
@@ -36,7 +36,7 @@ export async function getUserById(userId: number): Promise<SessionUser | null> {
 		role: "admin" | "student";
 		student_id: string | null;
 		name: string;
-		email: string;
+		email: string | null;
 		level: "beginner" | "intermediate" | "advanced";
 		openai_api_key_encrypted: string | null;
 	}>(
@@ -64,7 +64,7 @@ export async function getSessionUser(
 		role: "admin" | "student";
 		student_id: string | null;
 		name: string;
-		email: string;
+		email: string | null;
 		level: "beginner" | "intermediate" | "advanced";
 		openai_api_key_encrypted: string | null;
 	}>(

@@ -58,7 +58,7 @@ after(async () => {
 	await db.stop();
 	await archive.stop();
 });
-test("confirmed one-way official launch clears only beta learning and preserves archive/accounts/configuration", async () => {
+test("confirmed one-way official launch preserves all learning data, scores, sessions and archive", async () => {
 	assert.equal((await call("/api/admin/service-launch")).data.stage, "beta");
 	const endpoint = "/api/admin/service-launch/start";
 	assert.equal((await call(endpoint, "POST", 2, "2차 정식 시작")).status, 403);
@@ -94,7 +94,14 @@ test("confirmed one-way official launch clears only beta learning and preserves 
 		new URL("../../../scripts/operations/launch/reset.sql", import.meta.url),
 		"utf8",
 	);
+	const snapshots = new Map<string, unknown>();
+	for (const { tablename } of (await db.db.query<{ tablename: string }>("SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> 'service_launch'")).rows) {
+		snapshots.set(tablename, (await db.db.query(`SELECT to_jsonb(t) AS row FROM "${tablename}" t ORDER BY to_jsonb(t)::text`)).rows);
+	}
 	await db.db.exec(reset);
+	for (const [table, rows] of snapshots) {
+		assert.deepEqual((await db.db.query(`SELECT to_jsonb(t) AS row FROM "${table}" t ORDER BY to_jsonb(t)::text`)).rows, rows, `Official launch changed ${table}`);
+	}
 	assert.equal(
 		(await call("/api/admin/service-launch")).data.stage,
 		"official",
@@ -103,13 +110,12 @@ test("confirmed one-way official launch clears only beta learning and preserves 
 	for (const table of [
 		"audit_log",
 		"exam_attempts",
-		"sessions",
 		"learn_progress",
 	])
 		assert.equal(
 			(await db.db.query<any>(`SELECT count(*)::int AS n FROM ${table}`))
 				.rows[0].n,
-			0,
+			1,
 		);
 	const {
 		rows: [s],
@@ -118,16 +124,16 @@ test("confirmed one-way official launch clears only beta learning and preserves 
 	assert.equal(s.student_id, "S001");
 	assert.equal(s.class_code, "1-B");
 	assert.equal(s.name, "Student");
-	assert.equal(s.level, "beginner");
-	assert.equal(s.manual_pre_test_score, null);
-	assert.equal(s.auth_version, 1);
+	assert.equal(s.level, "advanced");
+	assert.equal(s.manual_pre_test_score, "30");
+	assert.equal(s.auth_version, 0);
 	const official = (
 		await db.db.query<any>(
 			"SELECT results_released,rank_released FROM exam_sets WHERE id=3",
 		)
 	).rows[0];
-	assert.equal(official.results_released, false);
-	assert.equal(official.rank_released, false);
+	assert.equal(official.results_released, true);
+	assert.equal(official.rank_released, true);
 	assert.equal(
 		(await db.db.query<any>("SELECT count(*)::int AS n FROM exam_questions"))
 			.rows[0].n,
@@ -135,7 +141,7 @@ test("confirmed one-way official launch clears only beta learning and preserves 
 	);
 	assert.deepEqual(
 		(await db.db.query<any>("SELECT id FROM exam_sets ORDER BY id")).rows,
-		[{ id: 1 }, { id: 3 }],
+		[{ id: 1 }, { id: 2 }, { id: 3 }],
 	);
 	assert.equal(
 		(await archive.db.query<any>("SELECT question FROM audit_log")).rows[0]
@@ -152,7 +158,7 @@ test("confirmed one-way official launch clears only beta learning and preserves 
 	await assert.rejects(db.db.exec(reset), /Stale or duplicate/);
 	await db.db.exec("ROLLBACK");
 	assert.equal(
-		(await db.db.query<any>("SELECT question FROM audit_log")).rows[0].question,
+		(await db.db.query<any>("SELECT question FROM audit_log WHERE question='Official'")).rows[0].question,
 		"Official",
 	);
 });

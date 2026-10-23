@@ -1,5 +1,6 @@
 "use server";
 
+import { SHOW_CHAT_SHARING } from "@/lib/student-features";
 import type { UIMessage } from "ai";
 import { cookies } from "next/headers";
 import { auth } from "@/app/(auth)/auth";
@@ -64,6 +65,10 @@ export async function updateChatVisibility({
   const session = await auth();
   if (!session?.user?.id) {
     throw new Error("Unauthorized");
+  }
+
+  if (!SHOW_CHAT_SHARING && visibility !== "private") {
+    throw new Error("공유 기능은 지금 사용할 수 없어요.");
   }
 
   const chat = await getChatById({ id: chatId });

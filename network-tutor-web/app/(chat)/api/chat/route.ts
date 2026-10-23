@@ -1,3 +1,4 @@
+import { SHOW_CHAT_SHARING } from "@/lib/student-features";
 import {
   convertToModelMessages,
   createUIMessageStream,
@@ -72,7 +73,7 @@ export async function POST(request: Request) {
         id,
         title: "새 대화",
         userId: session.user.id,
-        visibility: selectedVisibilityType,
+        visibility: SHOW_CHAT_SHARING ? selectedVisibilityType : "private",
       });
       titlePromise = generateTitleFromUserMessage({ message });
     }

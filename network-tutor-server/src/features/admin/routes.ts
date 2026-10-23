@@ -179,11 +179,11 @@ adminRouter.post("/admin/users/bulk-csv", requireAdmin, async (req, res) => {
 	const { csvText } = req.body ?? {};
 	if (typeof csvText !== "string" || csvText.trim().length === 0) {
 		return res.status(400).json({
-			error: "csvText가 필요합니다. (컬럼: 학번,이름,생년월일,메일,비밀번호)",
+			error: "csvText가 필요합니다. (필수: 학번,이름,비밀번호 / 선택: 생년월일,학과,반,메일)",
 		});
 	}
 	const { rows, errors } = parseStudentCsv(csvText);
-	const created: { rowNumber: number; email: string }[] = [];
+	const created: { rowNumber: number; email: string | null }[] = [];
 	const failed: { rowNumber: number; message: string }[] = [...errors];
 
 	for (const row of rows) {
@@ -209,7 +209,7 @@ adminRouter.post("/admin/users/bulk-csv", requireAdmin, async (req, res) => {
 				rowNumber: row.rowNumber,
 				message:
 					err.code === "23505"
-						? `이미 존재하는 학번 또는 이메일: ${row.email}`
+						? `이미 존재하는 학번 또는 이메일: ${row.studentId}${row.email ? ` / ${row.email}` : ""}`
 						: String(err.message ?? err),
 			});
 		}

@@ -25,8 +25,8 @@ export function ServiceLaunchNotice() {
       className="border-b bg-accent px-4 py-2 text-center text-xs text-accent-foreground"
     >
       {stage === "starting"
-        ? "정식 운영 전환 중입니다. 접속이 잠시 중단됩니다. 완료 후 다시 로그인해 주세요."
-        : "2차 사전 운영 중입니다. 정식 시작 시 학습 기록과 순위가 초기화됩니다."}
+        ? "정식 운영 전환 중입니다. 기존 학습 기록은 유지됩니다. 잠시 후 다시 접속해 주세요."
+        : "2차 사전 운영 중입니다. 정식 시작 후에도 현재 학습 기록과 순위를 이어갑니다."}
     </div>
   );
 }

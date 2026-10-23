@@ -64,7 +64,7 @@ export interface AppUser {
   role: "admin" | "student";
   studentId: string | null;
   name: string;
-  email: string;
+  email: string | null;
   passwordHash: string;
   authVersion: number;
   level: "beginner" | "intermediate" | "advanced";
@@ -78,7 +78,7 @@ export async function getUserByEmail(email: string): Promise<AppUser | null> {
         role: "admin" | "student";
         student_id: string | null;
         name: string;
-        email: string;
+        email: string | null;
         password_hash: string;
         auth_version: number;
         level: "beginner" | "intermediate" | "advanced";
@@ -113,7 +113,7 @@ export async function getUserByStudentId(
         role: "admin" | "student";
         student_id: string | null;
         name: string;
-        email: string;
+        email: string | null;
         password_hash: string;
         auth_version: number;
         level: "beginner" | "intermediate" | "advanced";

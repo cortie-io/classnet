@@ -1,5 +1,6 @@
 import { auth } from "@/app/(auth)/auth";
 import { getChatById, getMessagesByChatId } from "@/lib/db/queries";
+import { SHOW_CHAT_SHARING } from "@/lib/student-features";
 import { convertToUIMessages } from "@/lib/utils";
 
 export async function GET(request: Request) {
@@ -25,8 +26,9 @@ export async function GET(request: Request) {
     });
   }
 
+  // 공유 기능을 꺼 두면 예전에 링크 공개로 바꾼 대화도 본인만 볼 수 있다.
   if (
-    chat.visibility === "private" &&
+    (chat.visibility === "private" || !SHOW_CHAT_SHARING) &&
     (!session?.user || Number(session.user.id) !== chat.userId)
   ) {
     return Response.json({ error: "forbidden" }, { status: 403 });

@@ -69,7 +69,7 @@ export interface StudentCsvRow {
 	name: string;
 	birthdate: string;
 	department: string;
-	email: string;
+	email: string | null;
 	password: string;
 	rowNumber: number;
 }
@@ -88,7 +88,7 @@ export function parseStudentCsv(text: string): {
 	const header = table[0].map(
 		(h) => HEADER_ALIASES[h.trim().toLowerCase()] ?? h.trim(),
 	);
-	const required = ["studentId", "name", "email", "password"];
+	const required = ["studentId", "name", "password"];
 	const missing = required.filter((r) => !header.includes(r));
 	if (missing.length > 0) {
 		return {
@@ -108,17 +108,16 @@ export function parseStudentCsv(text: string): {
 		if (
 			!record.studentId ||
 			!record.name ||
-			!record.email ||
 			!record.password
 		) {
 			errors.push({
 				rowNumber,
 				message:
-					"필수 값(학번/이름/메일/비밀번호) 중 비어있는 항목이 있습니다.",
+					"필수 값(학번/이름/비밀번호) 중 비어있는 항목이 있습니다.",
 			});
 			continue;
 		}
-		if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(record.email)) {
+		if (record.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(record.email)) {
 			errors.push({ rowNumber, message: `이메일 형식 오류: ${record.email}` });
 			continue;
 		}
@@ -139,7 +138,7 @@ export function parseStudentCsv(text: string): {
 			name: record.name,
 			birthdate: record.birthdate || "",
 			department: record.department || "",
-			email: record.email.toLowerCase(),
+			email: record.email ? record.email.toLowerCase() : null,
 			password: record.password,
 			rowNumber,
 		});

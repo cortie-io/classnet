@@ -28,6 +28,8 @@ test("문장에서 주제어만 뽑는다 — 조사·요청 표현·일반어�
 		"7계층",
 	]);
 	assert.deepEqual(topic.extractTopicTerms("TCP/IP 문제 3개 내줘"), ["TCP/IP"]);
+	// 메뉴 이름("단계별 학습하기")은 주제어가 아니다
+	assert.deepEqual(topic.extractTopicTerms("단계별 학습하기에 나온 서브넷 문제 3개 줘"), ["서브넷"]);
 	assert.deepEqual(topic.extractTopicTerms("관련 문제 뽑아줘"), []);
 	assert.deepEqual(topic.extractTopicTerms("문제 더 ㄱㄱ"), []);
 	assert.deepEqual(

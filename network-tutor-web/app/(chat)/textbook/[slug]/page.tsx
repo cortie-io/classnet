@@ -15,7 +15,9 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const lesson = findLesson(slug);
-  return { title: lesson ? `${lesson.title} · 교재` : "교재" };
+  return {
+    title: lesson ? `${lesson.title} · 단계별 학습하기` : "단계별 학습하기",
+  };
 }
 
 export default function TextbookLessonPage({

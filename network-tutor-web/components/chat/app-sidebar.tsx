@@ -62,7 +62,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 type NavItem = { href: string; label: string; icon: LucideIcon };
 
 const STUDY_NAV: NavItem[] = [
-  { href: "/textbook", label: "교재", icon: LibraryBigIcon },
+  { href: "/textbook", label: "단계별 학습하기", icon: LibraryBigIcon },
   ...(SHOW_OFFICIAL_EXAMS
     ? [{ href: "/official-exams", label: "공식 모의시험", icon: AwardIcon }]
     : []),

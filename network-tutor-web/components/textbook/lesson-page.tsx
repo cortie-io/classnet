@@ -26,7 +26,7 @@ export function LessonPage({ slug }: { slug: string }) {
       <article className="mx-auto w-full min-w-0 max-w-[46rem] flex-1">
         <nav className="flex flex-wrap items-center gap-1.5 text-[12.5px] text-muted-foreground">
           <Link className="hover:text-primary" href={base}>
-            교재
+            단계별 학습하기
           </Link>
           <span>/</span>
           <span>

@@ -502,3 +502,27 @@ test("oversized paid-model requests are rejected before generating an answer", a
 		0,
 	);
 });
+
+test("CSV import accepts omitted and empty email while preserving student login", async () => {
+  for (const csvText of [
+    "학번,이름,비밀번호,반\nmail-free-1,학생1,abcdefgh,1-A",
+    "학번,이름,메일,비밀번호\nmail-free-2,학생2,,abcdefgh",
+  ]) {
+    const result = await call("/api/admin/users/bulk-csv", { method: "POST", user: 1, body: { csvText } });
+    assert.equal(result.status, 200);
+    assert.equal(result.data.createdCount, 1);
+    assert.equal(result.data.failedCount, 0);
+  }
+  const users = await pool.query("SELECT id,email FROM users WHERE student_id LIKE 'mail-free-%'");
+  assert.equal(users.rows.length, 2);
+  for (const user of users.rows) {
+    assert.equal(user.email, null);
+    const session = await createSession(user.id);
+    assert.equal((await getSessionUser(session.token))?.id, user.id);
+  }
+  const duplicate = await call("/api/admin/users/bulk-csv", { method: "POST", user: 1, body: { csvText: "学번,이름,비밀번호\nmail-free-1,학생1,abcdefgh".replace("学", "학") } });
+  assert.equal(duplicate.data.createdCount, 0);
+  assert.equal(duplicate.data.failedCount, 1);
+  const denied = await call("/api/admin/users/bulk-csv", { method: "POST", user: 2, body: { csvText: "학번,이름,비밀번호\ndenied,학생,abcdefgh" } });
+  assert.equal(denied.status, 403);
+});

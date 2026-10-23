@@ -23,7 +23,7 @@ interface StudentRow {
   role: string;
   student_id: string | null;
   name: string;
-  email: string;
+  email: string | null;
   level: string;
   class_code?: string | null;
   question_count: number;
@@ -226,7 +226,7 @@ export default function StudentsPage() {
       <div className="surface p-5">
         <h2 className="mb-1 font-semibold text-[14px]">CSV 일괄 등록</h2>
         <p className="mb-3 text-muted-foreground text-xs">
-          컬럼: 학번,이름,생년월일,학과,반,메일,비밀번호 (헤더 필수 · 반은 선택
+          필수: 학번,이름,비밀번호 · 선택: 생년월일,학과,반,메일 (헤더 필수 · 메일 열 생략 또는 빈 값 가능 · 반은 선택
           입력)
         </p>
         <input
@@ -384,7 +384,7 @@ export default function StudentsPage() {
                         : "—"}
                     </td>
                   )}
-                  <td className="px-4 py-2 text-muted-foreground">{s.email}</td>
+                  <td className="px-4 py-2 text-muted-foreground">{s.email || "—"}</td>
                   <td className="px-4 py-2">{s.level}</td>
                   <td className="px-4 py-2">{s.question_count}</td>
                   <td className="px-4 py-2 text-muted-foreground">

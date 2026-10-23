@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS users (
   student_id                TEXT UNIQUE,
   name                      TEXT NOT NULL,
   birthdate                 DATE,
-  email                     TEXT NOT NULL UNIQUE,
+  email                     TEXT UNIQUE,
   password_hash             TEXT NOT NULL,
   level                     TEXT NOT NULL DEFAULT 'intermediate' CHECK (level IN ('beginner','intermediate','advanced')),
   openai_api_key_encrypted  TEXT,

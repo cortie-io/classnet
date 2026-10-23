@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { memo, useCallback } from "react";
 import { useChatVisibility } from "@/hooks/use-chat-visibility";
+import { SHOW_CHAT_SHARING } from "@/lib/student-features";
 import type { Chat } from "@/lib/db/schema";
 import {
   DropdownMenu,
@@ -81,38 +82,42 @@ const PureChatItem = ({
         </DropdownMenuTrigger>
 
         <DropdownMenuContent align="end" side="bottom">
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger className="cursor-pointer">
-              <ShareIcon />
-              <span>공유</span>
-            </DropdownMenuSubTrigger>
-            <DropdownMenuPortal>
-              <DropdownMenuSubContent>
-                <DropdownMenuItem
-                  className="cursor-pointer flex-row justify-between"
-                  onClick={handleSetPrivate}
-                >
-                  <div className="flex flex-row items-center gap-2">
-                    <LockIcon size={12} />
-                    <span>나만 보기</span>
-                  </div>
-                  {visibilityType === "private" ? (
-                    <CheckCircleFillIcon />
-                  ) : null}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="cursor-pointer flex-row justify-between"
-                  onClick={handleSetPublic}
-                >
-                  <div className="flex flex-row items-center gap-2">
-                    <GlobeIcon />
-                    <span>링크 공개</span>
-                  </div>
-                  {visibilityType === "public" ? <CheckCircleFillIcon /> : null}
-                </DropdownMenuItem>
-              </DropdownMenuSubContent>
-            </DropdownMenuPortal>
-          </DropdownMenuSub>
+          {SHOW_CHAT_SHARING ? (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger className="cursor-pointer">
+                <ShareIcon />
+                <span>공유</span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuPortal>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem
+                    className="cursor-pointer flex-row justify-between"
+                    onClick={handleSetPrivate}
+                  >
+                    <div className="flex flex-row items-center gap-2">
+                      <LockIcon size={12} />
+                      <span>나만 보기</span>
+                    </div>
+                    {visibilityType === "private" ? (
+                      <CheckCircleFillIcon />
+                    ) : null}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="cursor-pointer flex-row justify-between"
+                    onClick={handleSetPublic}
+                  >
+                    <div className="flex flex-row items-center gap-2">
+                      <GlobeIcon />
+                      <span>링크 공개</span>
+                    </div>
+                    {visibilityType === "public" ? (
+                      <CheckCircleFillIcon />
+                    ) : null}
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuPortal>
+            </DropdownMenuSub>
+          ) : null}
 
           <DropdownMenuItem onSelect={handleDelete} variant="destructive">
             <TrashIcon />

@@ -41,7 +41,8 @@ export function LessonFlow({
   const mine = bySlug.get(slug);
   const completed = Boolean(mine?.completedAt);
 
-  const goNext = () => router.push(next ? `/textbook/${next.slug}` : "/textbook");
+  const goNext = () =>
+    router.push(next ? `/textbook/${next.slug}` : "/textbook");
 
   const beginQuiz = async () => {
     setPhase("loading");
@@ -143,7 +144,7 @@ export function LessonFlow({
                   onClick={goNext}
                   type="button"
                 >
-                  {next ? `다음 단원: ${next.title}` : "교재 목차로 돌아가기"}
+                  {next ? `다음 단원: ${next.title}` : "단원 목차로 돌아가기"}
                   <ArrowRightIcon className="size-4" />
                 </Button>
                 {lastAttempt ? (

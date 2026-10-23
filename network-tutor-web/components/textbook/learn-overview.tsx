@@ -52,7 +52,7 @@ function ProgressRing({ value, total }: { value: number; total: number }) {
   );
 }
 
-// 교재 첫 화면: 전체 진도, 지금 할 단원, 과목별 단계 목록.
+// 단계별 학습하기 첫 화면: 전체 진도, 지금 할 단원, 과목별 단계 목록.
 export function LearnOverview({
   minutes,
 }: {
@@ -79,7 +79,7 @@ export function LearnOverview({
           <div className="min-w-0">
             <p className="inline-flex items-center gap-1.5 font-semibold text-[12.5px] text-primary">
               <GraduationCapIcon className="size-4" />
-              교재
+              단계별 학습하기
             </p>
             <h1 className="mt-1.5 font-bold text-[24px] tracking-[-0.035em] md:text-[26px]">
               {done.length === 0
@@ -121,7 +121,7 @@ export function LearnOverview({
                 href="#textbook-contents"
               >
                 <BookOpenIcon className="size-4" />
-                교재 목차
+                단원 목차
               </Link>
             </div>
           </div>

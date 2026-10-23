@@ -42,7 +42,7 @@ export default function AdminLearnPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageIntro
-        description="학생들이 교재 학습을 어디까지 왔는지, 어느 단원에서 많이 멈추는지 볼 수 있어요."
+        description="학생들이 단계별 학습하기를 어디까지 진행했는지, 어느 단원에서 많이 멈추는지 볼 수 있어요."
         icon={GraduationCapIcon}
         title="학습 진도"
       />

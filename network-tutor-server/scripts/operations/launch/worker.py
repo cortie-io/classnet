@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Host-only, one-way phase2 launch. No Docker socket or backup credentials enter the app.
 The web request only records a request. This worker stops every application writer,
-validates a full phase2 backup, resets learning data atomically, then reopens service.
+validates a full phase2 backup, preserves all learning data and commits the official stage atomically, then reopens service.
 """
 import fcntl,json,os,pathlib,subprocess,sys,uuid
 BASE=pathlib.Path('/var/lib/classnet-launch')
@@ -24,7 +24,7 @@ def compose(*args):
     return run(['docker','compose','-p','classnet','-f',COMPOSE,*args])
 def verify_inventory():
     actual=set(json.loads(sql("SELECT coalesce(json_agg(tablename),'[]') FROM pg_tables WHERE schemaname='public'")))
-    if actual-KNOWN:raise RuntimeError('Unreviewed schema: review reset policy before launching')
+    if actual-KNOWN:raise RuntimeError('Unreviewed schema: review preservation policy before launching')
 def make_backup(request_id):
     target='phase2-beta-'+str(uuid.UUID(request_id))+'.dump'
     run(pg_args()+['-v',str(BACKUPS)+':/backup',CLIENT,'pg_dump','--schema=public','--format=custom','--no-owner','--no-acl','--file=/backup/'+target])
@@ -37,7 +37,7 @@ def make_backup(request_id):
 def transition():
     current=state()
     pending=BASE/'pending.json'
-    # Durable restart intent covers a host crash after a committed reset. Never reset twice.
+    # Durable restart intent covers a host crash after a committed launch. Never transition twice.
     if current['stage']=='official':
         if pending.exists():
             compose('up','-d','--no-build',*SERVICES)
@@ -51,7 +51,7 @@ def transition():
     try:
         verify_inventory()
         pending.write_text(json.dumps({'request_id':request_id}));pending.chmod(0o600)
-        # Stop both writers before backup/reset. Killed AI streams cannot write back afterwards.
+        # Stop both writers before backup/transition. Killed AI streams cannot write back afterwards.
         compose('stop','--timeout','10','network-tutor-web','network-tutor-server');stopped=True
         target=make_backup(request_id)
         set_context="SELECT set_config('classnet.launch_request','"+request_id+"',false); SELECT set_config('classnet.launch_backup','"+target+"',false);\n"
